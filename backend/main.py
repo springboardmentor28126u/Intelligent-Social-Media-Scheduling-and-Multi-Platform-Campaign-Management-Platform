@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from typing import List
 from database import get_db, engine, Base
 import models, schemas, auth
+from linkedin_auth import router as linkedin_router
+from youtube_auth import router as youtube_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -16,6 +18,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(linkedin_router)
+app.include_router(youtube_router)
 
 @app.get("/")
 def read_root():

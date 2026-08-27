@@ -39,7 +39,9 @@ const Auth = ({ onAuthSuccess }) => {
 
         // Save token and notify parent
         localStorage.setItem('token', data.access_token);
-        onAuthSuccess(data.access_token);
+        const decoded = jwtDecode(data.access_token);
+        localStorage.setItem('role', decoded.role);
+        onAuthSuccess(data.access_token, decoded.role);
       } else {
         // Register
         const response = await fetch(`${API_BASE}/register`, {
@@ -72,7 +74,9 @@ const Auth = ({ onAuthSuccess }) => {
         }
 
         localStorage.setItem('token', loginData.access_token);
-        onAuthSuccess(loginData.access_token);
+        const decoded = jwtDecode(loginData.access_token);
+        localStorage.setItem('role', decoded.role);
+        onAuthSuccess(loginData.access_token, decoded.role);
       }
     } catch (err) {
       setError(err.message);

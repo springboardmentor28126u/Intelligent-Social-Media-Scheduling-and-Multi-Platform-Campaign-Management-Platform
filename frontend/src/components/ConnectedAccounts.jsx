@@ -55,6 +55,12 @@ const ConnectedAccounts = () => {
     fetchAccounts();
   };
 
+  const handleLinkedInConnect = () => {
+    window.location.href = `${API_BASE}/auth/linkedin/login?token=${token}`;
+  };
+  const handleYouTubeConnect = () => {
+  window.location.href = `${API_BASE}/auth/youtube/login?token=${token}`;
+  };
   const handleDisconnect = async (id) => {
     await fetch(`${API_BASE}/social-accounts/${id}`, {
       method: 'DELETE',
@@ -148,7 +154,18 @@ const ConnectedAccounts = () => {
                   </button>
                 ) : (
                   <button
-                    onClick={() => { setPlatform(account.platform); setShowModal(true); }}
+                    onClick={() => {
+                      if (account.platform === 'LinkedIn') {
+                        handleLinkedInConnect();
+                      } else if(account.platform === 'YouTube'){
+                        handleYouTubeConnect();
+                      } else {
+                        setPlatform(account.platform);
+                        setShowModal(true);
+                      }
+                        
+                      }
+                    }
                     className="text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 px-2.5 py-1 rounded-lg border border-slate-200 hover:border-indigo-100 transition-colors flex items-center gap-1 shadow-2xs"
                   >
                     <span>Connect</span>
