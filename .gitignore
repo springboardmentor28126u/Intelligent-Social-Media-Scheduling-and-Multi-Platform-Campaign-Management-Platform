@@ -1,14 +1,20 @@
-# Virtual environment
+
+# Virtual environments
 .venv/
 venv/
 env/
+ENV/
+env.bak/
+venv.bak/
 
 # Python cache
 __pycache__/
 *.py[cod]
 *.pyo
+*.pyd
+*$py.class
 
-# Environment variables
+# Environment variables / secrets
 .env
 .env.*
 !.env.example
@@ -20,3 +26,39 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.cache/
+.hypothesis/
+
+# Build / distribution
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+wheels/
+
+# Logs
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Type checking / linting
+.mypy_cache/
+.dmypy.json
+.ruff_cache/
+
+# Temporary files
+tempCodeRunnerFile.py
+
+# Database
+*.sqlite
+*.sqlite3
