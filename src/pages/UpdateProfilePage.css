@@ -1,0 +1,181 @@
+
+.update-profile-page {
+  min-height: 100vh;
+  background: #f5f7fb;
+  color: #1f2937;
+}
+
+.update-navbar {
+  height: 70px;
+  padding: 0 7%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.update-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.update-logo {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #111827;
+  color: white;
+  font-weight: 700;
+}
+
+.update-navbar nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.profile-link,
+.dashboard-link {
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.profile-link {
+  color: #374151;
+}
+
+.dashboard-link {
+  color: #111827;
+}
+
+.update-container {
+  display: flex;
+  justify-content: center;
+  padding: 55px 20px;
+}
+
+.update-card {
+  width: 100%;
+  max-width: 650px;
+  background: white;
+  padding: 40px;
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.update-card h1 {
+  margin: 0;
+  font-size: 30px;
+}
+
+.update-subtitle {
+  color: #6b7280;
+  margin-top: 8px;
+  margin-bottom: 30px;
+}
+
+.form-group {
+  margin-bottom: 22px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 9px;
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #111827;
+}
+
+.form-group textarea {
+  resize: vertical;
+}
+
+.form-group small {
+  display: block;
+  margin-top: 6px;
+  text-align: right;
+  color: #6b7280;
+}
+
+.update-error,
+.update-success {
+  padding: 12px 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.update-error {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.update-success {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.update-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.cancel-btn,
+.save-btn {
+  padding: 12px 22px;
+  border-radius: 9px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 15px;
+}
+
+.cancel-btn {
+  border: 1px solid #d1d5db;
+  color: #374151;
+  background: white;
+}
+
+.save-btn {
+  border: none;
+  background: #111827;
+  color: white;
+}
+
+.save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.update-loading {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 18px;
+}
