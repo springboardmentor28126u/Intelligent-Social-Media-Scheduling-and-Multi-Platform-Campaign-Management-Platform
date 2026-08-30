@@ -1,0 +1,17 @@
+# ===== Backend (Python/FastAPI) =====
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/.env
+
+# ===== Frontend (Next.js) =====
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env*.local
+
+# ===== Editor / OS =====
+.vscode/
+.DS_Store
+Thumbs.db

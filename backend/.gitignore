@@ -1,0 +1,13 @@
+# Environment secrets - never commit
+.env
+
+# Python virtual environment
+venv/
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# OS/editor junk files
+.DS_Store
+.vscode/
