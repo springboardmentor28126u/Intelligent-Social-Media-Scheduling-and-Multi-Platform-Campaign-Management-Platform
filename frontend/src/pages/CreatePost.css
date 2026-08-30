@@ -1,0 +1,511 @@
+/* =====================================================
+   CREATE POST PAGE
+===================================================== */
+
+.create-post-page {
+  min-height: 100vh;
+
+  background: #0f111a;
+
+  color: #ffffff;
+
+  padding: 40px 20px;
+
+  box-sizing: border-box;
+
+  font-family: Arial, sans-serif;
+}
+
+
+/* =====================================================
+   MAIN CONTAINER
+===================================================== */
+
+.create-post-container {
+  width: 100%;
+
+  max-width: 900px;
+
+  margin: 0 auto;
+
+  background: #151823;
+
+  border: 1px solid #292d3a;
+
+  border-radius: 18px;
+
+  padding: 40px;
+
+  box-sizing: border-box;
+
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+
+/* =====================================================
+   HEADER
+===================================================== */
+
+.create-post-header {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  margin-bottom: 35px;
+
+  padding-bottom: 25px;
+
+  border-bottom: 1px solid #292d3a;
+}
+
+
+.create-post-header h1 {
+  margin: 0 0 8px;
+
+  color: #ffffff;
+
+  font-size: 30px;
+
+  font-weight: 700;
+}
+
+
+.create-post-header p {
+  margin: 0;
+
+  color: #858b9e;
+
+  font-size: 14px;
+}
+
+
+/* =====================================================
+   BACK DASHBOARD BUTTON
+===================================================== */
+
+.back-dashboard-button {
+  padding: 10px 16px;
+
+  border: 1px solid #343846;
+
+  border-radius: 8px;
+
+  background: #1e2230;
+
+  color: #dfe2eb;
+
+  font-size: 13px;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+}
+
+
+.back-dashboard-button:hover {
+  background: #292d3a;
+
+  border-color: #6366f1;
+
+  color: #ffffff;
+}
+
+
+/* =====================================================
+   FORM
+===================================================== */
+
+.create-post-form {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 25px;
+}
+
+
+/* =====================================================
+   FORM GROUP
+===================================================== */
+
+.create-post-form-group {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 9px;
+}
+
+
+/* =====================================================
+   LABEL
+===================================================== */
+
+.create-post-form-group label {
+  color: #dfe2eb;
+
+  font-size: 14px;
+
+  font-weight: 600;
+}
+
+
+/* =====================================================
+   SELECT
+===================================================== */
+
+.create-post-form-group select {
+  width: 100%;
+
+  height: 48px;
+
+  box-sizing: border-box;
+
+  padding: 0 14px;
+
+  border: 1px solid #343846;
+
+  border-radius: 8px;
+
+  outline: none;
+
+  background: #ffffff;
+
+  color: #111111;
+
+  font-size: 14px;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+}
+
+
+.create-post-form-group select:focus {
+  border-color: #6366f1;
+
+  box-shadow:
+    0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+
+/* =====================================================
+   TEXTAREA
+===================================================== */
+
+.create-post-form-group textarea {
+  width: 100%;
+
+  min-height: 180px;
+
+  box-sizing: border-box;
+
+  padding: 14px;
+
+  border: 1px solid #343846;
+
+  border-radius: 8px;
+
+  outline: none;
+
+  background: #ffffff;
+
+  color: #111111;
+
+  font-family: Arial, sans-serif;
+
+  font-size: 14px;
+
+  line-height: 1.6;
+
+  resize: vertical;
+
+  transition: 0.2s;
+}
+
+
+.create-post-form-group textarea::placeholder {
+  color: #777777;
+
+  opacity: 1;
+}
+
+
+.create-post-form-group textarea:focus {
+  border-color: #6366f1;
+
+  box-shadow:
+    0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+
+/* =====================================================
+   DATETIME INPUT
+===================================================== */
+
+.create-post-form-group input[type="datetime-local"] {
+  width: 100%;
+
+  height: 48px;
+
+  box-sizing: border-box;
+
+  padding: 0 14px;
+
+  border: 1px solid #343846;
+
+  border-radius: 8px;
+
+  outline: none;
+
+  background: #ffffff;
+
+  color: #111111;
+
+  font-family: Arial, sans-serif;
+
+  font-size: 14px;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+}
+
+
+.create-post-form-group input[type="datetime-local"]:focus {
+  border-color: #6366f1;
+
+  box-shadow:
+    0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+
+/* =====================================================
+   FORM HINT
+===================================================== */
+
+.schedule-hint {
+  color: #777d90;
+
+  font-size: 12px;
+
+  line-height: 1.5;
+}
+
+
+/* =====================================================
+   CHARACTER COUNT
+===================================================== */
+
+.character-count {
+  display: flex;
+
+  justify-content: flex-end;
+
+  color: #777d90;
+
+  font-size: 12px;
+}
+
+
+/* =====================================================
+   SUBMIT BUTTON
+===================================================== */
+
+.create-post-submit {
+  width: 100%;
+
+  height: 50px;
+
+  margin-top: 5px;
+
+  border: none;
+
+  border-radius: 8px;
+
+  background: #6366f1;
+
+  color: #ffffff;
+
+  font-size: 14px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s,
+    transform 0.2s;
+}
+
+
+.create-post-submit:hover {
+  background: #5558df;
+
+  transform: translateY(-1px);
+}
+
+
+.create-post-submit:active {
+  transform: translateY(0);
+}
+
+
+/* =====================================================
+   BOTTOM BUTTONS
+===================================================== */
+
+.create-post-actions {
+  display: flex;
+
+  gap: 12px;
+
+  margin-top: 30px;
+
+  padding-top: 25px;
+
+  border-top: 1px solid #292d3a;
+}
+
+
+.create-post-secondary-button {
+  flex: 1;
+
+  height: 45px;
+
+  border: 1px solid #343846;
+
+  border-radius: 8px;
+
+  background: #1e2230;
+
+  color: #dfe2eb;
+
+  font-size: 13px;
+
+  font-weight: 500;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+}
+
+
+.create-post-secondary-button:hover {
+  background: #292d3a;
+
+  border-color: #6366f1;
+
+  color: #ffffff;
+}
+
+
+/* =====================================================
+   EMPTY ACCOUNT MESSAGE
+===================================================== */
+
+.no-accounts-message {
+  padding: 16px;
+
+  border: 1px solid #343846;
+
+  border-radius: 8px;
+
+  background: #11141d;
+
+  color: #858b9e;
+
+  font-size: 13px;
+
+  line-height: 1.5;
+}
+
+
+/* =====================================================
+   RESPONSIVE - TABLET
+===================================================== */
+
+@media (max-width: 700px) {
+
+  .create-post-page {
+    padding: 25px 15px;
+  }
+
+
+  .create-post-container {
+    padding: 30px 25px;
+  }
+
+
+  .create-post-header {
+    align-items: flex-start;
+
+    flex-direction: column;
+
+    gap: 20px;
+  }
+
+
+  .create-post-header h1 {
+    font-size: 26px;
+  }
+
+
+  .back-dashboard-button {
+    width: 100%;
+  }
+
+}
+
+
+/* =====================================================
+   RESPONSIVE - MOBILE
+===================================================== */
+
+@media (max-width: 500px) {
+
+  .create-post-page {
+    padding: 15px 10px;
+  }
+
+
+  .create-post-container {
+    padding: 25px 18px;
+
+    border-radius: 12px;
+  }
+
+
+  .create-post-header h1 {
+    font-size: 23px;
+  }
+
+
+  .create-post-header p {
+    font-size: 13px;
+  }
+
+
+  .create-post-form {
+    gap: 20px;
+  }
+
+
+  .create-post-form-group textarea {
+    min-height: 150px;
+  }
+
+
+  .create-post-actions {
+    flex-direction: column;
+  }
+
+
+  .create-post-secondary-button {
+    width: 100%;
+  }
+
+}

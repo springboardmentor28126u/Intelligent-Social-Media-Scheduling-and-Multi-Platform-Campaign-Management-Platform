@@ -1,0 +1,369 @@
+/* =====================================================
+   SOCIAL ACCOUNTS PAGE
+===================================================== */
+
+.social-accounts-page {
+  min-height: 100vh;
+  background: #f5f7fb;
+  padding: 40px;
+  font-family: Arial, sans-serif;
+}
+
+
+/* =====================================================
+   HEADER
+===================================================== */
+
+.social-accounts-header {
+  max-width: 1000px;
+  margin: 0 auto 30px;
+}
+
+.social-accounts-header h1 {
+  margin: 0;
+  font-size: 32px;
+  color: #1f2937;
+}
+
+.social-accounts-header p {
+  margin-top: 8px;
+  color: #6b7280;
+}
+
+
+/* =====================================================
+   ADD ACCOUNT CARD
+===================================================== */
+
+.add-account-card {
+  max-width: 1000px;
+  margin: 0 auto 30px;
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.add-account-card h2 {
+  margin-top: 0;
+  color: #1f2937;
+}
+
+
+/* =====================================================
+   FORM
+===================================================== */
+
+.social-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 15px;
+  align-items: end;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  margin-bottom: 7px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-group select,
+.form-group input {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  font-size: 14px;
+  outline: none;
+  background: rgb(40, 39, 39);
+}
+
+.form-group select:focus,
+.form-group input:focus {
+  border-color: #6366f1;
+}
+
+
+/* =====================================================
+   ADD BUTTON
+===================================================== */
+
+.add-account-button {
+  height: 42px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 7px;
+  background: #4f46e5;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.add-account-button:hover {
+  background: #4338ca;
+}
+
+
+/* =====================================================
+   ACCOUNTS SECTION
+===================================================== */
+
+.accounts-section {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.accounts-section h2 {
+  color: #1f2937;
+  margin-bottom: 20px;
+}
+
+
+/* =====================================================
+   ACCOUNT GRID
+===================================================== */
+
+.accounts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+
+/* =====================================================
+   ACCOUNT CARD
+===================================================== */
+
+.account-card {
+  background: white;
+  padding: 22px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
+  border: 1px solid #e5e7eb;
+}
+
+.account-card:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+}
+
+
+/* =====================================================
+   ACCOUNT INFORMATION
+===================================================== */
+
+.account-platform {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 12px;
+  text-transform: capitalize;
+}
+
+.account-info {
+  margin: 8px 0;
+  color: #4b5563;
+}
+
+.account-info strong {
+  color: #1f2937;
+}
+
+
+/* =====================================================
+   STATUS
+===================================================== */
+
+.account-status {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.status-connected {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-disconnected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+
+/* =====================================================
+   TOKEN INPUT
+===================================================== */
+
+.token-section {
+  margin-top: 18px;
+  display: flex;
+  gap: 10px;
+}
+
+.token-input {
+  flex: 1;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  outline: none;
+  font-size: 14px;
+}
+
+.token-input:focus {
+  border-color: #6366f1;
+}
+
+
+/* =====================================================
+   CONNECT BUTTON
+===================================================== */
+
+.connect-button {
+  height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 7px;
+  background: #16a34a;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.connect-button:hover {
+  background: #15803d;
+}
+
+
+/* =====================================================
+   DISCONNECT BUTTON
+===================================================== */
+
+.disconnect-button {
+  height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 7px;
+  background: #f59e0b;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.disconnect-button:hover {
+  background: #d97706;
+}
+
+
+/* =====================================================
+   DELETE BUTTON
+===================================================== */
+
+.delete-button {
+  height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 7px;
+  background: #dc2626;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.delete-button:hover {
+  background: #b91c1c;
+}
+
+
+/* =====================================================
+   CARD BUTTONS
+===================================================== */
+
+.account-actions {
+  margin-top: 18px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+
+/* =====================================================
+   EMPTY MESSAGE
+===================================================== */
+
+.no-accounts {
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+  text-align: center;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
+
+
+/* =====================================================
+   BACK BUTTON
+===================================================== */
+
+.back-dashboard {
+  max-width: 1000px;
+  margin: 30px auto 0;
+}
+
+.back-dashboard button {
+  height: 42px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 7px;
+  background: #374151;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.back-dashboard button:hover {
+  background: #1f2937;
+}
+
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media (max-width: 768px) {
+
+  .social-accounts-page {
+    padding: 20px;
+  }
+
+  .social-form {
+    grid-template-columns: 1fr;
+  }
+
+  .accounts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .token-section {
+    flex-direction: column;
+  }
+
+  .account-actions {
+    flex-direction: column;
+  }
+
+  .connect-button,
+  .disconnect-button,
+  .delete-button {
+    width: 100%;
+  }
+
+}

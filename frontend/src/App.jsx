@@ -1,0 +1,535 @@
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Link,
+  Navigate
+} from "react-router-dom";
+
+import "./App.css";
+
+import Register from "./pages/Register";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import SocialAccounts from "./pages/SocialAccounts";
+import Posts from "./pages/Posts";
+import CreatePost from "./pages/CreatePost";
+
+
+// =====================================================
+// PROTECTED ROUTE
+// =====================================================
+
+function ProtectedRoute({ children }) {
+
+  const token = localStorage.getItem("access_token");
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
+
+
+// =====================================================
+// HOME PAGE
+// =====================================================
+
+function Home() {
+
+  return (
+
+    <div className="home-page">
+
+      {/* =====================================================
+          NAVBAR
+      ===================================================== */}
+
+      <nav className="navbar">
+
+        <div className="logo">
+          SocialPilot
+        </div>
+
+        <div className="nav-links">
+
+          <Link
+            to="/login"
+            className="nav-login"
+          >
+            Login
+          </Link>
+
+          <Link
+            to="/register"
+            className="nav-register"
+          >
+            Register
+          </Link>
+
+        </div>
+
+      </nav>
+
+
+      {/* =====================================================
+          HERO SECTION
+      ===================================================== */}
+
+      <section className="hero">
+
+        <div className="hero-content">
+
+          <div className="hero-badge">
+            🚀 Social Media Management Platform
+          </div>
+
+
+          <h1>
+
+            Manage Your Social Media
+
+            <span>
+              {" "}in One Place
+            </span>
+
+          </h1>
+
+
+          <p>
+
+            Create, schedule and manage your social media
+            content from a single, simple and powerful platform.
+
+          </p>
+
+
+          <div className="hero-buttons">
+
+            <Link
+              to="/register"
+              className="primary-button"
+            >
+              Get Started
+            </Link>
+
+
+            <Link
+              to="/login"
+              className="secondary-button"
+            >
+              Login
+            </Link>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      {/* =====================================================
+          FEATURES SECTION
+      ===================================================== */}
+
+      <section className="features">
+
+        <div className="section-heading">
+
+          <h2>
+            Everything You Need
+          </h2>
+
+          <p>
+            Manage your social media workflow efficiently
+            from one platform.
+          </p>
+
+        </div>
+
+
+        <div className="feature-grid">
+
+
+          {/* FEATURE 1 */}
+
+          <div className="feature-card">
+
+            <div className="feature-icon">
+              👥
+            </div>
+
+            <h3>
+              Social Account Management
+            </h3>
+
+            <p>
+
+              Connect and manage multiple social media
+              accounts from a single dashboard.
+
+            </p>
+
+          </div>
+
+
+          {/* FEATURE 2 */}
+
+          <div className="feature-card">
+
+            <div className="feature-icon">
+              📝
+            </div>
+
+            <h3>
+              Content Management
+            </h3>
+
+            <p>
+
+              Create, edit, publish and delete social media
+              posts easily.
+
+            </p>
+
+          </div>
+
+
+          {/* FEATURE 3 */}
+
+          <div className="feature-card">
+
+            <div className="feature-icon">
+              📅
+            </div>
+
+            <h3>
+              Post Scheduling
+            </h3>
+
+            <p>
+
+              Schedule your content and manage upcoming
+              posts efficiently.
+
+            </p>
+
+          </div>
+
+
+          {/* FEATURE 4 */}
+
+          <div className="feature-card">
+
+            <div className="feature-icon">
+              📊
+            </div>
+
+            <h3>
+              Dashboard
+            </h3>
+
+            <p>
+
+              View your social accounts and post activity
+              through a centralized dashboard.
+
+            </p>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      {/* =====================================================
+          WORKFLOW SECTION
+      ===================================================== */}
+
+      <section className="workflow">
+
+        <div className="section-heading">
+
+          <h2>
+            Simple Social Media Workflow
+          </h2>
+
+          <p>
+            Manage your content in a few simple steps.
+          </p>
+
+        </div>
+
+
+        <div className="workflow-grid">
+
+
+          {/* STEP 1 */}
+
+          <div className="workflow-step">
+
+            <div className="step-number">
+              1
+            </div>
+
+            <h3>
+              Connect
+            </h3>
+
+            <p>
+              Add your social media account.
+            </p>
+
+          </div>
+
+
+          <div className="workflow-arrow">
+            →
+          </div>
+
+
+          {/* STEP 2 */}
+
+          <div className="workflow-step">
+
+            <div className="step-number">
+              2
+            </div>
+
+            <h3>
+              Create
+            </h3>
+
+            <p>
+              Create your social media content.
+            </p>
+
+          </div>
+
+
+          <div className="workflow-arrow">
+            →
+          </div>
+
+
+          {/* STEP 3 */}
+
+          <div className="workflow-step">
+
+            <div className="step-number">
+              3
+            </div>
+
+            <h3>
+              Schedule
+            </h3>
+
+            <p>
+              Choose your preferred date and time.
+            </p>
+
+          </div>
+
+
+          <div className="workflow-arrow">
+            →
+          </div>
+
+
+          {/* STEP 4 */}
+
+          <div className="workflow-step">
+
+            <div className="step-number">
+              4
+            </div>
+
+            <h3>
+              Publish
+            </h3>
+
+            <p>
+              Publish and manage your posts.
+            </p>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      {/* =====================================================
+          CTA SECTION
+      ===================================================== */}
+
+      <section className="cta">
+
+        <h2>
+          Start Managing Your Social Media
+        </h2>
+
+        <p>
+          Create your SocialPilot account and get started.
+        </p>
+
+
+        <Link
+          to="/register"
+          className="primary-button"
+        >
+          Create Account
+        </Link>
+
+      </section>
+
+
+      {/* =====================================================
+          FOOTER
+      ===================================================== */}
+
+      <footer>
+
+        <div className="footer-logo">
+          SocialPilot
+        </div>
+
+
+        <p>
+          Social Media Scheduler & Campaign Management Platform
+        </p>
+
+
+        <div className="footer-links">
+
+          <Link to="/login">
+            Login
+          </Link>
+
+          <Link to="/register">
+            Register
+          </Link>
+
+        </div>
+
+
+        <p className="copyright">
+
+          © 2026 SocialPilot. All rights reserved.
+
+        </p>
+
+      </footer>
+
+    </div>
+
+  );
+
+}
+
+
+// =====================================================
+// APP
+// =====================================================
+
+function App() {
+
+  return (
+
+    <BrowserRouter>
+
+      <Routes>
+
+
+        {/* =================================================
+            PUBLIC ROUTES
+        ================================================= */}
+
+        {/* HOME */}
+
+        <Route
+          path="/"
+          element={<Home />}
+        />
+
+
+        {/* REGISTER */}
+
+        <Route
+          path="/register"
+          element={<Register />}
+        />
+
+
+        {/* LOGIN */}
+
+        <Route
+          path="/login"
+          element={<Login />}
+        />
+
+
+        {/* =================================================
+            PROTECTED ROUTES
+        ================================================= */}
+
+        {/* DASHBOARD */}
+
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+
+        {/* SOCIAL ACCOUNTS */}
+
+        <Route
+          path="/social-accounts"
+          element={
+            <ProtectedRoute>
+              <SocialAccounts />
+            </ProtectedRoute>
+          }
+        />
+
+
+        {/* CREATE POST */}
+
+        <Route
+          path="/create-post"
+          element={
+            <ProtectedRoute>
+              <CreatePost />
+            </ProtectedRoute>
+          }
+        />
+
+
+        {/* POSTS */}
+
+        <Route
+          path="/posts"
+          element={
+            <ProtectedRoute>
+              <Posts />
+            </ProtectedRoute>
+          }
+        />
+
+
+      </Routes>
+
+    </BrowserRouter>
+
+  );
+
+}
+
+
+export default App;
