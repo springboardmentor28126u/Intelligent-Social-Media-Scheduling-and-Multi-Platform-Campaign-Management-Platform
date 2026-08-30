@@ -1,35 +1,42 @@
-from fastapi import FastAPI, Depends, HTTPException
+import os
+import shutil
+import secrets
+from datetime import datetime, timedelta
+
+import pandas as pd
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import Optional
-from datetime import date, datetime
+from pydantic import BaseModel, EmailStr
 
-import models
-import auth
-from database import engine, get_db
+from database import engine, Base, get_db
+from models import User, Dataset, Scenario, SimulationResult, SocialAccount
+from auth import hash_password, verify_password, create_access_token, decode_access_token
+from mongo import mongo_db
+from email_service import send_password_reset_email
 
 
-# ==========================================
-# CREATE FASTAPI APPLICATION
-# ==========================================
+# ============================================================
+# CREATE FASTAPI APP
+# ============================================================
 
 app = FastAPI(
-    title="Intelligent Social Media Platform",
+    title="SocialPilot API",
+    description="AI-powered scenario simulation engine",
     version="1.0.0",
-    description="Social Media Scheduling and Multi-Platform Campaign Management API"
 )
 
 
-# ==========================================
+# ============================================================
 # CORS
-# ==========================================
+# ============================================================
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -37,398 +44,429 @@ app.add_middleware(
 )
 
 
-# ==========================================
-# CREATE TABLES
-# ==========================================
+# ============================================================
+# CREATE DATABASE TABLES
+# ============================================================
 
-models.Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
 
-# ==========================================
+# ============================================================
 # REQUEST MODELS
-# ==========================================
+# ============================================================
+
+class RegisterRequest(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+    role: str = "content_creator"
+
 
 class LoginRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 
-class SocialAccountCreate(BaseModel):
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+class ScenarioRequest(BaseModel):
+    name: str
+    question: str
+    decision_type: str | None = None
+    variable: str | None = None
+    direction: str | None = None
+    magnitude: float | None = None
+
+
+class SimulationRequest(BaseModel):
+    metric_name: str
+    baseline_value: float
+    change_percentage: float
+
+
+class SocialAccountRequest(BaseModel):
     platform: str
-    username: str
+    account_name: str
+class UpdateProfileRequest(BaseModel):
+    name: str
 
 
-class CampaignCreate(BaseModel):
-    campaign_name: str
-    description: Optional[str] = None
-    status: str = "draft"
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+# ============================================================
+# AUTH DEPENDENCY
+# ============================================================
+
+security = HTTPBearer()
 
 
-class PostCreate(BaseModel):
-    campaign_id: int
-    account_id: int
-    content: str
-    media_url: Optional[str] = None
-    scheduled_time: Optional[datetime] = None
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    payload = decode_access_token(credentials.credentials)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user = db.query(User).filter(User.id == payload.get("user_id")).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    return user
 
 
-# ==========================================
-# HOME
-# ==========================================
+# ============================================================
+# ROOT
+# ============================================================
 
 @app.get("/")
-def home():
+def root():
     return {
-        "message": "Python Backend is Working!"
+        "success": True,
+        "message": "SocialPilot Backend is running",
     }
 
 
-# ==========================================
-# HEALTH
-# ==========================================
+# ============================================================
+# FRONTEND CONNECTION TEST
+# ============================================================
+
+@app.get("/api/test")
+def test_connection():
+    return {
+        "success": True,
+        "message": "SocialPilot Backend Connected Successfully",
+    }
+
+
+# ============================================================
+# HEALTH CHECK
+# ============================================================
 
 @app.get("/health")
-def health():
+def health_check():
+    try:
+        mongo_db.list_collection_names()
+        mongo_status = "connected"
+    except Exception:
+        mongo_status = "unreachable"
+
     return {
-        "status": "healthy"
+        "success": True,
+        "status": "healthy",
+        "postgresql": "connected",
+        "mongodb": mongo_status,
     }
 
 
-# ==========================================
+# ============================================================
+# REGISTER
+# ============================================================
+
+@app.post("/auth/register")
+def register(request: RegisterRequest, db: Session = Depends(get_db)):
+    existing_user = db.query(User).filter(User.email == request.email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    new_user = User(
+        name=request.name,
+        email=request.email,
+        password_hash=hash_password(request.password),
+        role=request.role,
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return {
+        "message": "User registered successfully",
+        "user_id": new_user.id,
+        "name": new_user.name,
+        "email": new_user.email,
+        "role": new_user.role,
+    }
+
+
+# ============================================================
 # LOGIN
-# ==========================================
+# ============================================================
 
-@app.post("/api/users/login")
-def login(
-    login_data: LoginRequest,
-    db: Session = Depends(get_db)
-):
+@app.post("/auth/login")
+def login(request: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == request.email).first()
 
-    user = (
-        db.query(models.User)
-        .filter(
-            models.User.email == login_data.email
-        )
-        .first()
-    )
+    if not user or not verify_password(request.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    if user is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid email or password"
-        )
-
-    try:
-        password_valid = auth.verify_password(
-            login_data.password,
-            user.password
-        )
-    except Exception as error:
-        print("Password verification error:", error)
-
-        raise HTTPException(
-            status_code=500,
-            detail="Password verification error"
-        )
-
-    if not password_valid:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid email or password"
-        )
-
-    token = auth.create_access_token(
-        user.user_id
-    )
+    token = create_access_token({"user_id": user.id, "role": user.role})
 
     return {
         "message": "Login successful",
-        "token": token,
-        "user": {
-            "user_id": user.user_id,
-            "email": user.email
-        }
+        "access_token": token,
+        "token_type": "bearer",
+        "user_id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "role": user.role,
     }
 
 
-# ==========================================
-# SOCIAL ACCOUNTS - GET
-# ==========================================
+# ============================================================
+# FORGOT PASSWORD
+# ============================================================
 
-@app.get("/api/social-accounts")
-def get_social_accounts(
-    db: Session = Depends(get_db)
-):
+@app.post("/auth/forgot-password")
+def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == request.email).first()
 
-    accounts = db.query(models.SocialAccount).all()
+    if not user:
+        return {"message": "If that email is registered, a reset link has been sent."}
+
+    token = secrets.token_urlsafe(32)
+    user.reset_token = token
+    user.reset_token_expiry = datetime.utcnow() + timedelta(hours=1)
+    db.commit()
+
+    reset_link = f"http://localhost:3000/reset-password?token={token}"
+    send_password_reset_email(user.email, reset_link)
 
     return {
-        "accounts": [
-            {
-                "account_id": account.account_id,
-                "user_id": account.user_id,
-                "platform": account.platform,
-                "username": account.username
-            }
-            for account in accounts
-        ]
+        "message": "If that email is registered, a reset link has been sent.",
     }
 
 
-# ==========================================
-# SOCIAL ACCOUNTS - CREATE
-# ==========================================
+# ============================================================
+# RESET PASSWORD
+# ============================================================
 
-@app.post("/api/social-accounts")
-def create_social_account(
-    account_data: SocialAccountCreate,
-    db: Session = Depends(get_db)
+@app.post("/auth/reset-password")
+def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.reset_token == request.token).first()
+
+    if not user or not user.reset_token_expiry or user.reset_token_expiry < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+
+    user.password_hash = hash_password(request.new_password)
+    user.reset_token = None
+    user.reset_token_expiry = None
+    db.commit()
+
+    return {"message": "Password reset successful"}
+
+
+# ============================================================
+# CURRENT USER
+# ============================================================
+
+@app.get("/auth/me")
+def get_me(current_user: User = Depends(get_current_user)):
+    return {
+        "user_id": current_user.id,
+        "name": current_user.name,
+        "email": current_user.email,
+        "role": current_user.role,
+    }
+@app.put("/auth/me")
+def update_profile(
+    request: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
+    current_user.name = request.name
+    db.commit()
+    db.refresh(current_user)
 
-    account = models.SocialAccount(
-        user_id=1,
-        platform=account_data.platform,
-        username=account_data.username
+    return {
+        "message": "Profile updated successfully",
+        "user_id": current_user.id,
+        "name": current_user.name,
+        "email": current_user.email,
+        "role": current_user.role,
+    }
+
+
+@app.post("/auth/change-password")
+def change_password(
+    request: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not current_user.password_hash:
+        raise HTTPException(
+            status_code=400,
+            detail="This account uses Google sign-in and has no password to change",
+        )
+
+    if not verify_password(request.current_password, current_user.password_hash):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+
+    current_user.password_hash = hash_password(request.new_password)
+    db.commit()
+
+    return {"message": "Password changed successfully"}
+
+# ============================================================
+# SOCIAL ACCOUNTS
+# ============================================================
+
+@app.post("/social-accounts")
+def connect_social_account(
+    request: SocialAccountRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    account = SocialAccount(
+        user_id=current_user.id,
+        platform=request.platform,
+        account_name=request.account_name,
     )
-
     db.add(account)
     db.commit()
     db.refresh(account)
 
     return {
-        "message": "Social account created successfully",
-        "account": {
-            "account_id": account.account_id,
-            "platform": account.platform,
-            "username": account.username
+        "message": "Social account connected",
+        "account_id": account.id,
+        "platform": account.platform,
+        "account_name": account.account_name,
+    }
+
+
+@app.get("/social-accounts")
+def get_social_accounts(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return db.query(SocialAccount).filter(SocialAccount.user_id == current_user.id).all()
+
+
+# ============================================================
+# DATASET UPLOAD
+# ============================================================
+
+@app.post("/datasets/upload")
+def upload_dataset(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    allowed_extensions = [".csv", ".xlsx", ".xls"]
+    extension = os.path.splitext(file.filename)[1].lower()
+
+    if extension not in allowed_extensions:
+        raise HTTPException(status_code=400, detail="Only CSV and Excel files are supported")
+
+    upload_directory = "uploads"
+    os.makedirs(upload_directory, exist_ok=True)
+    file_path = os.path.join(upload_directory, file.filename)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    try:
+        if extension == ".csv":
+            df = pd.read_csv(file_path)
+        else:
+            df = pd.read_excel(file_path)
+
+        dataset = Dataset(
+            filename=file.filename,
+            dataset_type=extension.replace(".", ""),
+            row_count=len(df),
+            column_count=len(df.columns),
+        )
+
+        db.add(dataset)
+        db.commit()
+        db.refresh(dataset)
+
+        return {
+            "message": "Dataset uploaded successfully",
+            "dataset_id": dataset.id,
+            "filename": dataset.filename,
+            "dataset_type": dataset.dataset_type,
+            "row_count": dataset.row_count,
+            "column_count": dataset.column_count,
         }
-    }
+
+    except Exception as error:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise HTTPException(status_code=400, detail=f"Could not process dataset: {str(error)}")
 
 
-# ==========================================
-# SOCIAL ACCOUNTS - DELETE
-# ==========================================
+# ============================================================
+# GET DATASETS
+# ============================================================
 
-@app.delete("/api/social-accounts/{account_id}")
-def delete_social_account(
-    account_id: int,
-    db: Session = Depends(get_db)
-):
+@app.get("/datasets")
+def get_datasets(db: Session = Depends(get_db)):
+    return db.query(Dataset).all()
 
-    account = (
-        db.query(models.SocialAccount)
-        .filter(
-            models.SocialAccount.account_id == account_id
-        )
-        .first()
+
+@app.get("/datasets/{dataset_id}")
+def get_dataset(dataset_id: int, db: Session = Depends(get_db)):
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    return dataset
+
+
+# ============================================================
+# CREATE SCENARIO
+# ============================================================
+
+@app.post("/scenarios")
+def create_scenario(request: ScenarioRequest, db: Session = Depends(get_db)):
+    scenario = Scenario(
+        name=request.name,
+        question=request.question,
+        decision_type=request.decision_type,
+        variable=request.variable,
+        direction=request.direction,
+        magnitude=request.magnitude,
     )
 
-    if account is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Social account not found"
-        )
-
-    db.delete(account)
+    db.add(scenario)
     db.commit()
+    db.refresh(scenario)
 
     return {
-        "message": "Social account deleted successfully"
+        "message": "Scenario created successfully",
+        "scenario_id": scenario.id,
+        "name": scenario.name,
+        "question": scenario.question,
+        "decision_type": scenario.decision_type,
+        "variable": scenario.variable,
+        "direction": scenario.direction,
+        "magnitude": scenario.magnitude,
     }
 
 
-# ==========================================
-# CAMPAIGNS - GET
-# ==========================================
+# ============================================================
+# GET SCENARIOS
+# ============================================================
 
-@app.get("/api/campaigns")
-def get_campaigns(
-    db: Session = Depends(get_db)
-):
-
-    campaigns = db.query(models.Campaign).all()
-
-    return {
-        "campaigns": [
-            {
-                "campaign_id": campaign.campaign_id,
-                "user_id": campaign.user_id,
-                "campaign_name": campaign.campaign_name,
-                "description": campaign.description,
-                "status": campaign.status,
-                "start_date": campaign.start_date,
-                "end_date": campaign.end_date
-            }
-            for campaign in campaigns
-        ]
-    }
+@app.get("/scenarios")
+def get_scenarios(db: Session = Depends(get_db)):
+    return db.query(Scenario).all()
 
 
-# ==========================================
-# CAMPAIGNS - CREATE
-# ==========================================
-
-@app.post("/api/campaigns")
-def create_campaign(
-    campaign_data: CampaignCreate,
-    db: Session = Depends(get_db)
-):
-
-    campaign = models.Campaign(
-        user_id=1,
-        campaign_name=campaign_data.campaign_name,
-        description=campaign_data.description,
-        status=campaign_data.status,
-        start_date=campaign_data.start_date,
-        end_date=campaign_data.end_date
-    )
-
-    db.add(campaign)
-    db.commit()
-    db.refresh(campaign)
-
-    return {
-        "message": "Campaign created successfully",
-        "campaign": {
-            "campaign_id": campaign.campaign_id,
-            "campaign_name": campaign.campaign_name,
-            "description": campaign.description,
-            "status": campaign.status,
-            "start_date": campaign.start_date,
-            "end_date": campaign.end_date
-        }
-    }
+@app.get("/scenarios/{scenario_id}")
+def get_scenario(scenario_id: int, db: Session = Depends(get_db)):
+    scenario = db.query(Scenario).filter(Scenario.id == scenario_id).first()
+    if not scenario:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    return scenario
 
 
-# ==========================================
-# POSTS - GET
-# ==========================================
-
-@app.get("/api/posts")
-def get_posts(
-    db: Session = Depends(get_db)
-):
-
-    posts = db.query(models.Post).all()
-
-    result = []
-
-    for post in posts:
-
-        campaign = (
-            db.query(models.Campaign)
-            .filter(
-                models.Campaign.campaign_id
-                == post.campaign_id
-            )
-            .first()
-        )
-
-        account = (
-            db.query(models.SocialAccount)
-            .filter(
-                models.SocialAccount.account_id
-                == post.account_id
-            )
-            .first()
-        )
-
-        result.append({
-            "post_id": post.post_id,
-            "campaign_id": post.campaign_id,
-            "account_id": post.account_id,
-            "content": post.content,
-            "media_url": post.media_url,
-            "scheduled_time": post.scheduled_time,
-            "status": post.status,
-            "campaign_name": (
-                campaign.campaign_name
-                if campaign else None
-            ),
-            "platform": (
-                account.platform
-                if account else None
-            ),
-            "username": (
-                account.username
-                if account else None
-            )
-        })
-
-    return {
-        "posts": result
-    }
-
-
-# ==========================================
-# POSTS - CREATE
-# ==========================================
-
-@app.post("/api/posts")
-def create_post(
-    post_data: PostCreate,
-    db: Session = Depends(get_db)
-):
-
-    campaign = (
-        db.query(models.Campaign)
-        .filter(
-            models.Campaign.campaign_id
-            == post_data.campaign_id
-        )
-        .first()
-    )
-
-    if campaign is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Campaign not found"
-        )
-
-    account = (
-        db.query(models.SocialAccount)
-        .filter(
-            models.SocialAccount.account_id
-            == post_data.account_id
-        )
-        .first()
-    )
-
-    if account is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Social account not found"
-        )
-
-    post_status = "scheduled"
-
-    if post_data.scheduled_time is None:
-        post_status = "draft"
-
-    post = models.Post(
-        campaign_id=post_data.campaign_id,
-        account_id=post_data.account_id,
-        content=post_data.content,
-        media_url=post_data.media_url,
-        scheduled_time=post_data.scheduled_time,
-        status=post_status
-    )
-
-    db.add(post)
-    db.commit()
-    db.refresh(post)
-
-    return {
-        "message": "Post created successfully",
-        "post": {
-            "post_id": post.post_id,
-            "campaign_id": post.campaign_id,
-            "account_id": post.account_id,
-            "content": post.content,
-            "media_url": post.media_url,
-            "scheduled_time": post.scheduled_time,
-            "status": post.status
-        }
-    }
+# ============================================================
+# SIMULATE SCENARIO
+# ============================================
