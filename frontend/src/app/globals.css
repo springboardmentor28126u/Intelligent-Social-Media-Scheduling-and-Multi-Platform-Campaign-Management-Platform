@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@keyframes blink-cursor {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.glass-panel {
+  background: #101116;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glow-dot {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.blink-cursor {
+  animation: blink-cursor 1s step-start infinite;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #00D9FF, #6C7DFF);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
