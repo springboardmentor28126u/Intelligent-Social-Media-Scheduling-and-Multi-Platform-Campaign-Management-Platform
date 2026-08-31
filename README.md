@@ -30,7 +30,7 @@ Frontend: Next.js (App Router, TypeScript), Tailwind CSS, lucide-react
 Database: MongoDB Atlas (PostgreSQL + Redis planned for later milestones — analytics and background job queues)
 Authentication: Bearer JWT access tokens
 # Project structure
-.
+
 ├── backend/
 │   ├── app/
 │   │   ├── api/          # Route handlers (auth.py)
@@ -47,6 +47,7 @@ Authentication: Bearer JWT access tokens
         │   ├── (auth)/    # Login & register pages
         │   └── dashboard/ # Account management dashboard
         └── context/       # AuthContext (global auth state)
+        
 # Requirements
 Python 3.12
 Node.js 18 or newer and npm
