@@ -5,7 +5,7 @@ SocialPilot is an intelligent social media scheduling and multi-platform campaig
 
 Built individually as part of the Infosys Springboard Virtual Internship 7.0 — Python Intern track, implementing a shared team project brief.
 
-##Project status
+## Project status
 
 This repository currently reflects Milestone 1: Project Initialization & Core Setup. Content scheduling, publishing, campaigns, and analytics (Milestones 2–3) are planned but not yet built — see Roadmap.
 
