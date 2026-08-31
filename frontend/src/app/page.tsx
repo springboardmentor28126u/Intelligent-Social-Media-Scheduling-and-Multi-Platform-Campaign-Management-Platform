@@ -2,188 +2,360 @@
 
 import { useEffect, useState } from "react";
 import AuthModal from "@/components/AuthModal";
+import Link from "next/link";
+
+type BackendStatus = "checking" | "connected" | "error";
 
 export default function Home() {
-  const [backendStatus, setBackendStatus] = useState<"checking" | "connected" | "error">("checking");
-  const [backendMessage, setBackendMessage] = useState("Connecting to backend...");
+  const [backendStatus, setBackendStatus] =
+    useState<BackendStatus>("checking");
+
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
-    const connectBackend = async () => {
+    async function checkBackend() {
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/test");
-        if (!response.ok) throw new Error(`Backend returned status ${response.status}`);
-        const data = await response.json();
-        setBackendStatus("connected");
-        setBackendMessage(data.message || "Backend connected successfully");
-      } catch (error) {
-        console.error("Backend connection failed:", error);
-        setBackendStatus("error");
-        setBackendMessage("Backend connection failed");
-      }
-    };
-    connectBackend();
-  }, []);
+        const response = await fetch(
+          "http://127.0.0.1:8000/api/test"
+        );
 
-  const statusColor =
-    backendStatus === "connected" ? "#00D9FF" : backendStatus === "error" ? "#FF5C5C" : "#6C7DFF";
+        if (!response.ok) {
+          throw new Error("Backend unavailable");
+        }
+
+        setBackendStatus("connected");
+      } catch {
+        setBackendStatus("error");
+      }
+    }
+
+    checkBackend();
+  }, []);
 
   return (
     <main
-      style={{ background: "#08090D", color: "#E8E9F0", fontFamily: "var(--font-plex-mono), monospace" }}
-      className="min-h-screen p-8"
+      className="min-h-screen overflow-hidden"
+      style={{
+        background:
+          "radial-gradient(circle at 80% 10%, rgba(0,240,255,0.08), transparent 30%), radial-gradient(circle at 20% 80%, rgba(176,38,255,0.08), transparent 30%), #08090D",
+        color: "#E8E9F5",
+      }}
     >
-      <div className="mx-auto max-w-6xl">
-
-        {/* NAV */}
-        <nav className="mb-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold"
-              style={{ background: "#00D9FF", color: "#08090D" }}
+      {/* TOP NAV */}
+      <header className="border-b border-white/[0.06]">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+          
+          <Link href="/" className="flex items-center gap-3">
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-xl font-bold"
+              style={{
+                background:
+                  "linear-gradient(135deg,#00F0FF,#B026FF)",
+                color: "#05060A",
+              }}
             >
               S
-            </span>
-            <span style={{ fontFamily: "var(--font-fraunces), serif", fontWeight: 600 }} className="text-lg">
-              SocialPilot
-            </span>
-          </div>
+            </div>
+
+            <div>
+              <div className="text-lg font-semibold">
+                SocialPilot
+              </div>
+              <div
+                className="text-[10px] uppercase tracking-[0.2em]"
+                style={{ color: "#666A7E" }}
+              >
+                Social command center
+              </div>
+            </div>
+          </Link>
 
           <button
             onClick={() => setShowAuthModal(true)}
-            className="rounded-lg px-5 py-2.5 text-sm font-medium transition-colors hover:bg-white/10"
-            style={{ border: "1px solid rgba(255,255,255,0.15)" }}
+            className="rounded-xl border px-5 py-2.5 text-sm font-medium transition hover:bg-white/[0.07]"
+            style={{
+              borderColor: "rgba(255,255,255,0.1)",
+            }}
           >
-            Login / Register
+            Sign in
           </button>
-        </nav>
+        </div>
+      </header>
 
-        {/* HERO */}
-        <div className="mb-16 max-w-2xl">
-          <p className="mb-3 flex items-center gap-2 text-xs font-medium tracking-[0.25em] uppercase" style={{ color: "#00D9FF" }}>
-            <span className="glow-dot h-1.5 w-1.5 rounded-full" style={{ background: "#00D9FF" }} />
-            Scenario Simulation Engine
-          </p>
-          <h1
-            style={{ fontFamily: "var(--font-fraunces), serif", fontWeight: 600, letterSpacing: "-0.02em" }}
-            className="text-5xl leading-[1.08] sm:text-6xl"
-          >
-            Change one variable.
-            <br />
-            <span className="gradient-text">See the shift</span>
-            <span className="blink-cursor" style={{ color: "#00D9FF" }}>_</span>
-          </h1>
-          <p className="mt-4 text-base leading-relaxed" style={{ color: "#8A8B9A" }}>
-            SocialPilot models what happens before it happens — every scenario
-            shows where you started and where the model thinks you&apos;ll land.
-          </p>
-
-          <div className="mt-6 flex gap-3">
-            <button
-              onClick={() => setShowAuthModal(true)}
-              className="rounded-lg px-6 py-3 text-sm font-medium transition-opacity hover:opacity-90"
-              style={{ background: "#00D9FF", color: "#08090D" }}
+      {/* HERO */}
+      <section className="mx-auto max-w-7xl px-6 pb-24 pt-20">
+        <div className="grid items-center gap-16 lg:grid-cols-[1.15fr_.85fr]">
+          
+          <div>
+            <div
+              className="mb-6 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs"
+              style={{
+                borderColor: "rgba(0,240,255,0.2)",
+                background: "rgba(0,240,255,0.05)",
+                color: "#00F0FF",
+              }}
             >
-              Get started
-            </button>
-          </div>
-        </div>
-
-        {/* SIGNATURE: baseline → predicted delta bar */}
-        <div className="glass-panel mb-8 rounded-2xl p-6">
-          <div className="mb-5 flex items-baseline justify-between text-xs uppercase tracking-wider" style={{ color: "#54566A" }}>
-            <span>baseline</span>
-            <span>predicted</span>
-          </div>
-
-          <div className="relative h-2 w-full overflow-hidden rounded-full" style={{ background: "#1A1B22" }}>
-            <div
-              className="absolute left-0 top-0 h-full rounded-full transition-all duration-1000 ease-out"
-              style={{ width: "62%", background: "#00D9FF" }}
-            />
-            <div
-              className="absolute top-0 h-full rounded-full transition-all duration-1000 ease-out delay-300"
-              style={{ left: "62%", width: "16%", background: "#6C7DFF" }}
-            />
-          </div>
-
-          <div className="mt-4 flex justify-between text-2xl font-medium">
-            <span style={{ color: "#00D9FF" }}>100,000</span>
-            <span style={{ color: "#6C7DFF" }}>+10.0%</span>
-            <span style={{ color: "#6C7DFF" }}>110,000</span>
-          </div>
-        </div>
-
-        {/* BACKEND STATUS */}
-        <div className="glass-panel mb-8 rounded-2xl p-5">
-          <div className="flex items-center gap-3">
-            <div className="relative flex h-3 w-3 items-center justify-center">
-              <div className="glow-dot absolute h-3 w-3 rounded-full" style={{ background: statusColor }} />
-              <div className="h-3 w-3 rounded-full" style={{ background: statusColor }} />
+              <span>●</span>
+              Your social workspace, redesigned
             </div>
-            <div>
-              <h2 className="font-semibold">
+
+            <h1
+              className="max-w-4xl text-5xl font-semibold leading-[1.05] tracking-tight sm:text-7xl"
+              style={{
+                fontFamily: "var(--font-fraunces), serif",
+              }}
+            >
+              Create.
+              <br />
+              Schedule.
+              <br />
+              <span
+                style={{
+                  background:
+                    "linear-gradient(90deg,#00F0FF,#B026FF)",
+                  WebkitBackgroundClip: "text",
+                  color: "transparent",
+                }}
+              >
+                Grow.
+              </span>
+            </h1>
+
+            <p
+              className="mt-7 max-w-xl text-base leading-7"
+              style={{ color: "#85899B" }}
+            >
+              SocialPilot brings your content, publishing workflow,
+              connected accounts and performance insights into one
+              intelligent workspace.
+            </p>
+
+            <div className="mt-9 flex flex-wrap gap-3">
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="rounded-xl px-6 py-3 text-sm font-semibold transition hover:scale-[1.02]"
+                style={{
+                  background:
+                    "linear-gradient(135deg,#00F0FF,#8C5BFF)",
+                  color: "#05060A",
+                  boxShadow:
+                    "0 10px 35px rgba(0,240,255,0.15)",
+                }}
+              >
+                Enter SocialPilot →
+              </button>
+
+              <Link
+                href="#features"
+                className="rounded-xl border px-6 py-3 text-sm font-medium"
+                style={{
+                  borderColor: "rgba(255,255,255,0.1)",
+                  color: "#A3A6B7",
+                }}
+              >
+                Explore workspace
+              </Link>
+            </div>
+
+            {/* STATUS */}
+            <div className="mt-8 flex items-center gap-3 text-xs">
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{
+                  background:
+                    backendStatus === "connected"
+                      ? "#35E39B"
+                      : backendStatus === "error"
+                        ? "#FF5577"
+                        : "#FFCA5C",
+                }}
+              />
+
+              <span style={{ color: "#6F7386" }}>
                 {backendStatus === "connected"
-                  ? "Backend Connected ✅"
+                  ? "Backend connected"
                   : backendStatus === "error"
-                    ? "Backend Connection Failed ❌"
-                    : "Connecting to Backend... ⏳"}
-              </h2>
-              <p className="mt-1 text-sm" style={{ color: "#8A8B9A" }}>{backendMessage}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* DASHBOARD */}
-        <div className="grid gap-6 md:grid-cols-3">
-          <div className="glass-panel rounded-2xl p-6 transition-colors hover:border-white/20">
-            <div className="mb-4 text-3xl">🏠</div>
-            <h2 style={{ fontFamily: "var(--font-fraunces), serif", fontWeight: 500 }} className="text-xl">Home</h2>
-            <p className="mt-2 text-sm" style={{ color: "#8A8B9A" }}>Manage your SocialPilot workspace from one place.</p>
-          </div>
-
-          <div className="glass-panel rounded-2xl p-6 transition-colors hover:border-white/20">
-            <div className="mb-4 text-3xl">❤️</div>
-            <h2 style={{ fontFamily: "var(--font-fraunces), serif", fontWeight: 500 }} className="text-xl">Health</h2>
-            <p className="mt-2 text-sm" style={{ color: "#8A8B9A" }}>Monitor the status of your backend services.</p>
-          </div>
-
-          <div className="glass-panel rounded-2xl p-6 transition-colors hover:border-white/20">
-            <div className="mb-4 text-3xl">🤖</div>
-            <h2 style={{ fontFamily: "var(--font-fraunces), serif", fontWeight: 500 }} className="text-xl">AI Pilot</h2>
-            <p className="mt-2 text-sm" style={{ color: "#8A8B9A" }}>Get AI-powered insights and recommendations.</p>
-          </div>
-        </div>
-
-        {/* SYSTEM INFORMATION */}
-        <div className="glass-panel mt-8 rounded-2xl p-6">
-          <h2 style={{ fontFamily: "var(--font-fraunces), serif", fontWeight: 500 }} className="text-xl">System Information</h2>
-
-          <div className="mt-5 space-y-3 text-sm">
-            <div className="flex justify-between border-b pb-3" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-              <span style={{ color: "#8A8B9A" }}>Frontend</span>
-              <span className="font-medium">Next.js</span>
-            </div>
-            <div className="flex justify-between border-b pb-3" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-              <span style={{ color: "#8A8B9A" }}>Backend</span>
-              <span className="font-medium">FastAPI</span>
-            </div>
-            <div className="flex justify-between border-b pb-3" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-              <span style={{ color: "#8A8B9A" }}>Backend URL</span>
-              <span className="font-medium">127.0.0.1:8000</span>
-            </div>
-            <div className="flex justify-between">
-              <span style={{ color: "#8A8B9A" }}>Connection</span>
-              <span className="font-semibold" style={{ color: statusColor }}>
-                {backendStatus === "connected" ? "Connected" : backendStatus === "error" ? "Failed" : "Checking"}
+                    ? "Backend offline"
+                    : "Checking backend..."}
               </span>
             </div>
           </div>
+
+          {/* VISUAL DASHBOARD CARD */}
+          <div className="relative">
+            <div
+              className="absolute -inset-10 rounded-full opacity-20 blur-3xl"
+              style={{
+                background:
+                  "linear-gradient(135deg,#00F0FF,#B026FF)",
+              }}
+            />
+
+            <div
+              className="relative rounded-3xl border p-5 shadow-2xl"
+              style={{
+                background: "rgba(15,16,23,0.88)",
+                borderColor: "rgba(255,255,255,0.08)",
+              }}
+            >
+              <div className="mb-5 flex items-center justify-between">
+                <div>
+                  <p className="text-xs" style={{ color: "#686C80" }}>
+                    TODAY
+                  </p>
+                  <h3 className="mt-1 text-lg font-semibold">
+                    Content pulse
+                  </h3>
+                </div>
+
+                <span
+                  className="rounded-full px-3 py-1 text-[10px]"
+                  style={{
+                    background: "rgba(53,227,155,0.1)",
+                    color: "#35E39B",
+                  }}
+                >
+                  LIVE
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  ["18", "Scheduled"],
+                  ["82.4K", "Reach"],
+                  ["7.8%", "Engagement"],
+                  ["4", "Platforms"],
+                ].map(([value, label]) => (
+                  <div
+                    key={label}
+                    className="rounded-2xl border p-5"
+                    style={{
+                      background: "rgba(255,255,255,0.025)",
+                      borderColor: "rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <div className="text-2xl font-semibold">
+                      {value}
+                    </div>
+                    <div
+                      className="mt-2 text-xs"
+                      style={{ color: "#686C80" }}
+                    >
+                      {label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div
+                className="mt-3 rounded-2xl border p-5"
+                style={{
+                  background: "rgba(255,255,255,0.025)",
+                  borderColor: "rgba(255,255,255,0.06)",
+                }}
+              >
+                <div className="mb-4 flex justify-between text-xs">
+                  <span style={{ color: "#777B8E" }}>
+                    Weekly engagement
+                  </span>
+                  <span style={{ color: "#35E39B" }}>
+                    +18.4%
+                  </span>
+                </div>
+
+                <div className="flex h-24 items-end gap-2">
+                  {[30, 42, 36, 60, 48, 75, 92].map(
+                    (height, index) => (
+                      <div
+                        key={index}
+                        className="flex-1 rounded-t-md"
+                        style={{
+                          height: `${height}%`,
+                          background:
+                            index === 6
+                              ? "#00F0FF"
+                              : "rgba(0,240,255,0.18)",
+                        }}
+                      />
+                    )
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FEATURES */}
+      <section
+        id="features"
+        className="mx-auto max-w-7xl px-6 pb-24"
+      >
+        <div className="mb-10">
+          <p
+            className="text-xs uppercase tracking-[0.25em]"
+            style={{ color: "#00F0FF" }}
+          >
+            One workspace
+          </p>
+
+          <h2
+            className="mt-3 text-3xl font-semibold"
+            style={{
+              fontFamily: "var(--font-fraunces), serif",
+            }}
+          >
+            Everything around your content.
+          </h2>
         </div>
 
-      </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[
+            ["✦", "Create", "Turn ideas into polished social posts."],
+            ["◷", "Planner", "See your entire publishing flow."],
+            ["↗", "Analytics", "Understand what is actually working."],
+            ["◎", "Accounts", "Manage your social presence centrally."],
+          ].map(([icon, title, description]) => (
+            <div
+              key={title}
+              className="rounded-2xl border p-6 transition hover:-translate-y-1"
+              style={{
+                background: "rgba(255,255,255,0.025)",
+                borderColor: "rgba(255,255,255,0.07)",
+              }}
+            >
+              <div className="mb-5 text-2xl">{icon}</div>
+              <h3 className="font-semibold">{title}</h3>
+              <p
+                className="mt-2 text-sm leading-6"
+                style={{ color: "#74788A" }}
+              >
+                {description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+      {/* FOOTER */}
+      <footer
+        className="border-t px-6 py-8"
+        style={{ borderColor: "rgba(255,255,255,0.06)" }}
+      >
+        <div className="mx-auto flex max-w-7xl justify-between text-xs">
+          <span style={{ color: "#55596B" }}>
+            © 2026 SocialPilot
+          </span>
+
+          <span style={{ color: "#55596B" }}>
+            Next.js · FastAPI · PostgreSQL
+          </span>
+        </div>
+      </footer>
+
+      {showAuthModal && (
+        <AuthModal onClose={() => setShowAuthModal(false)} />
+      )}
     </main>
   );
 }
