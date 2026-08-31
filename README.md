@@ -31,22 +31,19 @@ Database: MongoDB Atlas (PostgreSQL + Redis planned for later milestones — ana
 Authentication: Bearer JWT access tokens
 # Project structure
 
-├── backend/
-│   ├── app/
-│   │   ├── api/          # Route handlers (auth.py)
-│   │   ├── core/         # Config, security (hashing/JWT), RBAC dependencies
-│   │   ├── db/           # Database connection + collection access functions
-│   │   ├── models/       # Pydantic schemas
-│   │   └── main.py       # FastAPI app entry point
-│   ├── requirements.txt
-│   └── .env               # Environment variables (not committed)
-│
-└── frontend/
-    └── src/
-        ├── app/
-        │   ├── (auth)/    # Login & register pages
-        │   └── dashboard/ # Account management dashboard
-        └── context/       # AuthContext (global auth state)
+# Project structure
+
+📦 backend/
+├── 🔌 api/           # Route handlers
+├── 🔐 core/          # Security & config
+├── 💾 db/            # Database access
+├── 📋 models/        # Pydantic schemas
+└── ⚙️  main.py       # FastAPI app
+
+📦 frontend/
+├── 🔑 app/(auth)/    # Login & register
+├── 📊 app/dashboard/ # Dashboard UI
+└── 🎭 context/       # Auth state
         
 # Requirements
 Python 3.12
