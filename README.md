@@ -1,5 +1,5 @@
 # Intelligent-Social-Media-Scheduling-and-Multi-Platform-Campaign-Management-Platform
-##SocialPilot
+## SocialPilot
 
 SocialPilot is an intelligent social media scheduling and multi-platform campaign management platform. It combines a FastAPI backend with a Next.js dashboard for authenticating users, managing role-based access, and (in upcoming milestones) scheduling and publishing content across multiple social platforms.
 
@@ -9,27 +9,27 @@ Built individually as part of the Infosys Springboard Virtual Internship 7.0 —
 
 This repository currently reflects Milestone 1: Project Initialization & Core Setup. Content scheduling, publishing, campaigns, and analytics (Milestones 2–3) are planned but not yet built — see Roadmap.
 
-#Features
-##User management
+# Features
+## User management
 User registration and JWT login
 Role-based access control (RBAC) with 4 roles: Content Creator, Marketing Team, Business User, Administrator
 Authenticated "current user" endpoint powering the dashboard
 Administrator-only endpoint to list all users
 Team management (role updates) — planned
-##Social account management
+## Social account management
 Account records modeled for LinkedIn, X/Twitter, Facebook, Instagram, YouTube, and Pinterest
 X (Twitter) connection flow implemented as a mocked OAuth pattern — X discontinued its free developer API tier in February 2026, so all platform connections in this milestone are mocked to keep the architecture consistent and cost-free while still demonstrating the full connect/store/display flow
 Real OAuth for individual providers can be swapped in behind the same mocked interface in a later milestone
-##Content scheduling (planned — Milestone 2)
+## Content scheduling 
 Create, edit, and schedule posts across content types (text, image, video, carousel, story, reel)
 Publishing calendar, draft management, recurring scheduling
 Automated multi-platform publishing via FastAPI background tasks
-#Technology
+# Technology
 Backend: Python 3.12, FastAPI, Motor (async MongoDB driver), python-jose (JWT), passlib/bcrypt (password hashing), Pydantic v2
 Frontend: Next.js (App Router, TypeScript), Tailwind CSS, lucide-react
 Database: MongoDB Atlas (PostgreSQL + Redis planned for later milestones — analytics and background job queues)
 Authentication: Bearer JWT access tokens
-#Project structure
+# Project structure
 text
 .
 ├── backend/
@@ -48,11 +48,11 @@ text
         │   ├── (auth)/    # Login & register pages
         │   └── dashboard/ # Account management dashboard
         └── context/       # AuthContext (global auth state)
-#Requirements
+# Requirements
 Python 3.12
 Node.js 18 or newer and npm
 A MongoDB Atlas cluster (free M0 tier is sufficient)
-#Backend setup
+# Backend setup
 
 From the backend/ folder, create and activate a virtual environment:
 
@@ -78,7 +78,7 @@ uvicorn app.main:app --reload
 
 The API is available at http://localhost:8000, with interactive docs at http://localhost:8000/docs.
 
-#Frontend setup
+# Frontend setup
 
 In a second terminal:
 
@@ -89,7 +89,7 @@ npm run dev
 
 Open http://localhost:3000 in a browser.
 
-#API endpoints
+# API endpoints
 
 All routes marked "Authenticated" require a JWT sent as a bearer token.
 
@@ -104,7 +104,7 @@ Send the access token as a bearer token:
 http
 Authorization: Bearer <access-token>
 
-#Troubleshooting
+# Troubleshooting
 Frontend can't reach the backend
 
 Make sure both servers are running:
@@ -116,11 +116,11 @@ uvicorn app.main:app --reload
 :: Terminal 2
 cd frontend
 npm run dev
-401 errors after logging in
+## 401 errors after logging in
 
 The JWT is currently held in memory only (React state) — refreshing the tab logs you out. Log in again to get a fresh token. Persisting the session across refreshes is a planned improvement.
 
-#Security notes
+# Security notes
 Never commit .env — it holds the MongoDB connection string and JWT secret key.
 Replace SECRET_KEY with a strong, unique value before any deployment.
 CORS is currently scoped to localhost:3000 for local development; update it before deploying.
