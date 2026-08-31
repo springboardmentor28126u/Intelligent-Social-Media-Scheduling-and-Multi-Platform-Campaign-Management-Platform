@@ -1,32 +1,124 @@
 @import "tailwindcss";
 
-@keyframes glow-pulse {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
+/* =========================================================
+   SOCIALPILOT — ORIGINAL DARK THEME
+========================================================= */
+
+:root {
+  --sp-bg: #07080c;
+  --sp-surface: #0b0d13;
+  --sp-card: #0e1017;
+  --sp-card-hover: #141720;
+
+  --sp-text: #f1f2f7;
+  --sp-text-secondary: #b8bbc8;
+  --sp-muted: #777b8c;
+  --sp-subtle: #555968;
+
+  --sp-border: rgba(255, 255, 255, 0.08);
+  --sp-border-strong: rgba(255, 255, 255, 0.14);
+
+  --sp-input: #0b0d13;
+  --sp-input-text: #f1f2f7;
+
+  --sp-cyan: #00e5ff;
+  --sp-purple: #9b5cff;
+  --sp-green: #35e6a1;
+  --sp-danger: #ff3d6e;
+
+  --sp-hover: rgba(255, 255, 255, 0.04);
 }
 
-@keyframes blink-cursor {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
+/* =========================================================
+   BODY
+========================================================= */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+
+  background: #07080c;
+  color: #e8e9f5;
 }
 
-.glass-panel {
-  background: #101116;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+body {
+  min-height: 100vh;
+
+  font-family:
+    var(--font-plex-mono),
+    monospace;
+
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
-.glow-dot {
-  animation: glow-pulse 2s ease-in-out infinite;
+/* =========================================================
+   FORM ELEMENTS
+========================================================= */
+
+input,
+textarea,
+select {
+  background: var(--sp-input);
+  color: var(--sp-input-text);
+  border-color: var(--sp-border);
 }
 
-.blink-cursor {
-  animation: blink-cursor 1s step-start infinite;
+input::placeholder,
+textarea::placeholder {
+  color: var(--sp-muted);
 }
 
-.gradient-text {
-  background: linear-gradient(135deg, #00D9FF, #6C7DFF);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
+option {
+  background: #0b0d13;
+  color: #f1f2f7;
+}
+
+/* =========================================================
+   BUTTONS
+========================================================= */
+
+button {
+  font-family: inherit;
+}
+
+/* =========================================================
+   LINKS
+========================================================= */
+
+a {
+  color: inherit;
+}
+
+/* =========================================================
+   SCROLLBAR
+========================================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #07080c;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* =========================================================
+   SELECTION
+========================================================= */
+
+::selection {
+  background: rgba(0, 229, 255, 0.22);
+  color: #f1f2f7;
 }

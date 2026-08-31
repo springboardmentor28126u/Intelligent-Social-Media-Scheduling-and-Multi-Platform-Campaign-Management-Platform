@@ -73,7 +73,7 @@ export default function DashboardPage() {
     useState(false);
 
   /* =====================================================
-     LOAD DASHBOARD DATA
+     LOAD DATA
   ===================================================== */
 
   const loadData = useCallback(async () => {
@@ -127,7 +127,7 @@ export default function DashboardPage() {
   }, [router, loadData]);
 
   /* =====================================================
-     CONNECT SOCIAL ACCOUNT
+     CONNECT ACCOUNT
   ===================================================== */
 
   async function handleConnect(
@@ -177,7 +177,7 @@ export default function DashboardPage() {
   }
 
   /* =====================================================
-     LOADING SCREEN
+     LOADING
   ===================================================== */
 
   if (loading) {
@@ -185,29 +185,29 @@ export default function DashboardPage() {
       <main
         className="flex min-h-screen items-center justify-center"
         style={{
-          background: "#07080C",
-          color: "#E8E9F5",
+          background: "var(--sp-bg)",
+          color: "var(--sp-text)",
         }}
       >
         <div className="text-center">
-
           <div
             className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-transparent"
             style={{
-              borderTopColor: "#00E5FF",
-              borderRightColor: "#9B5CFF",
+              borderTopColor:
+                "var(--sp-cyan)",
+              borderRightColor:
+                "var(--sp-purple)",
             }}
           />
 
           <p
             className="text-sm"
             style={{
-              color: "#777A8D",
+              color: "var(--sp-muted)",
             }}
           >
             Initializing command center...
           </p>
-
         </div>
       </main>
     );
@@ -221,13 +221,12 @@ export default function DashboardPage() {
     <main
       className="min-h-screen"
       style={{
-        background: "#07080C",
-        color: "#E8E9F5",
+        background: "var(--sp-bg)",
+        color: "var(--sp-text)",
         fontFamily:
           "var(--font-plex-mono), monospace",
       }}
     >
-
       <div className="flex min-h-screen">
 
         {/* =================================================
@@ -238,9 +237,9 @@ export default function DashboardPage() {
           className="hidden w-64 shrink-0 border-r p-5 md:flex md:flex-col"
           style={{
             borderColor:
-              "rgba(255,255,255,0.07)",
+              "var(--sp-border)",
             background:
-              "rgba(10,11,17,0.85)",
+              "var(--sp-surface)",
           }}
         >
 
@@ -252,15 +251,14 @@ export default function DashboardPage() {
               className="flex h-10 w-10 items-center justify-center rounded-xl font-bold"
               style={{
                 background:
-                  "linear-gradient(135deg,#00E5FF,#9B5CFF)",
-                color: "#05060A",
+                  "linear-gradient(135deg,#00C8E8,#635BDB)",
+                color: "#ffffff",
               }}
             >
               S
             </div>
 
             <div>
-
               <div
                 className="font-semibold"
                 style={{
@@ -274,12 +272,12 @@ export default function DashboardPage() {
               <div
                 className="text-[9px] uppercase tracking-[0.2em]"
                 style={{
-                  color: "#55596B",
+                  color:
+                    "var(--sp-subtle)",
                 }}
               >
                 Command Center
               </div>
-
             </div>
 
           </div>
@@ -289,7 +287,8 @@ export default function DashboardPage() {
           <p
             className="mb-3 px-2 text-[10px] uppercase tracking-[0.2em]"
             style={{
-              color: "#505365",
+              color:
+                "var(--sp-subtle)",
             }}
           >
             Workspace
@@ -297,17 +296,19 @@ export default function DashboardPage() {
 
           <div className="space-y-1">
 
-            {/* COMMAND CENTER */}
+            {/* DASHBOARD */}
 
             <button
+              type="button"
               onClick={() =>
                 router.push("/dashboard")
               }
               className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm"
               style={{
                 background:
-                  "rgba(0,229,255,0.09)",
-                color: "#00E5FF",
+                  "rgba(0,160,210,0.10)",
+                color:
+                  "var(--sp-cyan)",
               }}
             >
               <span>◉</span>
@@ -317,12 +318,14 @@ export default function DashboardPage() {
             {/* CREATE */}
 
             <button
+              type="button"
               onClick={() =>
                 router.push("/create-post")
               }
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-colors hover:bg-white/5"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-all"
               style={{
-                color: "#85889A",
+                color:
+                  "var(--sp-text-secondary)",
               }}
             >
               <span>✦</span>
@@ -332,12 +335,14 @@ export default function DashboardPage() {
             {/* CONTENT LAB */}
 
             <button
+              type="button"
               onClick={() =>
                 router.push("/content-lab")
               }
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-colors hover:bg-white/5"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-all"
               style={{
-                color: "#85889A",
+                color:
+                  "var(--sp-text-secondary)",
               }}
             >
               <span>◇</span>
@@ -347,12 +352,14 @@ export default function DashboardPage() {
             {/* INSIGHTS */}
 
             <button
+              type="button"
               onClick={() =>
                 router.push("/insights")
               }
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-colors hover:bg-white/5"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-all"
               style={{
-                color: "#85889A",
+                color:
+                  "var(--sp-text-secondary)",
               }}
             >
               <span>◌</span>
@@ -362,12 +369,14 @@ export default function DashboardPage() {
             {/* AUDIENCE */}
 
             <button
+              type="button"
               onClick={() =>
                 router.push("/audience")
               }
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-colors hover:bg-white/5"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-all"
               style={{
-                color: "#85889A",
+                color:
+                  "var(--sp-text-secondary)",
               }}
             >
               <span>◎</span>
@@ -383,7 +392,8 @@ export default function DashboardPage() {
           <p
             className="mb-3 mt-10 px-2 text-[10px] uppercase tracking-[0.2em]"
             style={{
-              color: "#505365",
+              color:
+                "var(--sp-subtle)",
             }}
           >
             Connected
@@ -392,18 +402,16 @@ export default function DashboardPage() {
           <div className="space-y-2">
 
             {accounts.length === 0 ? (
-
               <p
                 className="px-2 text-xs"
                 style={{
-                  color: "#55596B",
+                  color:
+                    "var(--sp-subtle)",
                 }}
               >
                 No platforms connected
               </p>
-
             ) : (
-
               accounts
                 .slice(0, 5)
                 .map((account) => {
@@ -418,13 +426,15 @@ export default function DashboardPage() {
                       key={account.id}
                       className="flex items-center gap-3 px-2 py-2"
                     >
-
                       <span
                         className="flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold"
                         style={{
                           background:
-                            "rgba(255,255,255,0.06)",
-                          color: "#A7A9B7",
+                            "var(--sp-hover)",
+                          color:
+                            "var(--sp-text-secondary)",
+                          border:
+                            "1px solid var(--sp-border)",
                         }}
                       >
                         {platformInfo?.icon ||
@@ -432,7 +442,6 @@ export default function DashboardPage() {
                       </span>
 
                       <div className="min-w-0">
-
                         <p className="truncate text-xs">
                           {account.account_name}
                         </p>
@@ -440,23 +449,22 @@ export default function DashboardPage() {
                         <p
                           className="text-[10px]"
                           style={{
-                            color: "#55596B",
+                            color:
+                              "var(--sp-muted)",
                           }}
                         >
                           {platformInfo?.label ||
                             account.platform}
                         </p>
-
                       </div>
 
                       <span
                         className="ml-auto h-1.5 w-1.5 rounded-full"
                         style={{
                           background:
-                            "#35E6A1",
+                            "var(--sp-green)",
                         }}
                       />
-
                     </div>
                   );
                 })
@@ -465,21 +473,22 @@ export default function DashboardPage() {
           </div>
 
           {/* =================================================
-              ACCOUNT / SETTINGS
+              ACCOUNT
           ================================================= */}
 
           <div
             className="mt-auto border-t pt-4"
             style={{
               borderColor:
-                "rgba(255,255,255,0.07)",
+                "var(--sp-border)",
             }}
           >
 
             <p
               className="mb-2 px-2 text-[10px] uppercase tracking-[0.2em]"
               style={{
-                color: "#505365",
+                color:
+                  "var(--sp-subtle)",
               }}
             >
               Account
@@ -488,64 +497,95 @@ export default function DashboardPage() {
             {/* SETTINGS */}
 
             <button
+              type="button"
               onClick={() =>
                 router.push("/settings")
               }
-              className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-all duration-200 hover:bg-white/5"
+              className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-all"
               style={{
-                color: "#777A8D",
+                color:
+                  "var(--sp-text-secondary)",
               }}
             >
-
               <span
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-sm"
                 style={{
                   background:
-                    "rgba(255,255,255,0.035)",
+                    "var(--sp-hover)",
+                  border:
+                    "1px solid var(--sp-border)",
                 }}
               >
                 ⚙
               </span>
 
-              <span className="group-hover:text-[#E8E9F5]">
+              <span>
                 Settings
               </span>
 
               <span
-                className="ml-auto text-xs opacity-0 transition-opacity group-hover:opacity-100"
+                className="ml-auto"
                 style={{
-                  color: "#00E5FF",
+                  color:
+                    "var(--sp-cyan)",
                 }}
               >
                 →
               </span>
+            </button>
 
+            {/* PREFERENCES */}
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push("/preferences")
+              }
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm"
+              style={{
+                color:
+                  "var(--sp-text-secondary)",
+              }}
+            >
+              <span
+                className="flex h-7 w-7 items-center justify-center rounded-lg"
+                style={{
+                  background:
+                    "var(--sp-hover)",
+                  border:
+                    "1px solid var(--sp-border)",
+                }}
+              >
+                ◐
+              </span>
+
+              Preferences
             </button>
 
             {/* SIGN OUT */}
 
             <button
+              type="button"
               onClick={handleLogout}
-              className="group mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-all duration-200 hover:bg-white/5"
+              className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm"
               style={{
-                color: "#777A8D",
+                color:
+                  "var(--sp-text-secondary)",
               }}
             >
-
               <span
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-sm"
+                className="flex h-7 w-7 items-center justify-center rounded-lg"
                 style={{
                   background:
-                    "rgba(255,255,255,0.035)",
+                    "var(--sp-hover)",
+                  border:
+                    "1px solid var(--sp-border)",
                 }}
               >
                 ↪
               </span>
 
-              <span className="group-hover:text-[#FF6B8B]">
-                Sign out
-              </span>
-
+              Sign out
             </button>
 
           </div>
@@ -553,7 +593,7 @@ export default function DashboardPage() {
         </aside>
 
         {/* =================================================
-            MAIN CONTENT
+            MAIN
         ================================================= */}
 
         <section className="flex-1">
@@ -564,16 +604,18 @@ export default function DashboardPage() {
             className="flex items-center justify-between border-b px-6 py-5 md:px-10"
             style={{
               borderColor:
-                "rgba(255,255,255,0.07)",
+                "var(--sp-border)",
+              background:
+                "var(--sp-bg)",
             }}
           >
 
             <div>
-
               <p
                 className="text-[10px] uppercase tracking-[0.25em]"
                 style={{
-                  color: "#00E5FF",
+                  color:
+                    "var(--sp-cyan)",
                 }}
               >
                 Command Center
@@ -582,36 +624,32 @@ export default function DashboardPage() {
               <p
                 className="mt-1 text-xs"
                 style={{
-                  color: "#55596B",
+                  color:
+                    "var(--sp-muted)",
                 }}
               >
                 Your social system at a glance
               </p>
-
             </div>
 
             <div className="flex items-center gap-4">
 
-              {/* CREATE */}
-
               <button
+                type="button"
                 onClick={() =>
                   router.push("/create-post")
                 }
                 className="rounded-xl px-4 py-2.5 text-xs font-semibold"
                 style={{
                   background:
-                    "linear-gradient(135deg,#00E5FF,#9B5CFF)",
-                  color: "#05060A",
+                    "linear-gradient(135deg,#00C8E8,#635BDB)",
+                  color: "#ffffff",
                 }}
               >
                 + Create
               </button>
 
-              {/* USER */}
-
               <div className="hidden text-right sm:block">
-
                 <p className="text-xs">
                   {profile?.name || "User"}
                 </p>
@@ -619,25 +657,24 @@ export default function DashboardPage() {
                 <p
                   className="text-[10px]"
                   style={{
-                    color: "#55596B",
+                    color:
+                      "var(--sp-muted)",
                   }}
                 >
                   {profile?.role ||
                     "Creator"}
                 </p>
-
               </div>
-
-              {/* AVATAR */}
 
               <div
                 className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold"
                 style={{
                   background:
-                    "rgba(155,92,255,0.15)",
-                  color: "#B58CFF",
+                    "rgba(99,91,219,0.12)",
+                  color:
+                    "var(--sp-purple)",
                   border:
-                    "1px solid rgba(155,92,255,0.25)",
+                    "1px solid rgba(99,91,219,0.22)",
                 }}
               >
                 {profile?.name
@@ -649,7 +686,7 @@ export default function DashboardPage() {
 
           </header>
 
-          {/* PAGE CONTENT */}
+          {/* CONTENT */}
 
           <div className="mx-auto max-w-7xl p-6 md:p-10">
 
@@ -679,7 +716,8 @@ export default function DashboardPage() {
               <p
                 className="mt-2 max-w-xl text-sm"
                 style={{
-                  color: "#686B7D",
+                  color:
+                    "var(--sp-muted)",
                 }}
               >
                 Everything happening across
@@ -696,10 +734,11 @@ export default function DashboardPage() {
                 className="mb-6 rounded-xl p-4 text-sm"
                 style={{
                   background:
-                    "rgba(255,61,110,0.08)",
+                    "rgba(220,49,89,0.08)",
                   border:
-                    "1px solid rgba(255,61,110,0.2)",
-                  color: "#FF6B8B",
+                    "1px solid rgba(220,49,89,0.20)",
+                  color:
+                    "var(--sp-danger)",
                 }}
               >
                 {error}
@@ -746,9 +785,9 @@ export default function DashboardPage() {
                   className="rounded-2xl p-5"
                   style={{
                     background:
-                      "rgba(255,255,255,0.025)",
+                      "var(--sp-card)",
                     border:
-                      "1px solid rgba(255,255,255,0.07)",
+                      "1px solid var(--sp-border)",
                   }}
                 >
 
@@ -757,7 +796,8 @@ export default function DashboardPage() {
                     <span
                       className="text-xs"
                       style={{
-                        color: "#646879",
+                        color:
+                          "var(--sp-muted)",
                       }}
                     >
                       {item.label}
@@ -765,7 +805,8 @@ export default function DashboardPage() {
 
                     <span
                       style={{
-                        color: "#00E5FF",
+                        color:
+                          "var(--sp-cyan)",
                       }}
                     >
                       {item.icon}
@@ -773,14 +814,21 @@ export default function DashboardPage() {
 
                   </div>
 
-                  <div className="mt-5 text-2xl font-semibold">
+                  <div
+                    className="mt-5 text-2xl font-semibold"
+                    style={{
+                      color:
+                        "var(--sp-text)",
+                    }}
+                  >
                     {item.value}
                   </div>
 
                   <p
                     className="mt-1 text-[10px]"
                     style={{
-                      color: "#35E6A1",
+                      color:
+                        "var(--sp-green)",
                     }}
                   >
                     {item.change}
@@ -804,20 +852,20 @@ export default function DashboardPage() {
                 className="rounded-2xl p-6 lg:col-span-2"
                 style={{
                   background:
-                    "rgba(255,255,255,0.025)",
+                    "var(--sp-card)",
                   border:
-                    "1px solid rgba(255,255,255,0.07)",
+                    "1px solid var(--sp-border)",
                 }}
               >
 
                 <div className="flex items-center justify-between">
 
                   <div>
-
                     <p
                       className="text-xs uppercase tracking-widest"
                       style={{
-                        color: "#55596B",
+                        color:
+                          "var(--sp-subtle)",
                       }}
                     >
                       Social pulse
@@ -832,15 +880,15 @@ export default function DashboardPage() {
                     >
                       Performance momentum
                     </h2>
-
                   </div>
 
                   <span
                     className="rounded-full px-3 py-1 text-[10px]"
                     style={{
                       background:
-                        "rgba(53,230,161,0.08)",
-                      color: "#35E6A1",
+                        "rgba(21,149,112,0.08)",
+                      color:
+                        "var(--sp-green)",
                     }}
                   >
                     Growing
@@ -870,17 +918,15 @@ export default function DashboardPage() {
                         key={index}
                         className="group relative flex-1"
                       >
-
                         <div
                           className="absolute bottom-0 w-full rounded-t-lg transition-all group-hover:opacity-70"
                           style={{
                             height:
                               `${height}%`,
                             background:
-                              "linear-gradient(to top,rgba(0,229,255,0.12),rgba(155,92,255,0.65))",
+                              "linear-gradient(to top,rgba(0,200,232,0.12),rgba(99,91,219,0.65))",
                           }}
                         />
-
                       </div>
 
                     )
@@ -891,7 +937,8 @@ export default function DashboardPage() {
                 <div
                   className="mt-4 flex justify-between text-[9px]"
                   style={{
-                    color: "#4F5262",
+                    color:
+                      "var(--sp-subtle)",
                   }}
                 >
                   <span>
@@ -911,9 +958,9 @@ export default function DashboardPage() {
                 className="rounded-2xl p-6"
                 style={{
                   background:
-                    "linear-gradient(145deg,rgba(0,229,255,0.07),rgba(155,92,255,0.08))",
+                    "linear-gradient(145deg,rgba(0,200,232,0.07),rgba(99,91,219,0.08))",
                   border:
-                    "1px solid rgba(155,92,255,0.15)",
+                    "1px solid rgba(99,91,219,0.15)",
                 }}
               >
 
@@ -921,8 +968,9 @@ export default function DashboardPage() {
                   className="flex h-10 w-10 items-center justify-center rounded-xl"
                   style={{
                     background:
-                      "rgba(155,92,255,0.12)",
-                    color: "#B58CFF",
+                      "rgba(99,91,219,0.12)",
+                    color:
+                      "var(--sp-purple)",
                   }}
                 >
                   ✦
@@ -931,7 +979,8 @@ export default function DashboardPage() {
                 <p
                   className="mt-6 text-[10px] uppercase tracking-widest"
                   style={{
-                    color: "#777A8D",
+                    color:
+                      "var(--sp-muted)",
                   }}
                 >
                   AI Pilot
@@ -950,7 +999,8 @@ export default function DashboardPage() {
                 <p
                   className="mt-4 text-sm leading-6"
                   style={{
-                    color: "#85889A",
+                    color:
+                      "var(--sp-text-secondary)",
                   }}
                 >
                   Your audience is responding
@@ -962,14 +1012,17 @@ export default function DashboardPage() {
                   className="mt-6 rounded-xl p-4"
                   style={{
                     background:
-                      "rgba(0,0,0,0.18)",
+                      "var(--sp-hover)",
+                    border:
+                      "1px solid var(--sp-border)",
                   }}
                 >
 
                   <p
                     className="text-xs leading-5"
                     style={{
-                      color: "#AEB0BF",
+                      color:
+                        "var(--sp-text-secondary)",
                     }}
                   >
                     Recommendation
@@ -978,7 +1031,8 @@ export default function DashboardPage() {
                   <p
                     className="mt-1 text-xs leading-5"
                     style={{
-                      color: "#E1E2EA",
+                      color:
+                        "var(--sp-text)",
                     }}
                   >
                     Experiment with more
@@ -1004,20 +1058,20 @@ export default function DashboardPage() {
                 className="rounded-2xl p-6"
                 style={{
                   background:
-                    "rgba(255,255,255,0.025)",
+                    "var(--sp-card)",
                   border:
-                    "1px solid rgba(255,255,255,0.07)",
+                    "1px solid var(--sp-border)",
                 }}
               >
 
                 <div className="flex items-center justify-between">
 
                   <div>
-
                     <p
                       className="text-[10px] uppercase tracking-widest"
                       style={{
-                        color: "#55596B",
+                        color:
+                          "var(--sp-subtle)",
                       }}
                     >
                       Content Lab
@@ -1032,10 +1086,10 @@ export default function DashboardPage() {
                     >
                       Your content pipeline
                     </h2>
-
                   </div>
 
                   <button
+                    type="button"
                     onClick={() =>
                       router.push(
                         "/content-lab"
@@ -1043,7 +1097,8 @@ export default function DashboardPage() {
                     }
                     className="text-xs"
                     style={{
-                      color: "#00E5FF",
+                      color:
+                        "var(--sp-cyan)",
                     }}
                   >
                     Open →
@@ -1065,7 +1120,9 @@ export default function DashboardPage() {
                         className="rounded-xl p-4"
                         style={{
                           background:
-                            "rgba(255,255,255,0.025)",
+                            "var(--sp-hover)",
+                          border:
+                            "1px solid var(--sp-border)",
                         }}
                       >
 
@@ -1073,13 +1130,19 @@ export default function DashboardPage() {
                           className="text-[10px]"
                           style={{
                             color:
-                              "#5C5F70",
+                              "var(--sp-muted)",
                           }}
                         >
                           {label}
                         </p>
 
-                        <p className="mt-3 text-2xl">
+                        <p
+                          className="mt-3 text-2xl"
+                          style={{
+                            color:
+                              "var(--sp-text)",
+                          }}
+                        >
                           {number}
                         </p>
 
@@ -1092,22 +1155,23 @@ export default function DashboardPage() {
 
               </div>
 
-              {/* CONNECT ACCOUNT */}
+              {/* CONNECT */}
 
               <div
                 className="rounded-2xl p-6"
                 style={{
                   background:
-                    "rgba(255,255,255,0.025)",
+                    "var(--sp-card)",
                   border:
-                    "1px solid rgba(255,255,255,0.07)",
+                    "1px solid var(--sp-border)",
                 }}
               >
 
                 <p
                   className="text-[10px] uppercase tracking-widest"
                   style={{
-                    color: "#55596B",
+                    color:
+                      "var(--sp-subtle)",
                   }}
                 >
                   Expand your network
@@ -1138,14 +1202,13 @@ export default function DashboardPage() {
                     className="rounded-xl px-3 py-3 text-xs outline-none"
                     style={{
                       background:
-                        "#0B0C12",
+                        "var(--sp-input)",
                       border:
-                        "1px solid rgba(255,255,255,0.08)",
+                        "1px solid var(--sp-border)",
                       color:
-                        "#B9BBC7",
+                        "var(--sp-input-text)",
                     }}
                   >
-
                     <option value="linkedin">
                       LinkedIn
                     </option>
@@ -1169,7 +1232,6 @@ export default function DashboardPage() {
                     <option value="pinterest">
                       Pinterest
                     </option>
-
                   </select>
 
                   <input
@@ -1184,11 +1246,11 @@ export default function DashboardPage() {
                     className="min-w-0 flex-1 rounded-xl px-3 py-3 text-xs outline-none"
                     style={{
                       background:
-                        "#0B0C12",
+                        "var(--sp-input)",
                       border:
-                        "1px solid rgba(255,255,255,0.08)",
+                        "1px solid var(--sp-border)",
                       color:
-                        "#E8E9F5",
+                        "var(--sp-input-text)",
                     }}
                   />
 
@@ -1198,11 +1260,11 @@ export default function DashboardPage() {
                     className="rounded-xl px-4 py-3 text-xs font-semibold disabled:opacity-50"
                     style={{
                       background:
-                        "rgba(0,229,255,0.1)",
+                        "rgba(0,160,210,0.10)",
                       color:
-                        "#00E5FF",
+                        "var(--sp-cyan)",
                       border:
-                        "1px solid rgba(0,229,255,0.15)",
+                        "1px solid rgba(0,160,210,0.18)",
                     }}
                   >
                     {connecting

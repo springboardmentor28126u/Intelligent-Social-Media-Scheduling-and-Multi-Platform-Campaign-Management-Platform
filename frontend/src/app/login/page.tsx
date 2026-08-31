@@ -8,7 +8,6 @@ import { loginUser } from "@/lib/api";
 export default function LoginPage() {
   const router = useRouter();
 
-  // Read remembered email directly when component initializes.
   const [email, setEmail] = useState(() => {
     if (typeof window === "undefined") {
       return "";
@@ -18,6 +17,7 @@ export default function LoginPage() {
   });
 
   const [password, setPassword] = useState("");
+
   const [rememberMe, setRememberMe] = useState(() => {
     if (typeof window === "undefined") {
       return true;
@@ -29,7 +29,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
+  async function handleLogin(
+    e: React.FormEvent<HTMLFormElement>
+  ) {
     e.preventDefault();
 
     setError("");
@@ -38,13 +40,11 @@ export default function LoginPage() {
     try {
       const data = await loginUser(email, password);
 
-      // Save authentication token
       localStorage.setItem(
         "access_token",
         data.access_token
       );
 
-      // Save user information
       if (data.user_id !== undefined) {
         localStorage.setItem(
           "user_id",
@@ -66,7 +66,6 @@ export default function LoginPage() {
         );
       }
 
-      // Remember email only
       if (rememberMe) {
         localStorage.setItem(
           "remembered_email",
@@ -78,9 +77,7 @@ export default function LoginPage() {
         );
       }
 
-      // Go to dashboard
       router.push("/dashboard");
-
     } catch (err: unknown) {
       setError(
         err instanceof Error
@@ -94,10 +91,11 @@ export default function LoginPage() {
 
   return (
     <main
-      className="flex min-h-screen items-center justify-center px-6"
+      className="flex min-h-screen items-center justify-center px-6 py-10"
       style={{
-        background: "#08090D",
-        color: "#E8E9F0",
+        background:
+          "linear-gradient(135deg, #eaf4ff 0%, #ffffff 50%, #eef6ff 100%)",
+        color: "var(--sp-text)",
         fontFamily:
           "var(--font-plex-mono), monospace",
       }}
@@ -105,22 +103,22 @@ export default function LoginPage() {
       <div
         className="w-full max-w-md rounded-3xl p-8"
         style={{
-          background: "rgba(255,255,255,0.04)",
-          border:
-            "1px solid rgba(255,255,255,0.08)",
-          backdropFilter: "blur(20px)",
+          background: "#ffffff",
+          border: "1px solid #dce7f3",
+          boxShadow:
+            "0 20px 60px rgba(37, 99, 235, 0.10)",
         }}
       >
-
         {/* LOGO */}
         <div className="mb-8 text-center">
-
           <div
             className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-xl font-bold"
             style={{
               background:
-                "linear-gradient(135deg,#00F0FF,#B026FF)",
-              color: "#05060A",
+                "linear-gradient(135deg, #2563eb, #60a5fa)",
+              color: "#ffffff",
+              boxShadow:
+                "0 10px 25px rgba(37, 99, 235, 0.20)",
             }}
           >
             S
@@ -131,6 +129,7 @@ export default function LoginPage() {
             style={{
               fontFamily:
                 "var(--font-fraunces), serif",
+              color: "#172b4d",
             }}
           >
             Welcome back
@@ -138,40 +137,41 @@ export default function LoginPage() {
 
           <p
             className="mt-2 text-sm"
-            style={{ color: "#8A8B9A" }}
+            style={{
+              color: "#64748b",
+            }}
           >
             Continue managing your social presence.
           </p>
-
         </div>
 
-        {/* ERROR MESSAGE */}
+        {/* ERROR */}
         {error && (
           <div
             className="mb-5 rounded-xl p-3 text-sm"
             style={{
-              background:
-                "rgba(255,61,110,0.1)",
-              border:
-                "1px solid rgba(255,61,110,0.3)",
-              color: "#FF3D6E",
+              background: "#fff1f2",
+              border: "1px solid #fecdd3",
+              color: "#dc2626",
             }}
           >
             {error}
           </div>
         )}
 
-        {/* LOGIN FORM */}
+        {/* FORM */}
         <form
           onSubmit={handleLogin}
           className="space-y-5"
         >
-
           {/* EMAIL */}
           <div>
             <label
               htmlFor="email"
               className="mb-2 block text-sm"
+              style={{
+                color: "#334e68",
+              }}
             >
               Email
             </label>
@@ -188,22 +188,22 @@ export default function LoginPage() {
               autoComplete="email"
               className="w-full rounded-xl px-4 py-3 outline-none"
               style={{
-                background: "#0B0C14",
-                border:
-                  "1px solid rgba(255,255,255,0.1)",
-                color: "#E8E9F5",
+                background: "#ffffff",
+                border: "1px solid #dce7f3",
+                color: "#172b4d",
               }}
             />
           </div>
 
           {/* PASSWORD */}
           <div>
-
             <div className="mb-2 flex justify-between">
-
               <label
                 htmlFor="password"
                 className="text-sm"
+                style={{
+                  color: "#334e68",
+                }}
               >
                 Password
               </label>
@@ -212,12 +212,11 @@ export default function LoginPage() {
                 href="/reset-password"
                 className="text-xs"
                 style={{
-                  color: "#00F0FF",
+                  color: "#2563eb",
                 }}
               >
                 Forgot password?
               </Link>
-
             </div>
 
             <input
@@ -232,18 +231,15 @@ export default function LoginPage() {
               autoComplete="current-password"
               className="w-full rounded-xl px-4 py-3 outline-none"
               style={{
-                background: "#0B0C14",
-                border:
-                  "1px solid rgba(255,255,255,0.1)",
-                color: "#E8E9F5",
+                background: "#ffffff",
+                border: "1px solid #dce7f3",
+                color: "#172b4d",
               }}
             />
-
           </div>
 
-          {/* REMEMBER ACCOUNT */}
+          {/* REMEMBER */}
           <label className="flex cursor-pointer items-center gap-3 text-sm">
-
             <input
               type="checkbox"
               checked={rememberMe}
@@ -255,37 +251,37 @@ export default function LoginPage() {
 
             <span
               style={{
-                color: "#A0A1B0",
+                color: "#64748b",
               }}
             >
               Remember this account
             </span>
-
           </label>
 
           {/* LOGIN BUTTON */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl py-3.5 font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="w-full rounded-xl py-3.5 font-medium transition hover:opacity-90 disabled:opacity-50"
             style={{
               background:
-                "linear-gradient(135deg,#00F0FF,#B026FF)",
-              color: "#05060A",
+                "linear-gradient(135deg, #2563eb, #3b82f6)",
+              color: "#ffffff",
+              boxShadow:
+                "0 8px 20px rgba(37, 99, 235, 0.20)",
             }}
           >
             {loading
               ? "Signing in..."
               : "Sign in"}
           </button>
-
         </form>
 
         {/* REGISTER */}
         <p
           className="mt-7 text-center text-sm"
           style={{
-            color: "#8A8B9A",
+            color: "#64748b",
           }}
         >
           Don&apos;t have an account?{" "}
@@ -293,13 +289,13 @@ export default function LoginPage() {
           <Link
             href="/register"
             style={{
-              color: "#00F0FF",
+              color: "#2563eb",
+              fontWeight: 500,
             }}
           >
             Create one
           </Link>
         </p>
-
       </div>
     </main>
   );

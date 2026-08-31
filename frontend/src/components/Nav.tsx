@@ -58,8 +58,8 @@ export default function Nav({ rightSlot }: NavProps) {
             className="flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold"
             style={{
               background:
-                "linear-gradient(135deg,#00F0FF,#B026FF)",
-              color: "#05060A",
+                "linear-gradient(135deg,#00C6FF,#7C4DFF)",
+              color: "#ffffff",
             }}
           >
             S
@@ -71,7 +71,7 @@ export default function Nav({ rightSlot }: NavProps) {
               style={{
                 fontFamily:
                   "var(--font-fraunces), serif",
-                color: "#E8E9F5",
+                color: "var(--sp-text)",
               }}
             >
               SocialPilot
@@ -80,7 +80,7 @@ export default function Nav({ rightSlot }: NavProps) {
             <span
               className="hidden text-[9px] uppercase tracking-[0.2em] sm:block"
               style={{
-                color: "#666878",
+                color: "var(--sp-muted)",
               }}
             >
               Social Intelligence
@@ -96,15 +96,11 @@ export default function Nav({ rightSlot }: NavProps) {
       <div
         className="mt-6 flex gap-1 overflow-x-auto rounded-2xl p-1.5"
         style={{
-          background:
-            "rgba(255,255,255,0.025)",
-          border:
-            "1px solid rgba(255,255,255,0.07)",
+          background: "var(--sp-card)",
+          border: "1px solid var(--sp-border)",
         }}
       >
-
         {navItems.map((item) => {
-
           const active =
             pathname === item.href ||
             pathname.startsWith(`${item.href}/`);
@@ -116,15 +112,15 @@ export default function Nav({ rightSlot }: NavProps) {
               className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition-all"
               style={{
                 background: active
-                  ? "rgba(0,240,255,0.1)"
+                  ? "var(--sp-active)"
                   : "transparent",
 
                 color: active
-                  ? "#00F0FF"
-                  : "#77798A",
+                  ? "var(--sp-cyan)"
+                  : "var(--sp-text-secondary)",
 
                 border: active
-                  ? "1px solid rgba(0,240,255,0.15)"
+                  ? "1px solid var(--sp-active-border)"
                   : "1px solid transparent",
               }}
             >
@@ -136,7 +132,6 @@ export default function Nav({ rightSlot }: NavProps) {
             </Link>
           );
         })}
-
       </div>
     </nav>
   );

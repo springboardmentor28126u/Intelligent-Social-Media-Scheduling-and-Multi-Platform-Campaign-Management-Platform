@@ -16,7 +16,8 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "SocialPilot",
-  description: "AI-powered scenario simulation engine",
+  description:
+    "AI-powered social media intelligence platform",
 };
 
 export default function RootLayout({
@@ -25,8 +26,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${fraunces.variable} ${plexMono.variable}`}>
+    <html
+      lang="en"
+      data-theme="light"
+      suppressHydrationWarning
+    >
+      <body
+        className={`${fraunces.variable} ${plexMono.variable}`}
+      >
         {children}
       </body>
     </html>
