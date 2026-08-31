@@ -1,0 +1,17 @@
+# Secrets
+Backend/.env
+.env
+
+# Python
+Backend/venv/
+Backend/__pycache__/
+__pycache__/
+*.pyc
+
+# React
+frontend/node_modules/
+
+# VS Code / OS
+.vscode/
+.DS_Store
+Thumbs.db
