@@ -30,7 +30,6 @@ Frontend: Next.js (App Router, TypeScript), Tailwind CSS, lucide-react
 Database: MongoDB Atlas (PostgreSQL + Redis planned for later milestones — analytics and background job queues)
 Authentication: Bearer JWT access tokens
 # Project structure
-text
 .
 ├── backend/
 │   ├── app/
