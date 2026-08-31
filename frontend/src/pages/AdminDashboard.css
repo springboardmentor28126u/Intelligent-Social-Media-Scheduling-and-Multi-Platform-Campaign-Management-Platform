@@ -1,0 +1,271 @@
+/* =====================================================
+   ADMIN DASHBOARD
+===================================================== */
+
+.admin-dashboard-page {
+  min-height: 100vh;
+  background: #f4f6fb;
+  padding: 40px 20px;
+  box-sizing: border-box;
+}
+
+.admin-dashboard-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+
+/* =====================================================
+   HEADER
+===================================================== */
+
+.admin-dashboard-header {
+  background: white;
+  border-radius: 18px;
+  padding: 30px 35px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  margin-bottom: 30px;
+}
+
+.admin-logo {
+  font-size: 22px;
+  font-weight: 700;
+  color: #4f46e5;
+  margin-bottom: 10px;
+}
+
+.admin-dashboard-header h1 {
+  margin: 0;
+  font-size: 32px;
+  color: #1f2937;
+}
+
+.admin-dashboard-header p {
+  margin-top: 8px;
+  color: #6b7280;
+  font-size: 16px;
+}
+
+
+/* =====================================================
+   LOGOUT BUTTON
+===================================================== */
+
+.logout-button {
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.logout-button:hover {
+  background: #b91c1c;
+  transform: translateY(-2px);
+}
+
+
+/* =====================================================
+   WELCOME CARD
+===================================================== */
+
+.admin-welcome-card {
+  background: linear-gradient(
+    135deg,
+    #4f46e5,
+    #7c3aed
+  );
+
+  color: white;
+  padding: 30px;
+  border-radius: 18px;
+  margin-bottom: 30px;
+
+  box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
+}
+
+.admin-welcome-card h2 {
+  margin: 0 0 20px;
+  font-size: 28px;
+}
+
+.admin-welcome-card p {
+  margin: 8px 0;
+  font-size: 17px;
+}
+
+
+/* =====================================================
+   ERROR
+===================================================== */
+
+.admin-error {
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  padding: 25px;
+  border-radius: 14px;
+  margin-bottom: 30px;
+}
+
+.admin-error h2 {
+  margin-top: 0;
+}
+
+.admin-error button {
+  background: #4f46e5;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+
+/* =====================================================
+   ADMIN OPTIONS
+===================================================== */
+
+.admin-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 25px;
+}
+
+
+/* =====================================================
+   OPTION CARD
+===================================================== */
+
+.admin-option-card {
+  background: white;
+  border-radius: 18px;
+  padding: 30px;
+  text-align: center;
+
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.07);
+
+  cursor: pointer;
+
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.admin-option-card:hover {
+  transform: translateY(-7px);
+
+  box-shadow:
+    0 15px 35px rgba(0, 0, 0, 0.12);
+}
+
+
+/* =====================================================
+   ICON
+===================================================== */
+
+.admin-option-icon {
+  font-size: 48px;
+  margin-bottom: 15px;
+}
+
+
+/* =====================================================
+   CARD TITLE
+===================================================== */
+
+.admin-option-card h2 {
+  margin: 10px 0;
+
+  font-size: 22px;
+
+  color: #1f2937;
+}
+
+
+/* =====================================================
+   CARD DESCRIPTION
+===================================================== */
+
+.admin-option-card p {
+  color: #6b7280;
+
+  line-height: 1.6;
+
+  margin-bottom: 20px;
+}
+
+
+/* =====================================================
+   CARD BUTTON
+===================================================== */
+
+.admin-option-card button {
+  background: #4f46e5;
+
+  color: white;
+
+  border: none;
+
+  padding: 11px 20px;
+
+  border-radius: 9px;
+
+  font-size: 14px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition: 0.3s;
+}
+
+.admin-option-card button:hover {
+  background: #4338ca;
+}
+
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media (max-width: 900px) {
+
+  .admin-options {
+    grid-template-columns: 1fr 1fr;
+  }
+
+}
+
+@media (max-width: 600px) {
+
+  .admin-dashboard-page {
+    padding: 20px 12px;
+  }
+
+  .admin-dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  .admin-dashboard-header h1 {
+    font-size: 26px;
+  }
+
+  .admin-options {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-welcome-card h2 {
+    font-size: 23px;
+  }
+
+}

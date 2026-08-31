@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import "./AdminDashboard.css";
 
 function AdminDashboard() {
+  const navigate = useNavigate();
+
   const [admin, setAdmin] = useState(null);
   const [error, setError] = useState("");
-
-  const navigate = useNavigate();
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
@@ -50,36 +51,158 @@ function AdminDashboard() {
   };
 
   return (
-    <div>
-      <h1>SocialPilot Admin Dashboard</h1>
+    <div className="admin-dashboard-page">
 
-      {error && (
-        <div>
-          <h2>Access Denied</h2>
-          <p>{error}</p>
-          <button onClick={() => navigate("/dashboard")}>
-            Go to Dashboard
-          </button>
-        </div>
-      )}
+      <div className="admin-dashboard-container">
 
-      {admin && (
-        <div>
-          <h2>{admin.message}</h2>
+        <div className="admin-dashboard-header">
 
-          <p>
-            <strong>Email:</strong> {admin.user}
-          </p>
+          <div>
+            <div className="admin-logo">
+              🚀 SocialPilot
+            </div>
 
-          <p>
-            <strong>Role:</strong> {admin.role}
-          </p>
+            <h1>
+              Admin Dashboard
+            </h1>
 
-          <button onClick={handleLogout}>
+            <p>
+              Manage and monitor the SocialPilot platform.
+            </p>
+          </div>
+
+          <button
+            className="logout-button"
+            onClick={handleLogout}
+          >
             Logout
           </button>
+
         </div>
-      )}
+
+        {error && (
+          <div className="admin-error">
+            <h2>Access Denied</h2>
+            <p>{error}</p>
+
+            <button
+              onClick={() => navigate("/dashboard")}
+            >
+              Go to User Dashboard
+            </button>
+          </div>
+        )}
+
+        {admin && (
+          <>
+            {/* ADMIN INFORMATION */}
+
+            <div className="admin-welcome-card">
+
+              <h2>
+                👋 {admin.message}
+              </h2>
+
+              <p>
+                <strong>Email:</strong>{" "}
+                {admin.user}
+              </p>
+
+              <p>
+                <strong>Role:</strong>{" "}
+                {admin.role}
+              </p>
+
+            </div>
+
+
+            {/* ADMIN OPTIONS */}
+
+            <div className="admin-options">
+
+              {/* USER MANAGEMENT */}
+
+              <div
+                className="admin-option-card"
+                onClick={() =>
+                  navigate("/admin-users")
+                }
+              >
+
+                <div className="admin-option-icon">
+                  👥
+                </div>
+
+                <h2>
+                  User Management
+                </h2>
+
+                <p>
+                  View all registered users
+                  on the platform.
+                </p>
+
+                <button>
+                  Manage Users →
+                </button>
+
+              </div>
+
+
+              {/* PLATFORM OVERVIEW */}
+
+              <div className="admin-option-card">
+
+                <div className="admin-option-icon">
+                  📊
+                </div>
+
+                <h2>
+                  Platform Overview
+                </h2>
+
+                <p>
+                  Monitor platform activity
+                  and system information.
+                </p>
+
+                <button>
+                  View Overview →
+                </button>
+
+              </div>
+
+
+              {/* SYSTEM MANAGEMENT */}
+
+              <div className="admin-option-card">
+
+                <div className="admin-option-icon">
+                  ⚙️
+                </div>
+
+                <h2>
+                  System Management
+                </h2>
+
+                <p>
+                  Manage platform settings
+                  and administration.
+                </p>
+
+                <button>
+                  Manage System →
+                </button>
+
+              </div>
+
+            </div>
+
+          </>
+        )}
+
+      </div>
+
     </div>
   );
 }

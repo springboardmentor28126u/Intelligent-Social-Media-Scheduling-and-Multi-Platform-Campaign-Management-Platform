@@ -11,6 +11,8 @@ import "./App.css";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminUsers from "./pages/AdminUsers";
 import SocialAccounts from "./pages/SocialAccounts";
 import Posts from "./pages/Posts";
 import CreatePost from "./pages/CreatePost";
@@ -33,6 +35,22 @@ function ProtectedRoute({ children }) {
 
 
 // =====================================================
+// ADMIN ROUTE
+// =====================================================
+
+function AdminRoute({ children }) {
+
+  const token = localStorage.getItem("access_token");
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
+
+
+// =====================================================
 // HOME PAGE
 // =====================================================
 
@@ -42,9 +60,7 @@ function Home() {
 
     <div className="home-page">
 
-      {/* =====================================================
-          NAVBAR
-      ===================================================== */}
+      {/* NAVBAR */}
 
       <nav className="navbar">
 
@@ -73,9 +89,7 @@ function Home() {
       </nav>
 
 
-      {/* =====================================================
-          HERO SECTION
-      ===================================================== */}
+      {/* HERO */}
 
       <section className="hero">
 
@@ -85,25 +99,17 @@ function Home() {
             🚀 Social Media Management Platform
           </div>
 
-
           <h1>
-
             Manage Your Social Media
-
             <span>
               {" "}in One Place
             </span>
-
           </h1>
 
-
           <p>
-
             Create, schedule and manage your social media
             content from a single, simple and powerful platform.
-
           </p>
-
 
           <div className="hero-buttons">
 
@@ -113,7 +119,6 @@ function Home() {
             >
               Get Started
             </Link>
-
 
             <Link
               to="/login"
@@ -129,9 +134,7 @@ function Home() {
       </section>
 
 
-      {/* =====================================================
-          FEATURES SECTION
-      ===================================================== */}
+      {/* FEATURES */}
 
       <section className="features">
 
@@ -151,9 +154,6 @@ function Home() {
 
         <div className="feature-grid">
 
-
-          {/* FEATURE 1 */}
-
           <div className="feature-card">
 
             <div className="feature-icon">
@@ -165,16 +165,12 @@ function Home() {
             </h3>
 
             <p>
-
               Connect and manage multiple social media
               accounts from a single dashboard.
-
             </p>
 
           </div>
 
-
-          {/* FEATURE 2 */}
 
           <div className="feature-card">
 
@@ -187,16 +183,12 @@ function Home() {
             </h3>
 
             <p>
-
               Create, edit, publish and delete social media
               posts easily.
-
             </p>
 
           </div>
 
-
-          {/* FEATURE 3 */}
 
           <div className="feature-card">
 
@@ -209,16 +201,12 @@ function Home() {
             </h3>
 
             <p>
-
               Schedule your content and manage upcoming
               posts efficiently.
-
             </p>
 
           </div>
 
-
-          {/* FEATURE 4 */}
 
           <div className="feature-card">
 
@@ -231,10 +219,8 @@ function Home() {
             </h3>
 
             <p>
-
               View your social accounts and post activity
               through a centralized dashboard.
-
             </p>
 
           </div>
@@ -244,9 +230,7 @@ function Home() {
       </section>
 
 
-      {/* =====================================================
-          WORKFLOW SECTION
-      ===================================================== */}
+      {/* WORKFLOW */}
 
       <section className="workflow">
 
@@ -264,9 +248,6 @@ function Home() {
 
 
         <div className="workflow-grid">
-
-
-          {/* STEP 1 */}
 
           <div className="workflow-step">
 
@@ -290,8 +271,6 @@ function Home() {
           </div>
 
 
-          {/* STEP 2 */}
-
           <div className="workflow-step">
 
             <div className="step-number">
@@ -313,8 +292,6 @@ function Home() {
             →
           </div>
 
-
-          {/* STEP 3 */}
 
           <div className="workflow-step">
 
@@ -338,8 +315,6 @@ function Home() {
           </div>
 
 
-          {/* STEP 4 */}
-
           <div className="workflow-step">
 
             <div className="step-number">
@@ -361,9 +336,7 @@ function Home() {
       </section>
 
 
-      {/* =====================================================
-          CTA SECTION
-      ===================================================== */}
+      {/* CTA */}
 
       <section className="cta">
 
@@ -375,7 +348,6 @@ function Home() {
           Create your SocialPilot account and get started.
         </p>
 
-
         <Link
           to="/register"
           className="primary-button"
@@ -386,9 +358,7 @@ function Home() {
       </section>
 
 
-      {/* =====================================================
-          FOOTER
-      ===================================================== */}
+      {/* FOOTER */}
 
       <footer>
 
@@ -396,11 +366,9 @@ function Home() {
           SocialPilot
         </div>
 
-
         <p>
           Social Media Scheduler & Campaign Management Platform
         </p>
-
 
         <div className="footer-links">
 
@@ -414,11 +382,8 @@ function Home() {
 
         </div>
 
-
         <p className="copyright">
-
           © 2026 SocialPilot. All rights reserved.
-
         </p>
 
       </footer>
@@ -442,28 +407,19 @@ function App() {
 
       <Routes>
 
-
         {/* =================================================
             PUBLIC ROUTES
         ================================================= */}
-
-        {/* HOME */}
 
         <Route
           path="/"
           element={<Home />}
         />
 
-
-        {/* REGISTER */}
-
         <Route
           path="/register"
           element={<Register />}
         />
-
-
-        {/* LOGIN */}
 
         <Route
           path="/login"
@@ -472,10 +428,8 @@ function App() {
 
 
         {/* =================================================
-            PROTECTED ROUTES
+            USER DASHBOARD
         ================================================= */}
-
-        {/* DASHBOARD */}
 
         <Route
           path="/dashboard"
@@ -487,7 +441,37 @@ function App() {
         />
 
 
-        {/* SOCIAL ACCOUNTS */}
+        {/* =================================================
+            ADMIN DASHBOARD
+        ================================================= */}
+
+        <Route
+          path="/admin-dashboard"
+          element={
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
+          }
+        />
+
+
+        {/* =================================================
+            ADMIN USER MANAGEMENT
+        ================================================= */}
+
+        <Route
+          path="/admin-users"
+          element={
+            <AdminRoute>
+              <AdminUsers />
+            </AdminRoute>
+          }
+        />
+
+
+        {/* =================================================
+            SOCIAL ACCOUNTS
+        ================================================= */}
 
         <Route
           path="/social-accounts"
@@ -499,7 +483,9 @@ function App() {
         />
 
 
-        {/* CREATE POST */}
+        {/* =================================================
+            CREATE POST
+        ================================================= */}
 
         <Route
           path="/create-post"
@@ -511,7 +497,9 @@ function App() {
         />
 
 
-        {/* POSTS */}
+        {/* =================================================
+            POSTS
+        ================================================= */}
 
         <Route
           path="/posts"
@@ -523,6 +511,15 @@ function App() {
         />
 
 
+        {/* =================================================
+            UNKNOWN ROUTE
+        ================================================= */}
+
+        <Route
+          path="*"
+          element={<Navigate to="/" replace />}
+        />
+
       </Routes>
 
     </BrowserRouter>
@@ -530,6 +527,5 @@ function App() {
   );
 
 }
-
 
 export default App;

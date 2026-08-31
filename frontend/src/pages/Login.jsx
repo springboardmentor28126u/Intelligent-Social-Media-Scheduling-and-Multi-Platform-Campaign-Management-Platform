@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import "./Login.css";
 
 function Login() {
-
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
@@ -12,21 +11,18 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-
   // =====================================================
   // LOGIN
   // =====================================================
 
   const handleLogin = async (e) => {
-
     e.preventDefault();
 
     setError("");
 
-
-    // -----------------------------------------------------
+    // -----------------------------
     // VALIDATION
-    // -----------------------------------------------------
+    // -----------------------------
 
     if (!email.trim()) {
       setError("Please enter your email.");
@@ -38,17 +34,14 @@ function Login() {
       return;
     }
 
-
     setLoading(true);
 
-
     try {
-
       // =================================================
-      // CALL FASTAPI LOGIN ENDPOINT
+      // STEP 1: LOGIN
       // =================================================
 
-      const response = await fetch(
+      const loginResponse = await fetch(
         "http://127.0.0.1:8000/auth/login",
         {
           method: "POST",
@@ -64,62 +57,119 @@ function Login() {
         }
       );
 
+      const loginData = await loginResponse.json();
 
-      // =================================================
-      // READ RESPONSE
-      // =================================================
+      console.log("LOGIN RESPONSE:", loginData);
 
-      const data = await response.json();
-
-
-      // =================================================
+      // -----------------------------
       // LOGIN FAILED
-      // =================================================
+      // -----------------------------
 
-      if (!response.ok) {
-
+      if (!loginResponse.ok) {
         setError(
-          data.detail || "Invalid email or password."
+          loginData.detail ||
+            "Invalid email or password."
         );
 
         return;
       }
 
-
-      // =================================================
+      // -----------------------------
       // CHECK TOKEN
-      // =================================================
+      // -----------------------------
 
-      if (!data.access_token) {
-
+      if (!loginData.access_token) {
         setError(
-          "Login failed: access token was not received."
+          "Login failed: access token not received."
         );
 
         return;
       }
 
-
       // =================================================
-      // SAVE ACCESS TOKEN
+      // STEP 2: SAVE TOKEN
       // =================================================
 
       localStorage.setItem(
         "access_token",
-        data.access_token
+        loginData.access_token
       );
 
-
       // =================================================
-      // LOGIN SUCCESS
-      // GO TO DASHBOARD
+      // STEP 3: GET CURRENT USER
       // =================================================
 
-      navigate("/dashboard");
+      const meResponse = await fetch(
+        "http://127.0.0.1:8000/auth/me",
+        {
+          method: "GET",
+
+          headers: {
+            Authorization:
+              `Bearer ${loginData.access_token}`,
+          },
+        }
+      );
+
+      const meData = await meResponse.json();
+
+      console.log("CURRENT USER:", meData);
+
+      // -----------------------------
+      // /auth/me FAILED
+      // -----------------------------
+
+      if (!meResponse.ok) {
+        localStorage.removeItem("access_token");
+
+        setError(
+          meData.detail ||
+            "Unable to get user information."
+        );
+
+        return;
+      }
+
+      // =================================================
+      // STEP 4: GET ROLE
+      // =================================================
+
+      const role = meData.role
+        ? meData.role.toUpperCase()
+        : "USER";
+
+      console.log("USER ROLE:", role);
+
+      // Save role
+      localStorage.setItem("role", role);
+
+      // =================================================
+      // STEP 5: REDIRECT
+      // =================================================
+
+      if (role === "ADMIN") {
+
+        console.log(
+          "ADMIN DETECTED → ADMIN DASHBOARD"
+        );
+
+        navigate("/admin-dashboard");
+
+      } else {
+
+        console.log(
+          "NORMAL USER → USER DASHBOARD"
+        );
+
+        navigate("/dashboard");
+      }
 
     } catch (error) {
 
-      console.error("Login error:", error);
+      console.error(
+        "Login error:",
+        error
+      );
 
       setError(
         "Unable to connect to the server. Please make sure FastAPI is running."
@@ -130,20 +180,16 @@ function Login() {
       setLoading(false);
 
     }
-
   };
-
 
   // =====================================================
   // UI
   // =====================================================
 
   return (
-
     <div className="login-page">
 
       <div className="login-container">
-
 
         {/* =================================================
             LEFT SIDE
@@ -155,22 +201,19 @@ function Login() {
             SocialPilot
           </div>
 
-
           <h1>
             Welcome Back!
           </h1>
 
-
           <p>
             Login to manage your social media accounts,
-            create posts and view your analytics.
+            create posts and manage your content.
           </p>
-
 
           <div className="login-features">
 
             <div className="login-feature">
-              📊 View Analytics
+              📊 View Dashboard
             </div>
 
             <div className="login-feature">
@@ -196,7 +239,6 @@ function Login() {
 
         <div className="login-card">
 
-
           <div className="login-header">
 
             <h2>
@@ -210,25 +252,20 @@ function Login() {
           </div>
 
 
-          {/* =================================================
-              ERROR MESSAGE
-          ================================================= */}
+          {/* ERROR */}
 
           {error && (
-
             <div className="login-error">
               {error}
             </div>
-
           )}
 
 
           {/* =================================================
-              LOGIN FORM
+              FORM
           ================================================= */}
 
           <form onSubmit={handleLogin}>
-
 
             {/* EMAIL */}
 
@@ -243,7 +280,9 @@ function Login() {
                 type="email"
                 placeholder="Enter your email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) =>
+                  setEmail(e.target.value)
+                }
                 disabled={loading}
                 autoComplete="email"
               />
@@ -264,7 +303,9 @@ function Login() {
                 type="password"
                 placeholder="Enter your password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) =>
+                  setPassword(e.target.value)
+                }
                 disabled={loading}
                 autoComplete="current-password"
               />
@@ -272,24 +313,22 @@ function Login() {
             </div>
 
 
-            {/* LOGIN BUTTON */}
+            {/* LOGIN */}
 
             <button
               type="submit"
               className="login-button"
               disabled={loading}
             >
-
-              {loading ? "Logging in..." : "Login"}
-
+              {loading
+                ? "Logging in..."
+                : "Login"}
             </button>
 
           </form>
 
 
-          {/* =================================================
-              REGISTER
-          ================================================= */}
+          {/* REGISTER */}
 
           <div className="register-link">
 
@@ -304,9 +343,7 @@ function Login() {
           </div>
 
 
-          {/* =================================================
-              BACK TO HOME
-          ================================================= */}
+          {/* HOME */}
 
           <div className="back-home">
 
@@ -321,9 +358,7 @@ function Login() {
       </div>
 
     </div>
-
   );
-
 }
 
 export default Login;
