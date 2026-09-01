@@ -162,7 +162,7 @@ function IntegrationsSettings() {
         </Link>
       </div>
       <div className="mt-6 space-y-3">
-        {['Instagram', 'Facebook', 'LinkedIn', 'X', 'YouTube', 'TikTok'].map((name) => {
+        {['Instagram', 'Facebook', 'LinkedIn', 'X', 'YouTube'].map((name) => {
           const isConnected = accounts.some(
             (a) => a.platform.toLowerCase().includes(name.toLowerCase())
           );

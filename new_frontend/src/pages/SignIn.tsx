@@ -29,8 +29,8 @@ export default function SignIn() {
 
   return (
     <AuthLayout
-      title="Welcome back"
-      subtitle="Sign in to your SocialFlow account."
+      title="Glad You're Here!"
+      subtitle="Sign in to your SocialPilot account."
       footer={
         <>
           Don't have an account?{' '}

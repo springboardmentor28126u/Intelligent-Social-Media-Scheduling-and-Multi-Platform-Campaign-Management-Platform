@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
@@ -6,11 +6,12 @@ from database import get_db, engine, Base
 import models, schemas, auth
 from linkedin_auth import router as linkedin_router
 from youtube_auth import router as youtube_router
+from posts import router as posts_router
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-
+app.include_router(posts_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -99,6 +100,7 @@ def disconnect_social_account(
     ).first()
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
+    db.query(models.PostPlatform).filter(models.PostPlatform.social_account_id == account_id).delete(synchronize_session=False)
     db.delete(account)
     db.commit()
     return {"message": "Account disconnected"}

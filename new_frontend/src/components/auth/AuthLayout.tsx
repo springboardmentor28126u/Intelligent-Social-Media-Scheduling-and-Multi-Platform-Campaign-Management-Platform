@@ -56,7 +56,7 @@ export default function AuthLayout({
         </div>
 
         <div className="relative flex items-center gap-6 text-sm text-white/40">
-          <span>6 platforms</span>
+          <span>5 platforms</span>
           <span className="h-1 w-1 rounded-full bg-white/20" />
           <span>Smart scheduling</span>
           <span className="h-1 w-1 rounded-full bg-white/20" />

@@ -1,5 +1,5 @@
 import Logo from '@/components/common/Logo';
-import { InstagramIcon, FacebookIcon, LinkedInIcon, XIcon, YouTubeIcon, TikTokIcon } from '@/components/common/PlatformIcons';
+import { InstagramIcon, FacebookIcon, LinkedInIcon, XIcon, YouTubeIcon } from '@/components/common/PlatformIcons';
 
 const columns = [
   {
@@ -22,7 +22,6 @@ const socials = [
   { Icon: LinkedInIcon, label: 'LinkedIn' },
   { Icon: XIcon, label: 'X' },
   { Icon: YouTubeIcon, label: 'YouTube' },
-  { Icon: TikTokIcon, label: 'TikTok' },
 ];
 
 export default function Footer() {

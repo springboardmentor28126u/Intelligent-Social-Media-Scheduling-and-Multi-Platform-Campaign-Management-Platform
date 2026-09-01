@@ -55,7 +55,7 @@ export default function Dashboard() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/70">
               <Sparkles className="h-3 w-3 text-brand-300" />
-              Welcome to SocialFlow
+              Welcome to SocialPilot
             </div>
             <h2 className="mt-3 text-xl font-semibold text-white sm:text-2xl">
               Let's get your social presence organized.

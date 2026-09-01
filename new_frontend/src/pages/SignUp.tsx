@@ -32,7 +32,7 @@ export default function SignUp() {
 
   return (
     <AuthLayout
-      title="Create your account"
+      title="Claim Your Spot!"
       subtitle="Start managing your social presence today."
       footer={
         <>

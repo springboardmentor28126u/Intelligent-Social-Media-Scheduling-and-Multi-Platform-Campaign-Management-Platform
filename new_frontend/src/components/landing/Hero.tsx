@@ -131,7 +131,7 @@ export default function Hero() {
           className="animate-fade-up mx-auto mt-6 max-w-2xl text-lg text-white/70 sm:text-xl"
           style={{ animationDelay: '0.1s' }}
         >
-          SocialFlow helps teams plan, schedule, and manage social media campaigns across every
+          SocialPilot helps you plan, schedule, and manage social media campaigns across every
           platform — from one intelligent workspace.
         </p>
 
@@ -168,7 +168,7 @@ export default function Hero() {
           </div>
           <div className="hidden items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/60 backdrop-blur-md sm:flex">
             <Sparkles className="h-4 w-4 text-brand-300" />
-            <span>6 platforms</span>
+            <span>5 platforms</span>
           </div>
         </div>
       </div>

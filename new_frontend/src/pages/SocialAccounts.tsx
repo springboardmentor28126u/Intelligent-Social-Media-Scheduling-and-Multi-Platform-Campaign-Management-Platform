@@ -42,6 +42,7 @@ export default function SocialAccounts() {
   const [modalPlatform, setModalPlatform] = useState<PlatformKey | null>(null);
   const [accountNameInput, setAccountNameInput] = useState('');
   const [connecting, setConnecting] = useState(false);
+  const [disconnectingId, setDisconnectingId] = useState<number | null>(null);
 
   const token = localStorage.getItem('token');
 
@@ -127,6 +128,7 @@ export default function SocialAccounts() {
 
   const handleDisconnect = async (id: number) => {
     if (!token) return;
+    setDisconnectingId(id);
     try {
       const response = await fetch(`${API_BASE}/social-accounts/${id}`, {
         method: 'DELETE',
@@ -139,6 +141,8 @@ export default function SocialAccounts() {
       }
     } catch (error) {
       console.error('Error disconnecting account:', error);
+    } finally {
+      setDisconnectingId(null);
     }
   };
 
@@ -218,10 +222,17 @@ export default function SocialAccounts() {
                     size="sm"
                     fullWidth
                     onClick={() => handleDisconnect(connectedAcc.id)}
-                    leftIcon={<X className="h-3.5 w-3.5 text-danger-600" />}
+                    disabled={disconnectingId === connectedAcc.id}
+                    leftIcon={
+                      disconnectingId === connectedAcc.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-danger-600" />
+                      ) : (
+                        <X className="h-3.5 w-3.5 text-danger-600" />
+                      )
+                    }
                     className="text-danger-600 border-danger-100 hover:bg-danger-50"
                   >
-                    Disconnect Account
+                    {disconnectingId === connectedAcc.id ? 'Disconnecting...' : 'Disconnect Account'}
                   </Button>
                 ) : (
                   <Button

@@ -60,32 +60,12 @@ export function YouTubeIcon({ className = 'h-5 w-5' }: IconProps) {
   );
 }
 
-export function TikTokIcon({ className = 'h-5 w-5' }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
-      <path
-        d="M14 4v8.5a3.5 3.5 0 1 1-3-3.45"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-      <path
-        d="M14 4c.5 2 2 3.5 4 3.8"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 export type PlatformKey =
   | 'instagram'
   | 'facebook'
   | 'linkedin'
   | 'x'
-  | 'youtube'
-  | 'tiktok';
+  | 'youtube';
 
 export const platforms: {
   key: PlatformKey;
@@ -99,7 +79,6 @@ export const platforms: {
   { key: 'linkedin', name: 'LinkedIn', Icon: LinkedInIcon, color: 'text-blue-700', bg: 'bg-blue-50' },
   { key: 'x', name: 'X', Icon: XIcon, color: 'text-ink-900', bg: 'bg-ink-100' },
   { key: 'youtube', name: 'YouTube', Icon: YouTubeIcon, color: 'text-red-600', bg: 'bg-red-50' },
-  { key: 'tiktok', name: 'TikTok', Icon: TikTokIcon, color: 'text-ink-900', bg: 'bg-ink-50' },
 ];
 
 export function PlatformIcon({
