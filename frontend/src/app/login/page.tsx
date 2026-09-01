@@ -9,81 +9,42 @@ export default function LoginPage() {
   const router = useRouter();
 
   const [email, setEmail] = useState(() => {
-    if (typeof window === "undefined") {
-      return "";
-    }
-
+    if (typeof window === "undefined") return "";
     return localStorage.getItem("remembered_email") || "";
   });
 
   const [password, setPassword] = useState("");
 
   const [rememberMe, setRememberMe] = useState(() => {
-    if (typeof window === "undefined") {
-      return true;
-    }
-
+    if (typeof window === "undefined") return true;
     return Boolean(localStorage.getItem("remembered_email"));
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function handleLogin(
-    e: React.FormEvent<HTMLFormElement>
-  ) {
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-
     setError("");
     setLoading(true);
 
     try {
       const data = await loginUser(email, password);
 
-      localStorage.setItem(
-        "access_token",
-        data.access_token
-      );
-
-      if (data.user_id !== undefined) {
-        localStorage.setItem(
-          "user_id",
-          String(data.user_id)
-        );
-      }
-
-      if (data.name) {
-        localStorage.setItem(
-          "user_name",
-          data.name
-        );
-      }
-
-      if (data.role) {
-        localStorage.setItem(
-          "user_role",
-          data.role
-        );
-      }
+      localStorage.setItem("access_token", data.access_token);
+      if (data.user_id !== undefined) localStorage.setItem("user_id", String(data.user_id));
+      if (data.name) localStorage.setItem("user_name", data.name);
+      if (data.role) localStorage.setItem("user_role", data.role);
 
       if (rememberMe) {
-        localStorage.setItem(
-          "remembered_email",
-          email
-        );
+        localStorage.setItem("remembered_email", email);
       } else {
-        localStorage.removeItem(
-          "remembered_email"
-        );
+        localStorage.removeItem("remembered_email");
       }
 
       router.push("/dashboard");
     } catch (err: unknown) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Invalid email or password"
-      );
+      setError(err instanceof Error ? err.message : "Invalid email or password");
     } finally {
       setLoading(false);
     }
@@ -93,20 +54,17 @@ export default function LoginPage() {
     <main
       className="flex min-h-screen items-center justify-center px-6 py-10"
       style={{
-        background:
-          "linear-gradient(135deg, #eaf4ff 0%, #ffffff 50%, #eef6ff 100%)",
+        background: "var(--sp-bg)",
         color: "var(--sp-text)",
-        fontFamily:
-          "var(--font-plex-mono), monospace",
+        fontFamily: "var(--font-plex-mono), monospace",
       }}
     >
       <div
         className="w-full max-w-md rounded-3xl p-8"
         style={{
-          background: "#ffffff",
-          border: "1px solid #dce7f3",
-          boxShadow:
-            "0 20px 60px rgba(37, 99, 235, 0.10)",
+          background: "var(--sp-card)",
+          border: "1px solid var(--sp-border)",
+          boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
         }}
       >
         {/* LOGO */}
@@ -114,11 +72,8 @@ export default function LoginPage() {
           <div
             className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-xl font-bold"
             style={{
-              background:
-                "linear-gradient(135deg, #2563eb, #60a5fa)",
-              color: "#ffffff",
-              boxShadow:
-                "0 10px 25px rgba(37, 99, 235, 0.20)",
+              background: "linear-gradient(135deg, var(--sp-cyan), var(--sp-purple))",
+              color: "#05060A",
             }}
           >
             S
@@ -126,173 +81,92 @@ export default function LoginPage() {
 
           <h1
             className="text-3xl font-semibold"
-            style={{
-              fontFamily:
-                "var(--font-fraunces), serif",
-              color: "#172b4d",
-            }}
+            style={{ fontFamily: "var(--font-fraunces), serif", color: "var(--sp-text)" }}
           >
             Welcome back
           </h1>
 
-          <p
-            className="mt-2 text-sm"
-            style={{
-              color: "#64748b",
-            }}
-          >
+          <p className="mt-2 text-sm" style={{ color: "var(--sp-muted)" }}>
             Continue managing your social presence.
           </p>
         </div>
 
-        {/* ERROR */}
         {error && (
           <div
             className="mb-5 rounded-xl p-3 text-sm"
-            style={{
-              background: "#fff1f2",
-              border: "1px solid #fecdd3",
-              color: "#dc2626",
-            }}
+            style={{ background: "rgba(255,61,110,0.1)", border: "1px solid rgba(255,61,110,0.3)", color: "var(--sp-danger)" }}
           >
             {error}
           </div>
         )}
 
-        {/* FORM */}
-        <form
-          onSubmit={handleLogin}
-          className="space-y-5"
-        >
-          {/* EMAIL */}
+        <form onSubmit={handleLogin} className="space-y-5">
           <div>
-            <label
-              htmlFor="email"
-              className="mb-2 block text-sm"
-              style={{
-                color: "#334e68",
-              }}
-            >
+            <label htmlFor="email" className="mb-2 block text-sm" style={{ color: "var(--sp-text-secondary)" }}>
               Email
             </label>
-
             <input
               id="email"
               type="email"
               value={email}
-              onChange={(e) =>
-                setEmail(e.target.value)
-              }
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
               autoComplete="email"
               className="w-full rounded-xl px-4 py-3 outline-none"
-              style={{
-                background: "#ffffff",
-                border: "1px solid #dce7f3",
-                color: "#172b4d",
-              }}
+              style={{ background: "var(--sp-input)", border: "1px solid var(--sp-border)", color: "var(--sp-input-text)" }}
             />
           </div>
 
-          {/* PASSWORD */}
           <div>
             <div className="mb-2 flex justify-between">
-              <label
-                htmlFor="password"
-                className="text-sm"
-                style={{
-                  color: "#334e68",
-                }}
-              >
+              <label htmlFor="password" className="text-sm" style={{ color: "var(--sp-text-secondary)" }}>
                 Password
               </label>
-
-              <Link
-                href="/reset-password"
-                className="text-xs"
-                style={{
-                  color: "#2563eb",
-                }}
-              >
+              <Link href="/reset-password" className="text-xs" style={{ color: "var(--sp-cyan)" }}>
                 Forgot password?
               </Link>
             </div>
-
             <input
               id="password"
               type="password"
               value={password}
-              onChange={(e) =>
-                setPassword(e.target.value)
-              }
+              onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
               required
               autoComplete="current-password"
               className="w-full rounded-xl px-4 py-3 outline-none"
-              style={{
-                background: "#ffffff",
-                border: "1px solid #dce7f3",
-                color: "#172b4d",
-              }}
+              style={{ background: "var(--sp-input)", border: "1px solid var(--sp-border)", color: "var(--sp-input-text)" }}
             />
           </div>
 
-          {/* REMEMBER */}
           <label className="flex cursor-pointer items-center gap-3 text-sm">
             <input
               type="checkbox"
               checked={rememberMe}
-              onChange={(e) =>
-                setRememberMe(e.target.checked)
-              }
+              onChange={(e) => setRememberMe(e.target.checked)}
               className="h-4 w-4"
             />
-
-            <span
-              style={{
-                color: "#64748b",
-              }}
-            >
-              Remember this account
-            </span>
+            <span style={{ color: "var(--sp-muted)" }}>Remember this account</span>
           </label>
 
-          {/* LOGIN BUTTON */}
           <button
             type="submit"
             disabled={loading}
             className="w-full rounded-xl py-3.5 font-medium transition hover:opacity-90 disabled:opacity-50"
             style={{
-              background:
-                "linear-gradient(135deg, #2563eb, #3b82f6)",
-              color: "#ffffff",
-              boxShadow:
-                "0 8px 20px rgba(37, 99, 235, 0.20)",
+              background: "linear-gradient(135deg, var(--sp-cyan), var(--sp-purple))",
+              color: "#05060A",
+              boxShadow: "0 8px 20px rgba(0, 0, 0, 0.2)",
             }}
           >
-            {loading
-              ? "Signing in..."
-              : "Sign in"}
+            {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
 
-        {/* REGISTER */}
-        <p
-          className="mt-7 text-center text-sm"
-          style={{
-            color: "#64748b",
-          }}
-        >
+        <p className="mt-7 text-center text-sm" style={{ color: "var(--sp-muted)" }}>
           Don&apos;t have an account?{" "}
-
-          <Link
-            href="/register"
-            style={{
-              color: "#2563eb",
-              fontWeight: 500,
-            }}
-          >
+          <Link href="/register" style={{ color: "var(--sp-cyan)", fontWeight: 500 }}>
             Create one
           </Link>
         </p>

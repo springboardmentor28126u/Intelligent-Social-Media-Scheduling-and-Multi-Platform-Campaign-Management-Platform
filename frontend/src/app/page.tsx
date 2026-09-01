@@ -37,12 +37,12 @@ export default function Home() {
       className="min-h-screen overflow-hidden"
       style={{
         background:
-          "radial-gradient(circle at 80% 10%, rgba(0,240,255,0.08), transparent 30%), radial-gradient(circle at 20% 80%, rgba(176,38,255,0.08), transparent 30%), #08090D",
-        color: "#E8E9F5",
+          "radial-gradient(circle at 80% 10%, rgba(0,240,255,0.08), transparent 30%), radial-gradient(circle at 20% 80%, rgba(176,38,255,0.08), transparent 30%), var(--sp-bg)",
+        color: "var(--sp-text)",
       }}
     >
       {/* TOP NAV */}
-      <header className="border-b border-white/[0.06]">
+      <header style={{ borderBottom: "1px solid var(--sp-border)" }}>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
           
           <Link href="/" className="flex items-center gap-3">
@@ -50,7 +50,7 @@ export default function Home() {
               className="flex h-10 w-10 items-center justify-center rounded-xl font-bold"
               style={{
                 background:
-                  "linear-gradient(135deg,#00F0FF,#B026FF)",
+                  "linear-gradient(135deg,var(--sp-cyan),var(--sp-purple))",
                 color: "#05060A",
               }}
             >
@@ -63,7 +63,7 @@ export default function Home() {
               </div>
               <div
                 className="text-[10px] uppercase tracking-[0.2em]"
-                style={{ color: "#666A7E" }}
+                style={{ color: "var(--sp-muted)" }}
               >
                 Social command center
               </div>
@@ -72,9 +72,10 @@ export default function Home() {
 
           <button
             onClick={() => setShowAuthModal(true)}
-            className="rounded-xl border px-5 py-2.5 text-sm font-medium transition hover:bg-white/[0.07]"
+            className="rounded-xl border px-5 py-2.5 text-sm font-medium transition"
             style={{
-              borderColor: "rgba(255,255,255,0.1)",
+              borderColor: "var(--sp-border-strong)",
+              color: "var(--sp-text)",
             }}
           >
             Sign in
@@ -92,7 +93,7 @@ export default function Home() {
               style={{
                 borderColor: "rgba(0,240,255,0.2)",
                 background: "rgba(0,240,255,0.05)",
-                color: "#00F0FF",
+                color: "var(--sp-cyan)",
               }}
             >
               <span>●</span>
@@ -112,7 +113,7 @@ export default function Home() {
               <span
                 style={{
                   background:
-                    "linear-gradient(90deg,#00F0FF,#B026FF)",
+                    "linear-gradient(90deg,var(--sp-cyan),var(--sp-purple))",
                   WebkitBackgroundClip: "text",
                   color: "transparent",
                 }}
@@ -123,7 +124,7 @@ export default function Home() {
 
             <p
               className="mt-7 max-w-xl text-base leading-7"
-              style={{ color: "#85899B" }}
+              style={{ color: "var(--sp-text-secondary)" }}
             >
               SocialPilot brings your content, publishing workflow,
               connected accounts and performance insights into one
@@ -136,7 +137,7 @@ export default function Home() {
                 className="rounded-xl px-6 py-3 text-sm font-semibold transition hover:scale-[1.02]"
                 style={{
                   background:
-                    "linear-gradient(135deg,#00F0FF,#8C5BFF)",
+                    "linear-gradient(135deg,var(--sp-cyan),var(--sp-purple))",
                   color: "#05060A",
                   boxShadow:
                     "0 10px 35px rgba(0,240,255,0.15)",
@@ -149,8 +150,8 @@ export default function Home() {
                 href="#features"
                 className="rounded-xl border px-6 py-3 text-sm font-medium"
                 style={{
-                  borderColor: "rgba(255,255,255,0.1)",
-                  color: "#A3A6B7",
+                  borderColor: "var(--sp-border-strong)",
+                  color: "var(--sp-text-secondary)",
                 }}
               >
                 Explore workspace
@@ -164,14 +165,14 @@ export default function Home() {
                 style={{
                   background:
                     backendStatus === "connected"
-                      ? "#35E39B"
+                      ? "var(--sp-green)"
                       : backendStatus === "error"
-                        ? "#FF5577"
+                        ? "var(--sp-danger)"
                         : "#FFCA5C",
                 }}
               />
 
-              <span style={{ color: "#6F7386" }}>
+              <span style={{ color: "var(--sp-muted)" }}>
                 {backendStatus === "connected"
                   ? "Backend connected"
                   : backendStatus === "error"
@@ -187,20 +188,20 @@ export default function Home() {
               className="absolute -inset-10 rounded-full opacity-20 blur-3xl"
               style={{
                 background:
-                  "linear-gradient(135deg,#00F0FF,#B026FF)",
+                  "linear-gradient(135deg,var(--sp-cyan),var(--sp-purple))",
               }}
             />
 
             <div
               className="relative rounded-3xl border p-5 shadow-2xl"
               style={{
-                background: "rgba(15,16,23,0.88)",
-                borderColor: "rgba(255,255,255,0.08)",
+                background: "var(--sp-card)",
+                borderColor: "var(--sp-border)",
               }}
             >
               <div className="mb-5 flex items-center justify-between">
                 <div>
-                  <p className="text-xs" style={{ color: "#686C80" }}>
+                  <p className="text-xs" style={{ color: "var(--sp-muted)" }}>
                     TODAY
                   </p>
                   <h3 className="mt-1 text-lg font-semibold">
@@ -212,7 +213,7 @@ export default function Home() {
                   className="rounded-full px-3 py-1 text-[10px]"
                   style={{
                     background: "rgba(53,227,155,0.1)",
-                    color: "#35E39B",
+                    color: "var(--sp-green)",
                   }}
                 >
                   LIVE
@@ -230,8 +231,8 @@ export default function Home() {
                     key={label}
                     className="rounded-2xl border p-5"
                     style={{
-                      background: "rgba(255,255,255,0.025)",
-                      borderColor: "rgba(255,255,255,0.06)",
+                      background: "var(--sp-hover)",
+                      borderColor: "var(--sp-border)",
                     }}
                   >
                     <div className="text-2xl font-semibold">
@@ -239,7 +240,7 @@ export default function Home() {
                     </div>
                     <div
                       className="mt-2 text-xs"
-                      style={{ color: "#686C80" }}
+                      style={{ color: "var(--sp-muted)" }}
                     >
                       {label}
                     </div>
@@ -250,15 +251,15 @@ export default function Home() {
               <div
                 className="mt-3 rounded-2xl border p-5"
                 style={{
-                  background: "rgba(255,255,255,0.025)",
-                  borderColor: "rgba(255,255,255,0.06)",
+                  background: "var(--sp-hover)",
+                  borderColor: "var(--sp-border)",
                 }}
               >
                 <div className="mb-4 flex justify-between text-xs">
-                  <span style={{ color: "#777B8E" }}>
+                  <span style={{ color: "var(--sp-text-secondary)" }}>
                     Weekly engagement
                   </span>
-                  <span style={{ color: "#35E39B" }}>
+                  <span style={{ color: "var(--sp-green)" }}>
                     +18.4%
                   </span>
                 </div>
@@ -273,7 +274,7 @@ export default function Home() {
                           height: `${height}%`,
                           background:
                             index === 6
-                              ? "#00F0FF"
+                              ? "var(--sp-cyan)"
                               : "rgba(0,240,255,0.18)",
                         }}
                       />
@@ -294,7 +295,7 @@ export default function Home() {
         <div className="mb-10">
           <p
             className="text-xs uppercase tracking-[0.25em]"
-            style={{ color: "#00F0FF" }}
+            style={{ color: "var(--sp-cyan)" }}
           >
             One workspace
           </p>
@@ -320,15 +321,15 @@ export default function Home() {
               key={title}
               className="rounded-2xl border p-6 transition hover:-translate-y-1"
               style={{
-                background: "rgba(255,255,255,0.025)",
-                borderColor: "rgba(255,255,255,0.07)",
+                background: "var(--sp-hover)",
+                borderColor: "var(--sp-border)",
               }}
             >
               <div className="mb-5 text-2xl">{icon}</div>
               <h3 className="font-semibold">{title}</h3>
               <p
                 className="mt-2 text-sm leading-6"
-                style={{ color: "#74788A" }}
+                style={{ color: "var(--sp-text-secondary)" }}
               >
                 {description}
               </p>
@@ -340,14 +341,14 @@ export default function Home() {
       {/* FOOTER */}
       <footer
         className="border-t px-6 py-8"
-        style={{ borderColor: "rgba(255,255,255,0.06)" }}
+        style={{ borderColor: "var(--sp-border)" }}
       >
         <div className="mx-auto flex max-w-7xl justify-between text-xs">
-          <span style={{ color: "#55596B" }}>
+          <span style={{ color: "var(--sp-subtle)" }}>
             © 2026 SocialPilot
           </span>
 
-          <span style={{ color: "#55596B" }}>
+          <span style={{ color: "var(--sp-subtle)" }}>
             Next.js · FastAPI · PostgreSQL
           </span>
         </div>

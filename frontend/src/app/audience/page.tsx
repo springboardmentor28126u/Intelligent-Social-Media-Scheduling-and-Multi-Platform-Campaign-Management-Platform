@@ -99,23 +99,21 @@ export default function AudiencePage() {
     <main
       className="min-h-screen"
       style={{
-        background: "#07080C",
-        color: "#E8E9F5",
+        background: "#F4F8FC",
+        color: "#172033",
         fontFamily:
           "var(--font-plex-mono), monospace",
       }}
     >
-      {/* =========================================
+      {/* =====================================================
           TOP BAR
-      ========================================= */}
+      ===================================================== */}
 
       <header
         className="border-b"
         style={{
-          borderColor:
-            "rgba(255,255,255,0.07)",
-          background:
-            "rgba(10,11,17,0.88)",
+          borderColor: "#DCE5EF",
+          background: "#FFFFFF",
         }}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 md:px-10">
@@ -125,14 +123,15 @@ export default function AudiencePage() {
           <div className="flex items-center gap-3">
 
             <button
+              type="button"
               onClick={() =>
                 router.push("/dashboard")
               }
-              className="flex h-10 w-10 items-center justify-center rounded-xl font-bold"
+              className="flex h-10 w-10 items-center justify-center rounded-xl font-bold shadow-sm"
               style={{
                 background:
-                  "linear-gradient(135deg,#00E5FF,#9B5CFF)",
-                color: "#05060A",
+                  "linear-gradient(135deg,#00B8E6,#6D4AFF)",
+                color: "#FFFFFF",
               }}
             >
               S
@@ -144,6 +143,7 @@ export default function AudiencePage() {
                 style={{
                   fontFamily:
                     "var(--font-fraunces), serif",
+                  color: "#172033",
                 }}
               >
                 SocialPilot
@@ -152,7 +152,7 @@ export default function AudiencePage() {
               <p
                 className="text-[9px] uppercase tracking-[0.2em]"
                 style={{
-                  color: "#55596B",
+                  color: "#8A96A8",
                 }}
               >
                 Audience
@@ -164,14 +164,16 @@ export default function AudiencePage() {
           {/* BACK BUTTON */}
 
           <button
+            type="button"
             onClick={() =>
               router.push("/dashboard")
             }
-            className="rounded-xl px-4 py-2.5 text-xs transition-colors hover:bg-white/5"
+            className="rounded-xl px-4 py-2.5 text-xs transition-all hover:bg-[#F1F6FA]"
             style={{
-              color: "#85889A",
+              color: "#536174",
               border:
-                "1px solid rgba(255,255,255,0.08)",
+                "1px solid #D9E2EC",
+              background: "#FFFFFF",
             }}
           >
             ← Dashboard
@@ -180,13 +182,15 @@ export default function AudiencePage() {
         </div>
       </header>
 
-      {/* =========================================
+      {/* =====================================================
           PAGE CONTENT
-      ========================================= */}
+      ===================================================== */}
 
       <div className="mx-auto max-w-7xl p-6 md:p-10">
 
-        {/* PAGE HEADER */}
+        {/* =====================================================
+            PAGE HEADER
+        ===================================================== */}
 
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
 
@@ -195,7 +199,7 @@ export default function AudiencePage() {
             <p
               className="text-[10px] uppercase tracking-[0.25em]"
               style={{
-                color: "#00E5FF",
+                color: "#008FC4",
               }}
             >
               Audience intelligence
@@ -207,6 +211,7 @@ export default function AudiencePage() {
                 fontFamily:
                   "var(--font-fraunces), serif",
                 fontWeight: 600,
+                color: "#172033",
               }}
             >
               Know who is listening.
@@ -215,7 +220,7 @@ export default function AudiencePage() {
             <p
               className="mt-3 max-w-xl text-sm leading-6"
               style={{
-                color: "#686B7D",
+                color: "#667386",
               }}
             >
               Understand the people interacting
@@ -230,10 +235,11 @@ export default function AudiencePage() {
           <div
             className="flex w-fit rounded-xl p-1"
             style={{
-              background:
-                "rgba(255,255,255,0.03)",
+              background: "#FFFFFF",
               border:
-                "1px solid rgba(255,255,255,0.07)",
+                "1px solid #D9E2EC",
+              boxShadow:
+                "0 2px 8px rgba(30,60,90,0.04)",
             }}
           >
 
@@ -244,21 +250,22 @@ export default function AudiencePage() {
             ].map(([value, label]) => (
 
               <button
+                type="button"
                 key={value}
                 onClick={() =>
                   setPeriod(value)
                 }
-                className="rounded-lg px-4 py-2 text-[10px]"
+                className="rounded-lg px-4 py-2 text-[10px] transition-all"
                 style={{
                   background:
                     period === value
-                      ? "rgba(0,229,255,0.1)"
+                      ? "#E6F7FC"
                       : "transparent",
 
                   color:
                     period === value
-                      ? "#00E5FF"
-                      : "#666979",
+                      ? "#008FC4"
+                      : "#7A8798",
                 }}
               >
                 {label}
@@ -270,9 +277,9 @@ export default function AudiencePage() {
 
         </div>
 
-        {/* =========================================
+        {/* =====================================================
             METRICS
-        ========================================= */}
+        ===================================================== */}
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
@@ -302,28 +309,27 @@ export default function AudiencePage() {
 
         </div>
 
-        {/* =========================================
+        {/* =====================================================
             INTERESTS + LOCATIONS
-        ========================================= */}
+        ===================================================== */}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
 
           {/* INTERESTS */}
 
           <section
-            className="rounded-2xl p-6"
+            className="rounded-2xl p-6 shadow-sm"
             style={{
-              background:
-                "rgba(255,255,255,0.025)",
+              background: "#FFFFFF",
               border:
-                "1px solid rgba(255,255,255,0.07)",
+                "1px solid #DCE5EF",
             }}
           >
 
             <p
               className="text-[10px] uppercase tracking-widest"
               style={{
-                color: "#55596B",
+                color: "#8794A5",
               }}
             >
               What they care about
@@ -334,6 +340,7 @@ export default function AudiencePage() {
               style={{
                 fontFamily:
                   "var(--font-fraunces), serif",
+                color: "#172033",
               }}
             >
               Audience interests
@@ -348,14 +355,19 @@ export default function AudiencePage() {
 
                     <div className="mb-2 flex justify-between">
 
-                      <span className="text-xs">
+                      <span
+                        className="text-xs"
+                        style={{
+                          color: "#273449",
+                        }}
+                      >
                         {interest.name}
                       </span>
 
                       <span
                         className="text-[10px]"
                         style={{
-                          color: "#777A8D",
+                          color: "#758296",
                         }}
                       >
                         {interest.percentage}%
@@ -367,7 +379,7 @@ export default function AudiencePage() {
                       className="h-2 overflow-hidden rounded-full"
                       style={{
                         background:
-                          "rgba(255,255,255,0.05)",
+                          "#E8EEF4",
                       }}
                     >
 
@@ -376,7 +388,7 @@ export default function AudiencePage() {
                         style={{
                           width: `${interest.percentage}%`,
                           background:
-                            "linear-gradient(90deg,#00E5FF,#9B5CFF)",
+                            "linear-gradient(90deg,#00B8E6,#6D4AFF)",
                         }}
                       />
 
@@ -394,19 +406,18 @@ export default function AudiencePage() {
           {/* LOCATIONS */}
 
           <section
-            className="rounded-2xl p-6"
+            className="rounded-2xl p-6 shadow-sm"
             style={{
-              background:
-                "rgba(255,255,255,0.025)",
+              background: "#FFFFFF",
               border:
-                "1px solid rgba(255,255,255,0.07)",
+                "1px solid #DCE5EF",
             }}
           >
 
             <p
               className="text-[10px] uppercase tracking-widest"
               style={{
-                color: "#55596B",
+                color: "#8794A5",
               }}
             >
               Where they are
@@ -417,6 +428,7 @@ export default function AudiencePage() {
               style={{
                 fontFamily:
                   "var(--font-fraunces), serif",
+                color: "#172033",
               }}
             >
               Audience locations
@@ -436,8 +448,8 @@ export default function AudiencePage() {
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[10px]"
                       style={{
                         background:
-                          "rgba(0,229,255,0.06)",
-                        color: "#00E5FF",
+                          "#E8F7FC",
+                        color: "#008FC4",
                       }}
                     >
                       {String(index + 1).padStart(
@@ -450,14 +462,19 @@ export default function AudiencePage() {
 
                       <div className="flex justify-between">
 
-                        <span className="text-xs">
+                        <span
+                          className="text-xs"
+                          style={{
+                            color: "#273449",
+                          }}
+                        >
                           {location.name}
                         </span>
 
                         <span
                           className="text-[10px]"
                           style={{
-                            color: "#777A8D",
+                            color: "#758296",
                           }}
                         >
                           {location.percentage}%
@@ -469,7 +486,7 @@ export default function AudiencePage() {
                         className="mt-2 h-1.5 overflow-hidden rounded-full"
                         style={{
                           background:
-                            "rgba(255,255,255,0.05)",
+                            "#E8EEF4",
                         }}
                       >
 
@@ -478,7 +495,7 @@ export default function AudiencePage() {
                           style={{
                             width: `${location.percentage}%`,
                             background:
-                              "rgba(155,92,255,0.65)",
+                              "linear-gradient(90deg,#9C8CFF,#6D4AFF)",
                           }}
                         />
 
@@ -497,17 +514,16 @@ export default function AudiencePage() {
 
         </div>
 
-        {/* =========================================
+        {/* =====================================================
             AGE DISTRIBUTION
-        ========================================= */}
+        ===================================================== */}
 
         <section
-          className="mt-6 rounded-2xl p-6"
+          className="mt-6 rounded-2xl p-6 shadow-sm"
           style={{
-            background:
-              "rgba(255,255,255,0.025)",
+            background: "#FFFFFF",
             border:
-              "1px solid rgba(255,255,255,0.07)",
+              "1px solid #DCE5EF",
           }}
         >
 
@@ -518,7 +534,7 @@ export default function AudiencePage() {
               <p
                 className="text-[10px] uppercase tracking-widest"
                 style={{
-                  color: "#55596B",
+                  color: "#8794A5",
                 }}
               >
                 Audience profile
@@ -529,6 +545,7 @@ export default function AudiencePage() {
                 style={{
                   fontFamily:
                     "var(--font-fraunces), serif",
+                  color: "#172033",
                 }}
               >
                 Age distribution
@@ -540,8 +557,8 @@ export default function AudiencePage() {
               className="rounded-full px-3 py-1 text-[10px]"
               style={{
                 background:
-                  "rgba(53,230,161,0.08)",
-                color: "#35E6A1",
+                  "#E8FAF3",
+                color: "#159A6A",
               }}
             >
               {period.toUpperCase()}
@@ -559,7 +576,9 @@ export default function AudiencePage() {
                   className="rounded-xl p-4"
                   style={{
                     background:
-                      "rgba(255,255,255,0.02)",
+                      "#F6F9FC",
+                    border:
+                      "1px solid #E3EAF1",
                   }}
                 >
 
@@ -568,13 +587,18 @@ export default function AudiencePage() {
                     <p
                       className="text-xs"
                       style={{
-                        color: "#777A8D",
+                        color: "#758296",
                       }}
                     >
                       {group.name}
                     </p>
 
-                    <p className="text-lg font-semibold">
+                    <p
+                      className="text-lg font-semibold"
+                      style={{
+                        color: "#172033",
+                      }}
+                    >
                       {group.percentage}%
                     </p>
 
@@ -584,7 +608,7 @@ export default function AudiencePage() {
                     className="mt-4 h-16 overflow-hidden rounded-lg"
                     style={{
                       background:
-                        "rgba(255,255,255,0.035)",
+                        "#E8EEF4",
                     }}
                   >
 
@@ -595,6 +619,7 @@ export default function AudiencePage() {
                           group.percentage * 2,
                           100
                         )}%`,
+
                         marginTop: `${
                           100 -
                           Math.min(
@@ -602,8 +627,9 @@ export default function AudiencePage() {
                             100
                           )
                         }%`,
+
                         background:
-                          "linear-gradient(to top,rgba(0,229,255,0.12),rgba(155,92,255,0.55))",
+                          "linear-gradient(to top,#00B8E6,#7C62E8)",
                       }}
                     />
 
@@ -618,17 +644,17 @@ export default function AudiencePage() {
 
         </section>
 
-        {/* =========================================
+        {/* =====================================================
             AUDIENCE SIGNAL
-        ========================================= */}
+        ===================================================== */}
 
         <section
-          className="mt-6 rounded-2xl p-6"
+          className="mt-6 rounded-2xl p-6 shadow-sm"
           style={{
             background:
-              "linear-gradient(135deg,rgba(0,229,255,0.05),rgba(155,92,255,0.07))",
+              "linear-gradient(135deg,#EFFBFE,#F5F1FF)",
             border:
-              "1px solid rgba(155,92,255,0.14)",
+              "1px solid #D9E4F0",
           }}
         >
 
@@ -638,8 +664,8 @@ export default function AudiencePage() {
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
               style={{
                 background:
-                  "rgba(155,92,255,0.12)",
-                color: "#B58CFF",
+                  "#E8E2FF",
+                color: "#6D4AFF",
               }}
             >
               ✦
@@ -650,13 +676,18 @@ export default function AudiencePage() {
               <p
                 className="text-[10px] uppercase tracking-widest"
                 style={{
-                  color: "#777A8D",
+                  color: "#77859A",
                 }}
               >
                 Audience signal
               </p>
 
-              <p className="mt-2 text-sm leading-6">
+              <p
+                className="mt-2 text-sm leading-6"
+                style={{
+                  color: "#273449",
+                }}
+              >
                 Your strongest audience segment is
                 interested in technology, education,
                 and AI-related content.
@@ -665,7 +696,7 @@ export default function AudiencePage() {
               <p
                 className="mt-2 text-xs leading-5"
                 style={{
-                  color: "#686B7D",
+                  color: "#718096",
                 }}
               >
                 Use this information to understand
@@ -684,9 +715,9 @@ export default function AudiencePage() {
   );
 }
 
-/* ================================================
+/* =====================================================
    METRIC COMPONENT
-================================================ */
+===================================================== */
 
 function Metric({
   label,
@@ -699,32 +730,36 @@ function Metric({
 }) {
   return (
     <div
-      className="rounded-2xl p-5"
+      className="rounded-2xl p-5 shadow-sm"
       style={{
-        background:
-          "rgba(255,255,255,0.025)",
+        background: "#FFFFFF",
         border:
-          "1px solid rgba(255,255,255,0.07)",
+          "1px solid #DCE5EF",
       }}
     >
 
       <p
         className="text-[10px]"
         style={{
-          color: "#646879",
+          color: "#758296",
         }}
       >
         {label}
       </p>
 
-      <p className="mt-4 text-2xl font-semibold">
+      <p
+        className="mt-4 text-2xl font-semibold"
+        style={{
+          color: "#172033",
+        }}
+      >
         {value}
       </p>
 
       <p
         className="mt-2 text-[10px]"
         style={{
-          color: "#35E6A1",
+          color: "#159A6A",
         }}
       >
         {detail}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/context/ThemeContext";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -16,8 +17,7 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "SocialPilot",
-  description:
-    "AI-powered social media intelligence platform",
+  description: "AI-powered social media intelligence platform",
 };
 
 export default function RootLayout({
@@ -26,15 +26,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      data-theme="light"
-      suppressHydrationWarning
-    >
-      <body
-        className={`${fraunces.variable} ${plexMono.variable}`}
-      >
-        {children}
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                var theme = localStorage.getItem('theme') || 'dark';
+                document.documentElement.setAttribute('data-theme', theme);
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body className={`${fraunces.variable} ${plexMono.variable}`}>
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

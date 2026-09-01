@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* =========================================================
-   SOCIALPILOT — ORIGINAL DARK THEME
+   SOCIALPILOT — THEME VARIABLES (DARK = DEFAULT)
 ========================================================= */
 
 :root {
@@ -27,6 +27,49 @@
   --sp-danger: #ff3d6e;
 
   --sp-hover: rgba(255, 255, 255, 0.04);
+  --sp-active: rgba(0, 229, 255, 0.12);
+  --sp-active-border: rgba(0, 229, 255, 0.35);
+
+  --sp-scrollbar-track: #07080c;
+  --sp-scrollbar-thumb: rgba(255, 255, 255, 0.14);
+  --sp-scrollbar-thumb-hover: rgba(255, 255, 255, 0.22);
+  --sp-selection: rgba(0, 229, 255, 0.22);
+}
+
+/* =========================================================
+   SOCIALPILOT — LIGHT THEME OVERRIDE
+========================================================= */
+
+[data-theme="light"] {
+  --sp-bg: #f7f8fb;
+  --sp-surface: #ffffff;
+  --sp-card: #ffffff;
+  --sp-card-hover: #f0f1f6;
+
+  --sp-text: #14151c;
+  --sp-text-secondary: #4a4d5c;
+  --sp-muted: #7a7d8c;
+  --sp-subtle: #9a9dac;
+
+  --sp-border: rgba(0, 0, 0, 0.08);
+  --sp-border-strong: rgba(0, 0, 0, 0.14);
+
+  --sp-input: #ffffff;
+  --sp-input-text: #14151c;
+
+  --sp-cyan: #0090a8;
+  --sp-purple: #7b3fd1;
+  --sp-green: #16a374;
+  --sp-danger: #d1274a;
+
+  --sp-hover: rgba(0, 0, 0, 0.04);
+  --sp-active: rgba(0, 144, 168, 0.10);
+  --sp-active-border: rgba(0, 144, 168, 0.30);
+
+  --sp-scrollbar-track: #f7f8fb;
+  --sp-scrollbar-thumb: rgba(0, 0, 0, 0.14);
+  --sp-scrollbar-thumb-hover: rgba(0, 0, 0, 0.22);
+  --sp-selection: rgba(0, 144, 168, 0.18);
 }
 
 /* =========================================================
@@ -39,8 +82,8 @@ body {
   padding: 0;
   min-height: 100%;
 
-  background: #07080c;
-  color: #e8e9f5;
+  background: var(--sp-bg);
+  color: var(--sp-text);
 }
 
 body {
@@ -73,8 +116,8 @@ textarea::placeholder {
 }
 
 option {
-  background: #0b0d13;
-  color: #f1f2f7;
+  background: var(--sp-input);
+  color: var(--sp-input-text);
 }
 
 /* =========================================================
@@ -102,16 +145,16 @@ a {
 }
 
 ::-webkit-scrollbar-track {
-  background: #07080c;
+  background: var(--sp-scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--sp-scrollbar-thumb);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--sp-scrollbar-thumb-hover);
 }
 
 /* =========================================================
@@ -119,6 +162,6 @@ a {
 ========================================================= */
 
 ::selection {
-  background: rgba(0, 229, 255, 0.22);
-  color: #f1f2f7;
+  background: var(--sp-selection);
+  color: var(--sp-text);
 }
