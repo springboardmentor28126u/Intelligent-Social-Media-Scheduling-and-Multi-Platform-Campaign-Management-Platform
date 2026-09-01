@@ -1,0 +1,145 @@
+version: '3.8'
+
+services:
+  # --------------------------------------------------------------------------
+  # PostgreSQL Primary Database
+  # --------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: socialpilot_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: socialpilot
+      POSTGRES_PASSWORD: socialpilot_secret
+      POSTGRES_DB: socialpilot_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U socialpilot -d socialpilot_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - socialpilot_net
+
+  # --------------------------------------------------------------------------
+  # Redis In-Memory Cache & Celery Message Broker
+  # --------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: socialpilot_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - socialpilot_net
+
+  # --------------------------------------------------------------------------
+  # Backend API (FastAPI + Uvicorn)
+  # --------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: socialpilot_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - APP_NAME=SocialPilot
+      - ENVIRONMENT=production
+      - DEBUG=False
+      - DATABASE_URL=postgresql://socialpilot:socialpilot_secret@postgres:5432/socialpilot_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=super-secret-production-jwt-key-change-in-env-socialpilot-2026
+      - ACCESS_TOKEN_EXPIRE_MINUTES=1440
+      - ALLOWED_ORIGINS=*
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_uploads:/app/uploads
+    networks:
+      - socialpilot_net
+
+  # --------------------------------------------------------------------------
+  # Celery Background Publishing Worker
+  # --------------------------------------------------------------------------
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: socialpilot_celery_worker
+    restart: unless-stopped
+    command: celery -A app.core.config.celery worker --loglevel=info --concurrency=4
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://socialpilot:socialpilot_secret@postgres:5432/socialpilot_db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=super-secret-production-jwt-key-change-in-env-socialpilot-2026
+    volumes:
+      - backend_uploads:/app/uploads
+    networks:
+      - socialpilot_net
+
+  # --------------------------------------------------------------------------
+  # Celery Periodic Scheduler (Beat)
+  # --------------------------------------------------------------------------
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: socialpilot_celery_beat
+    restart: unless-stopped
+    command: celery -A app.core.config.celery beat --loglevel=info
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    networks:
+      - socialpilot_net
+
+  # --------------------------------------------------------------------------
+  # Frontend SPA (React 19 + Tailwind v4 + Nginx)
+  # --------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: socialpilot_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    networks:
+      - socialpilot_net
+
+networks:
+  socialpilot_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_uploads:
