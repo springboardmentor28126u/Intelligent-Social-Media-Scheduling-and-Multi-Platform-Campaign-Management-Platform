@@ -47,22 +47,6 @@ Dedicated UI experiences, custom sidebars, and strict API permission enforcement
 - **Styled PDF Summary**: Executive report generated using ReportLab with KPI summary cards, platform comparison charts, and top-performing posts table.
 - **Excel Multi-Sheet Workbook**: Generated with OpenPyXL containing raw metrics, publishing history, and demographic data.
 
----
-
-## 👥 Pre-Seeded Demo Credentials
-
-The database comes pre-seeded with complete data for all 4 role personas:
-
-| Role | Email | Password | Access Scope |
-| :--- | :--- | :--- | :--- |
-| **Administrator** | `admin@socialpilot.io` | `password123` | Full system control, RBAC matrix, audit trail |
-| **Business User** | `business@socialpilot.io` | `password123` | Campaign ROI, executive reports, team management |
-| **Marketing Team** | `marketing@socialpilot.io` | `password123` | Content creation, calendar, queue, campaigns |
-| **Content Creator** | `creator@socialpilot.io` | `password123` | Drafts, live social preview, submit for approval |
-
-> 💡 **Quick Demo Persona Switcher**: In the navigation bar, click the **Role Dropdown** to instantly switch between all 4 role views without needing to re-login!
-
----
 
 ## 🏛️ System Architecture
 
