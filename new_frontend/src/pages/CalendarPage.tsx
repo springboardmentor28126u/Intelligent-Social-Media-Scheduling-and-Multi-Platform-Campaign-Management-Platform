@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -17,7 +17,7 @@ import {
   LayoutList,
   Calendar as CalendarIcon,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import PageHeader from '@/components/common/PageHeader';
 import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
@@ -92,11 +92,11 @@ function getPlatformStatusBadgeVariant(status: string): 'brand' | 'neutral' | 's
   }
 }
 
-function formatScheduledTime(dateStr: string | null | undefined): string {
-  if (!dateStr) return 'Draft';
+function formatDateTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
   try {
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return 'Draft';
+    if (isNaN(d.getTime())) return '';
     return d.toLocaleString(undefined, {
       month: 'short',
       day: 'numeric',
@@ -105,14 +105,34 @@ function formatScheduledTime(dateStr: string | null | undefined): string {
       minute: '2-digit',
     });
   } catch {
-    return 'Draft';
+    return '';
   }
+}
+
+function getPostTimingLabel(post: PostOut): string {
+  if (post.scheduled_time) {
+    return `Scheduled for ${formatDateTime(post.scheduled_time)}`;
+  }
+  const statusLower = post.status.toLowerCase();
+  if (statusLower === 'publishing' || statusLower === 'scheduled') {
+    return 'Publishing now...';
+  }
+  if (statusLower === 'draft') {
+    return 'Draft (No schedule)';
+  }
+  if (post.created_at) {
+    return `Immediate (${formatDateTime(post.created_at)})`;
+  }
+  return 'Immediate publish';
 }
 
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function CalendarPage() {
   const token = localStorage.getItem('token');
+  const location = useLocation();
+  const pollCountRef = useRef(0);
+  const maxPolls = 10; // 10 * 3s = 30s max polling duration
 
   const [posts, setPosts] = useState<PostOut[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,6 +146,17 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [platformFilter, setPlatformFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  const hasInFlightPosts = (postList: PostOut[]) => {
+    return postList.some((p) => {
+      const status = p.status.toLowerCase();
+      if (status === 'publishing') return true;
+      if (status === 'scheduled' && !p.scheduled_time) return true;
+      return p.platform_posts.some(
+        (pp) => pp.status.toLowerCase() === 'publishing' || pp.status.toLowerCase() === 'pending'
+      );
+    });
+  };
 
   const fetchPosts = async (isRefresh = false) => {
     if (!token) {
@@ -151,12 +182,39 @@ export default function CalendarPage() {
       setErrorMessage(err.message || 'Network error fetching posts');
     } finally {
       setLoading(false);
-      setRefreshing(false);
+      if (isRefresh) setRefreshing(false);
     }
   };
 
   useEffect(() => {
     fetchPosts();
+  }, [token]);
+
+  // Short-lived polling for immediate-publish status transitions
+  useEffect(() => {
+    const isJustCreated = location.state?.justCreated;
+    const inFlight = hasInFlightPosts(posts);
+    const shouldPoll = (isJustCreated && pollCountRef.current < maxPolls) || (inFlight && pollCountRef.current < maxPolls);
+
+    if (!shouldPoll) {
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      pollCountRef.current += 1;
+      await fetchPosts(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [posts, location.state, token]);
+
+  // Refetch on window focus
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchPosts(false);
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [token]);
 
   const handleDeletePost = async (postId: number) => {
@@ -233,7 +291,7 @@ export default function CalendarPage() {
     <div className="mx-auto max-w-7xl space-y-6 p-5 sm:p-6 lg:p-8">
       <PageHeader
         title="Publishing Schedule & Posts"
-        description="Visualize, manage, and track all your scheduled posts and drafts across platforms."
+        description="Visualize, manage, and track all your scheduled posts and publications across platforms."
         action={
           <div className="flex items-center gap-3">
             <Button
@@ -423,8 +481,12 @@ export default function CalendarPage() {
                       </Badge>
 
                       <span className="flex items-center gap-1 text-xs font-medium text-ink-500">
-                        <Clock className="h-3.5 w-3.5 text-ink-400" />
-                        {post.scheduled_time ? formatScheduledTime(post.scheduled_time) : 'Draft (No schedule)'}
+                        {post.status.toLowerCase() === 'publishing' || (post.status.toLowerCase() === 'scheduled' && !post.scheduled_time) ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-600" />
+                        ) : (
+                          <Clock className="h-3.5 w-3.5 text-ink-400" />
+                        )}
+                        {getPostTimingLabel(post)}
                       </span>
                     </div>
 
@@ -554,8 +616,9 @@ function MonthCalendarView({
 
           const dayPosts = isCurrentMonthDay
             ? posts.filter((p) => {
-                if (!p.scheduled_time) return false;
-                const pDate = new Date(p.scheduled_time);
+                const dateToUse = p.scheduled_time || p.created_at;
+                if (!dateToUse) return false;
+                const pDate = new Date(dateToUse);
                 const pDateStr = `${pDate.getFullYear()}-${String(pDate.getMonth() + 1).padStart(2, '0')}-${String(
                   pDate.getDate()
                 ).padStart(2, '0')}`;
@@ -593,7 +656,7 @@ function MonthCalendarView({
                   >
                     <div className="flex items-center justify-between gap-1 mb-1">
                       <Badge variant={getPostStatusBadgeVariant(post.status)} size="sm">
-                        <span className="capitalize">{post.status}</span>
+                        <span className="capitalize">{post.status.replace('_', ' ')}</span>
                       </Badge>
                       <button
                         type="button"

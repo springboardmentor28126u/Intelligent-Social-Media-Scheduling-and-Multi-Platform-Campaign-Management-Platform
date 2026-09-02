@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from sqlalchemy import or_
 from celery_app import celery_app
 from database import SessionLocal
 import models
@@ -75,3 +76,25 @@ def publish_post(post_id: int):
     finally:
         db.close()
 
+
+@celery_app.task(name="check_scheduled_posts")
+def check_scheduled_posts():
+    db = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+        due_posts = db.query(models.Post).filter(
+            models.Post.status == "scheduled",
+            or_(
+                models.Post.scheduled_time <= now,
+                models.Post.scheduled_time.is_(None),
+            ),
+        ).all()
+
+        triggered = []
+        for post in due_posts:
+            publish_post.delay(post.id)
+            triggered.append(post.id)
+
+        return f"Checked at {now.isoformat()}, triggered posts: {triggered}"
+    finally:
+        db.close()

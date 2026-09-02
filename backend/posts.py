@@ -1,4 +1,4 @@
-﻿from typing import List
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
@@ -21,7 +21,7 @@ def create_post(
     if len(accounts) != len(post_data.social_account_ids):
         raise HTTPException(status_code=400, detail="One or more social accounts not found or not yours")
 
-    status = "scheduled" if post_data.scheduled_time else "draft"
+    status = "scheduled" if post_data.scheduled_time else "scheduled"
 
     post = models.Post(
         user_id=current_user.id,
@@ -44,6 +44,11 @@ def create_post(
 
     db.commit()
     db.refresh(post)
+
+    if not post_data.scheduled_time:
+        from tasks import publish_post
+        publish_post.delay(post.id)
+
     return post
 
 

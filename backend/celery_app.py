@@ -1,4 +1,5 @@
-﻿from celery import Celery
+from celery import Celery
+from celery.schedules import crontab
 
 celery_app = Celery(
     "socialpilot",
@@ -13,3 +14,12 @@ celery_app.conf.update(
     timezone="Asia/Kolkata",
     enable_utc=True,
 )
+
+celery_app.conf.beat_schedule = {
+    "check-scheduled-posts-every-minute": {
+        "task": "check_scheduled_posts",
+        "schedule": crontab(minute="*"),
+    },
+}
+
+import tasks  # noqa: F401  -- ensures tasks are registered when celery_app is imported

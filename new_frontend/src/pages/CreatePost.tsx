@@ -3,7 +3,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import {
   Calendar,
   Clock,
-  Save,
   FileText,
   Plus,
   Eye,
@@ -12,6 +11,7 @@ import {
   Loader2,
   CheckCircle2,
   Link2,
+  Send,
 } from 'lucide-react';
 import PageHeader from '@/components/common/PageHeader';
 import Card from '@/components/common/Card';
@@ -97,7 +97,7 @@ export default function CreatePost() {
     a.platform.toLowerCase().includes('youtube')
   );
 
-  const handleSubmit = async (isDraft: boolean) => {
+  const handleSubmit = async (publishImmediately: boolean = false) => {
     setError(null);
 
     if (!content.trim()) {
@@ -116,7 +116,7 @@ export default function CreatePost() {
     }
 
     let scheduled_time: string | null = null;
-    if (!isDraft) {
+    if (!publishImmediately) {
       if (scheduledDate && scheduledTime) {
         try {
           const dateObj = new Date(`${scheduledDate}T${scheduledTime}`);
@@ -130,7 +130,7 @@ export default function CreatePost() {
           return;
         }
       } else if (scheduledDate || scheduledTime) {
-        setError('Please provide both date and time to schedule, or save as a draft.');
+        setError('Please provide both date and time to schedule, or clear both to publish immediately.');
         return;
       }
     }
@@ -162,7 +162,7 @@ export default function CreatePost() {
         return;
       }
 
-      navigate('/app/calendar');
+      navigate('/app/calendar', { state: { justCreated: true } });
     } catch (err: any) {
       console.error('Error submitting post:', err);
       setError(err.message || 'An unexpected error occurred while creating the post.');
@@ -175,7 +175,7 @@ export default function CreatePost() {
     <div className="mx-auto max-w-7xl space-y-6 p-5 sm:p-6 lg:p-8">
       <PageHeader
         title="Create Post"
-        description="Compose your content, select platforms, and schedule or save as draft."
+        description="Compose your content, select platforms, and publish now or schedule for later."
       />
 
       {error && (
@@ -336,7 +336,7 @@ export default function CreatePost() {
               <h3 className="text-base font-semibold text-ink-900">Schedule (Optional)</h3>
             </div>
             <p className="mt-0.5 text-xs text-ink-400">
-              Pick a date and time to schedule this post. Leave empty to save as a draft.
+              Pick a date and time to schedule this post for later. Leave empty to publish immediately.
             </p>
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
@@ -368,16 +368,18 @@ export default function CreatePost() {
 
           {/* Actions */}
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              size="md"
-              disabled={submitting}
-              onClick={() => handleSubmit(true)}
-              leftIcon={<Save className="h-4 w-4" />}
-            >
-              {submitting ? 'Saving...' : 'Save Draft'}
-            </Button>
+            {scheduledDate && scheduledTime && (
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                disabled={submitting}
+                onClick={() => handleSubmit(true)}
+                leftIcon={<Send className="h-4 w-4" />}
+              >
+                {submitting ? 'Publishing...' : 'Publish Now Instead'}
+              </Button>
+            )}
             <Button
               type="button"
               variant="primary"
@@ -387,8 +389,10 @@ export default function CreatePost() {
               leftIcon={
                 submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
+                ) : scheduledDate && scheduledTime ? (
                   <Calendar className="h-4 w-4" />
+                ) : (
+                  <Send className="h-4 w-4" />
                 )
               }
             >
@@ -396,7 +400,7 @@ export default function CreatePost() {
                 ? 'Submitting...'
                 : scheduledDate && scheduledTime
                   ? 'Schedule Post'
-                  : 'Publish / Save'}
+                  : 'Publish Now'}
             </Button>
           </div>
         </div>
