@@ -173,29 +173,57 @@ export default function Navbar() {
                   notifications.map((notif) => (
                     <div
                       key={notif.id}
-                      onClick={() => {
+                      onClick={async () => {
+                        try {
+                          if (!notif.is_read) {
+                            await api.notifications.markRead({ notification_ids: [notif.id] });
+                            setNotifications((prev) =>
+                              prev.map((n) => (n.id === notif.id ? { ...n, is_read: true } : n))
+                            );
+                            setUnreadCount((prev) => Math.max(0, prev - 1));
+                          }
+                        } catch (e) {
+                          console.error(e);
+                        }
                         if (notif.link) navigate(notif.link);
                         setShowNotifications(false);
                       }}
                       className={`p-3.5 hover:bg-slate-50 transition cursor-pointer flex gap-3 items-start ${
-                        !notif.is_read ? "bg-blue-50/40" : ""
+                        !notif.is_read ? "bg-amber-50/50 border-l-3 border-amber-500" : ""
                       }`}
                     >
                       <div className="mt-0.5 shrink-0">
                         {notif.type === "publish_success" && <CheckCircle2 size={16} className="text-emerald-600" />}
                         {notif.type === "publish_failed" && <AlertCircle size={16} className="text-rose-600" />}
                         {notif.type === "reminder" && <Clock size={16} className="text-amber-600" />}
-                        {notif.type === "campaign_alert" && <Sparkles size={16} className="text-blue-600" />}
+                        {notif.type === "campaign_alert" && <Clock size={16} className="text-amber-600" />}
                         {notif.type === "team_invite" && <Users size={16} className="text-indigo-600" />}
                         {notif.type === "system_alert" && <Shield size={16} className="text-purple-600" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-slate-900 leading-tight">
-                          {notif.title}
-                        </p>
-                        <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">
+                        <div className="flex items-center justify-between gap-1">
+                          <p className="text-xs font-bold text-slate-900 leading-tight">
+                            {notif.title}
+                          </p>
+                          {!notif.is_read && (
+                            <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
                           {notif.message}
                         </p>
+                        {notif.metadata_json?.platform && (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 uppercase">
+                              {notif.metadata_json.platform}
+                            </span>
+                            {notif.metadata_json.creator_name && (
+                              <span className="text-[10px] text-slate-500 font-medium">
+                                by {notif.metadata_json.creator_name}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <span className="text-[10px] text-slate-400 mt-1 block font-mono">
                           {new Date(notif.created_at).toLocaleTimeString([], {
                             hour: "2-digit",

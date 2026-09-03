@@ -22,7 +22,10 @@ from app.api.routes.campaigns import router as campaign_router
 from app.api.routes.analytics import router as analytics_router
 from app.api.routes.reports import router as reports_router
 from app.api.routes.notifications import router as notifications_router
+from app.api.routes.approvals import router as approvals_router
 from app.api.routes.admin import router as admin_router
+from app.api.routes.dashboard import router as dashboard_router
+from app.api.routes.linkedin import router as linkedin_router
 
 
 scheduler = BackgroundScheduler()
@@ -39,6 +42,9 @@ def check_and_migrate_db():
                     conn.execute(text("ALTER TABLE posts ADD COLUMN media_url VARCHAR(500)"))
                 if "media_type" not in cols:
                     conn.execute(text("ALTER TABLE posts ADD COLUMN media_type VARCHAR(50)"))
+                if "approval_status" not in cols:
+                    conn.execute(text("ALTER TABLE posts ADD COLUMN approval_status VARCHAR(30) DEFAULT 'approved' NOT NULL"))
+                    conn.execute(text("UPDATE posts SET approval_status = 'pending' WHERE status = 'pending_approval'"))
                 conn.commit()
     except Exception as e:
         print(f"Database migration check notice: {e}")
@@ -112,7 +118,10 @@ app.include_router(campaign_router)
 app.include_router(analytics_router)
 app.include_router(reports_router)
 app.include_router(notifications_router)
+app.include_router(approvals_router)
 app.include_router(admin_router)
+app.include_router(dashboard_router)
+app.include_router(linkedin_router)
 
 
 @app.get("/", tags=["Health"])

@@ -87,6 +87,10 @@ export const api = {
     register: (data: any) =>
       apiRequest("/auth/register", { method: "POST", body: JSON.stringify(data) }),
     getMe: () => apiRequest("/auth/me"),
+    getGoogleUrl: (redirectUri?: string) =>
+      apiRequest(`/auth/google/url${redirectUri ? `?redirect_uri=${encodeURIComponent(redirectUri)}` : ""}`),
+    exchangeGoogleToken: (data: { code?: string; id_token?: string; redirect_uri?: string }) =>
+      apiRequest("/auth/google/token", { method: "POST", body: JSON.stringify(data) }),
     forgotPassword: (email: string) =>
       apiRequest("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
     resetPassword: (data: any) =>
@@ -98,6 +102,9 @@ export const api = {
   // ── Users ───────────────────────────────────────────────────
   users: {
     list: () => apiRequest("/users"),
+    getMe: () => apiRequest("/users/me"),
+    updateMe: (data: any) =>
+      apiRequest("/users/me", { method: "PUT", body: JSON.stringify(data) }),
     get: (id: number) => apiRequest(`/users/${id}`),
     update: (id: number, data: any) =>
       apiRequest(`/users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
@@ -232,6 +239,16 @@ export const api = {
     publish: (id: number) => apiRequest(`/posts/${id}/publish`, { method: "POST" }),
 
     retry: (id: number) => apiRequest(`/posts/${id}/retry`, { method: "POST" }),
+    retryTarget: (postId: number, targetId: number) =>
+      apiRequest(`/posts/${postId}/targets/${targetId}/retry`, { method: "POST" }),
+    getLogs: (id: number) => apiRequest(`/posts/${id}/logs`),
+    getAllLogs: (params?: { post_id?: number; level?: string; limit?: number }) => {
+      const query = new URLSearchParams();
+      if (params?.post_id) query.append("post_id", String(params.post_id));
+      if (params?.level) query.append("level", params.level);
+      if (params?.limit) query.append("limit", String(params.limit));
+      return apiRequest(`/posts/logs/all?${query.toString()}`);
+    },
 
     duplicate: (id: number) => apiRequest(`/posts/${id}/duplicate`, { method: "POST" }),
 
@@ -243,8 +260,28 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ action, rejection_reason: reason }),
       }),
+  },
 
-    getLogs: (id: number) => apiRequest(`/posts/${id}/logs`),
+  // ── Approvals ───────────────────────────────────────────────
+  approvals: {
+    list: (status?: string) => apiRequest(`/approvals${status ? `?status=${status}` : ""}`),
+    getPending: () => apiRequest("/approvals/pending"),
+    getStats: () => apiRequest("/approvals/stats"),
+    decide: (postId: number, action: "approve" | "reject", reason?: string) =>
+      apiRequest(`/posts/${postId}/approve`, {
+        method: "POST",
+        body: JSON.stringify({ action, rejection_reason: reason }),
+      }),
+  },
+
+  // ── LinkedIn Dedicated Integration ──────────────────────────
+  linkedin: {
+    getConnectUrl: (redirectUri?: string) =>
+      apiRequest(`/api/linkedin/connect${redirectUri ? `?redirect_uri=${encodeURIComponent(redirectUri)}` : ""}`),
+    getStatus: () => apiRequest("/api/linkedin/status"),
+    disconnect: () => apiRequest("/api/linkedin/disconnect", { method: "POST" }),
+    publish: (data: { content: string; media_urls?: string[]; post_type?: string; title?: string }) =>
+      apiRequest("/api/linkedin/publish", { method: "POST", body: JSON.stringify(data) }),
   },
 
   // ── Media ───────────────────────────────────────────────────
@@ -266,6 +303,15 @@ export const api = {
       apiRequest(`/campaigns/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: number) => apiRequest(`/campaigns/${id}`, { method: "DELETE" }),
     getPosts: (id: number) => apiRequest(`/campaigns/${id}/posts`),
+  },
+
+  // ── Dashboard ───────────────────────────────────────────────
+  dashboard: {
+    getStats: () => apiRequest("/dashboard/stats"),
+    getSummary: () => apiRequest("/dashboard/summary"),
+    getRecentPosts: (limit = 6) => apiRequest(`/dashboard/recent-posts?limit=${limit}`),
+    getUpcomingPosts: (limit = 6) => apiRequest(`/dashboard/upcoming-posts?limit=${limit}`),
+    getActivity: (limit = 8) => apiRequest(`/dashboard/activity?limit=${limit}`),
   },
 
   // ── Analytics ───────────────────────────────────────────────
@@ -306,6 +352,7 @@ export const api = {
     auditLogs: () => apiRequest("/admin/audit-logs"),
     queueStats: () => apiRequest("/admin/queue-stats"),
     retryFailedJobs: () => apiRequest("/admin/retry-failed-jobs", { method: "POST" }),
+    getPendingApprovals: () => apiRequest("/admin/pending-approvals"),
   },
 };
 

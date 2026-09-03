@@ -26,6 +26,9 @@ class Post(Base):
     status = Column(String(30), default="draft", nullable=False, index=True)  
     # statuses: draft, pending_approval, scheduled, publishing, published, failed, cancelled
 
+    approval_status = Column(String(30), default="approved", nullable=False, index=True)
+    # approval statuses: pending, approved, rejected
+
     scheduled_at = Column(DateTime, nullable=True, index=True)
     published_at = Column(DateTime, nullable=True)
     
@@ -60,6 +63,7 @@ class Post(Base):
     platform_targets = relationship("PostPlatformTarget", back_populates="post", cascade="all, delete-orphan")
     publishing_jobs = relationship("PublishingJob", back_populates="post", cascade="all, delete-orphan")
     publishing_logs = relationship("PublishingLog", back_populates="post", cascade="all, delete-orphan")
+    approval_requests = relationship("ApprovalRequest", back_populates="post", cascade="all, delete-orphan", order_by="ApprovalRequest.created_at.desc()")
 
 
 Index("idx_post_scheduler_status", Post.status, Post.scheduled_at)

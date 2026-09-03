@@ -1,16 +1,44 @@
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../services/api";
 import { Zap, Lock, Mail, ArrowRight } from "lucide-react";
+import { FcGoogle } from "react-icons/fc";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, roleChangeNotice, setRoleChangeNotice } = useAuth();
+  const [searchParams] = useSearchParams();
+  const { login, loginWithToken, roleChangeNotice, setRoleChangeNotice, showToast } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Check for Google OAuth callback parameters
+  useEffect(() => {
+    const googleToken = searchParams.get("google_token");
+    const refreshToken = searchParams.get("refresh_token") || undefined;
+    const oauthError = searchParams.get("error");
+    const errorDesc = searchParams.get("error_description");
+
+    if (googleToken) {
+      setLoading(true);
+      loginWithToken(googleToken, refreshToken)
+        .then(() => {
+          navigate("/");
+        })
+        .catch((err: any) => {
+          setError(err.message || "Failed to complete Google Sign In.");
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } else if (oauthError) {
+      setError(errorDesc || `Authentication failed (${oauthError}).`);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +56,24 @@ export default function Login() {
       setError(err.message || "Invalid credentials. Please verify your email and password.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true);
+    setError(null);
+    try {
+      const res = await api.auth.getGoogleUrl();
+      if (res.auth_url) {
+        window.location.href = res.auth_url;
+      } else {
+        setError(res.message || "Google OAuth is not configured on the server. Please set GOOGLE_CLIENT_ID in .env");
+        showToast("Configuration Needed", "Google Client ID is not configured.", "warning");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to initialize Google Login.");
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -80,6 +126,25 @@ export default function Login() {
               {error}
             </div>
           )}
+
+          {/* Google Login Button */}
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={googleLoading || loading}
+            className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold shadow-xs transition cursor-pointer text-sm disabled:opacity-60"
+          >
+            <FcGoogle size={20} />
+            <span>{googleLoading ? "Connecting to Google..." : "Continue with Google"}</span>
+          </button>
+
+          <div className="relative flex items-center justify-center">
+            <div className="border-t border-slate-200 w-full" />
+            <span className="bg-white px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+              or with email
+            </span>
+            <div className="border-t border-slate-200 w-full" />
+          </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>

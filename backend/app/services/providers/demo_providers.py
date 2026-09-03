@@ -108,24 +108,29 @@ class DemoInstagramProvider(SocialProvider):
 
 
 class DemoLinkedInProvider(SocialProvider):
+    """Sandbox/mock provider for local development without LinkedIn API credentials."""
     @property
     def platform_name(self) -> str:
         return "linkedin"
 
     def get_auth_url(self, state: str, redirect_uri: str) -> str:
-        return f"https://www.linkedin.com/oauth/v2/authorization?client_id=demo_li&redirect_uri={redirect_uri}&state={state}"
+        return f"https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=UNCONFIGURED&redirect_uri={redirect_uri}&state={state}"
 
     def exchange_code_for_token(self, code: str, redirect_uri: str) -> Dict[str, Any]:
+        member_id = uuid.uuid4().hex[:12]
         return {
-            "access_token": f"li_mock_token_{uuid.uuid4().hex[:16]}",
-            "refresh_token": f"li_mock_ref_{uuid.uuid4().hex[:16]}",
-            "account_name": "Acme Enterprise",
-            "account_id": "urn:li:organization:771829",
-            "avatar_url": None
+            "access_token": f"sandbox_li_token_{uuid.uuid4().hex[:16]}",
+            "refresh_token": f"sandbox_li_ref_{uuid.uuid4().hex[:16]}",
+            "expires_in": 5184000,
+            "account_name": "Demo LinkedIn Member",
+            "account_handle": "demo.linkedin.member",
+            "account_id": f"urn:li:person:{member_id}",
+            "avatar_url": None,
+            "is_demo": True
         }
 
     def refresh_token(self, refresh_token: str) -> Dict[str, Any]:
-        return {"access_token": f"li_refreshed_{uuid.uuid4().hex[:16]}", "expires_in": 5184000}
+        return {"access_token": f"sandbox_li_refreshed_{uuid.uuid4().hex[:16]}", "expires_in": 5184000}
 
     def publish_post(
         self,

@@ -27,6 +27,7 @@ class AdminDashboardResponse(BaseModel):
     published_posts: int
     scheduled_posts: int
     failed_posts: int
+    pending_approvals: int = 0
     total_campaigns: int
     recent_logs: List[AuditLogResponse]
     system_status: Dict[str, Any]

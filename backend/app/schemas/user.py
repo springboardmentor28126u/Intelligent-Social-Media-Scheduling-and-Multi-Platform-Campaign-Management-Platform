@@ -45,6 +45,12 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(..., min_length=6)
 
 
+class GoogleTokenRequest(BaseModel):
+    code: Optional[str] = None
+    id_token: Optional[str] = None
+    redirect_uri: Optional[str] = None
+
+
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     job_title: Optional[str] = None

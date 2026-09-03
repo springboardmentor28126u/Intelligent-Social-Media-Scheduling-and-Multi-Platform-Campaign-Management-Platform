@@ -12,7 +12,7 @@ from app.db.models.social_account import SocialAccount, SocialPlatform
 from app.schemas.social_account import (
     SocialAccountCreate, SocialAccountResponse, SocialPlatformResponse, ConnectDemoAccountRequest
 )
-from app.core.security import get_current_user, require_permission
+from app.core.security import get_current_user, require_permission, create_oauth_state, verify_oauth_state
 from app.services.providers import get_social_provider, get_oauth_provider, list_configured_platforms
 from app.services.audit import log_audit_event
 from app.core.config import settings
@@ -61,13 +61,21 @@ def get_user_social_accounts(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get all social accounts connected by the current user."""
+    """Get all social accounts connected by the current user with real post counts from DB."""
+    from app.db.models.post import Post
     accounts = (
         db.query(SocialAccount)
         .filter(SocialAccount.user_id == current_user["user_id"])
         .order_by(SocialAccount.created_at.desc())
         .all()
     )
+    for acc in accounts:
+        # Calculate real published posts count from SocialPilot database
+        pub_count = db.query(Post).filter(
+            Post.social_account_id == acc.id,
+            Post.status == "published"
+        ).count()
+        acc.posts_count = pub_count
     return accounts
 
 
@@ -87,7 +95,7 @@ def get_oauth_url(
     After the user authorizes, the platform will redirect to the callback URL.
     """
     platform_key = platform.lower().strip()
-    supported = ["facebook", "instagram", "linkedin", "twitter"]
+    supported = ["facebook", "instagram", "linkedin", "twitter", "youtube", "pinterest"]
     
     if platform_key not in supported:
         raise HTTPException(
@@ -95,9 +103,13 @@ def get_oauth_url(
             detail=f"OAuth not supported for '{platform_key}'. Supported: {supported}"
         )
 
-    # Encode user_id in state for security (CSRF protection)
-    state = f"{current_user['user_id']}:{secrets.token_urlsafe(16)}"
-    redirect_uri = f"{settings.BACKEND_URL}/social-accounts/oauth/{platform_key}/callback"
+    # Encode user_id in cryptographically secure HMAC state
+    state = create_oauth_state(user_id=current_user["user_id"])
+    redirect_uri = (
+        settings.LINKEDIN_REDIRECT_URI or f"{settings.BACKEND_URL}/api/linkedin/callback"
+        if platform_key == "linkedin"
+        else f"{settings.BACKEND_URL}/social-accounts/oauth/{platform_key}/callback"
+    )
 
     provider = get_oauth_provider(platform_key)
     auth_url = provider.get_auth_url(state=state, redirect_uri=redirect_uri)
@@ -131,8 +143,9 @@ def oauth_callback(
     frontend_accounts_url = f"{settings.FRONTEND_URL}/accounts"
 
     if error:
+        err_msg = error_description or error
         return RedirectResponse(
-            url=f"{frontend_accounts_url}?error={error}&platform={platform_key}",
+            url=f"{frontend_accounts_url}?error={err_msg}&platform={platform_key}",
             status_code=302
         )
 
@@ -142,22 +155,22 @@ def oauth_callback(
             status_code=302
         )
 
-    # Extract user_id from state
-    user_id = None
-    if state and ":" in state:
-        try:
-            user_id = int(state.split(":")[0])
-        except ValueError:
-            pass
-
-    if not user_id:
+    # Extract user_id from verified cryptographic state
+    state_data = verify_oauth_state(state) if state else None
+    if not state_data or not state_data.get("user_id"):
         return RedirectResponse(
-            url=f"{frontend_accounts_url}?error=invalid_state&platform={platform_key}",
+            url=f"{frontend_accounts_url}?error=invalid_or_expired_state&platform={platform_key}",
             status_code=302
         )
 
+    user_id = state_data["user_id"]
+
     try:
-        redirect_uri = f"{settings.BACKEND_URL}/social-accounts/oauth/{platform_key}/callback"
+        redirect_uri = (
+            settings.LINKEDIN_REDIRECT_URI or f"{settings.BACKEND_URL}/api/linkedin/callback"
+            if platform_key == "linkedin"
+            else f"{settings.BACKEND_URL}/social-accounts/oauth/{platform_key}/callback"
+        )
         provider = get_oauth_provider(platform_key)
         token_data = provider.exchange_code_for_token(code=code, redirect_uri=redirect_uri)
 
@@ -189,7 +202,9 @@ def oauth_callback(
                 avatar_url=token_data.get("avatar_url"),
                 access_token=token_data.get("access_token", ""),
                 refresh_token=token_data.get("refresh_token"),
-                followers_count=random.randint(1200, 35000),
+                followers_count=None,
+                following_count=None,
+                posts_count=0,
                 is_active=True,
                 is_demo=is_demo
             )
@@ -256,9 +271,9 @@ def connect_demo_social_account(
         avatar_url=token_data.get("avatar_url", f"https://api.dicebear.com/7.x/bottts/svg?seed={platform_key}"),
         access_token=token_data["access_token"],
         refresh_token=token_data.get("refresh_token"),
-        followers_count=random.randint(1200, 35000),
-        following_count=random.randint(100, 1200),
-        posts_count=random.randint(24, 150),
+        followers_count=0,
+        following_count=0,
+        posts_count=0,
         is_active=True,
         is_demo=True
     )
@@ -344,7 +359,8 @@ def sync_social_account(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Sync account metrics from the social platform."""
+    """Sync account metrics from the social platform and SocialPilot database."""
+    from app.db.models.post import Post
     account = (
         db.query(SocialAccount)
         .filter(
@@ -356,13 +372,96 @@ def sync_social_account(
     if not account:
         raise HTTPException(status_code=404, detail="Social account not found")
 
+    # 1. Update published posts count from SocialPilot database records
+    published_count = db.query(Post).filter(
+        Post.social_account_id == account.id,
+        Post.status == "published"
+    ).count()
+    account.posts_count = published_count
+
+    # 2. Query provider for platform metrics (if supported by permissions)
     provider = get_social_provider(account.platform, is_demo=account.is_demo)
     metrics = provider.get_account_metrics(account.access_token, account.account_id or "")
     
-    if "followers" in metrics:
+    if metrics.get("followers") is not None:
         account.followers_count = metrics["followers"]
-    if "following" in metrics:
+    if metrics.get("following") is not None:
         account.following_count = metrics["following"]
         
     db.commit()
-    return {"message": "Account synced successfully", "metrics": metrics}
+    db.refresh(account)
+    return {
+        "message": "Account synced successfully",
+        "account_id": account.id,
+        "posts_count": account.posts_count,
+        "followers_count": account.followers_count,
+        "metrics": metrics
+    }
+
+
+@router.get("/{account_id}/status")
+def get_account_status(
+    account_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Check account connection health, token expiry, and permissions."""
+    account = (
+        db.query(SocialAccount)
+        .filter(
+            SocialAccount.id == account_id,
+            SocialAccount.user_id == current_user["user_id"]
+        )
+        .first()
+    )
+    if not account:
+        raise HTTPException(status_code=404, detail="Social account not found")
+
+    now = datetime.now(timezone.utc)
+    expired = bool(account.token_expires_at and account.token_expires_at < now)
+
+    return {
+        "account_id": account.id,
+        "platform": account.platform,
+        "account_name": account.account_name,
+        "account_handle": account.account_handle,
+        "is_active": account.is_active,
+        "is_demo": account.is_demo,
+        "is_token_expired": expired,
+        "token_expires_at": account.token_expires_at.isoformat() if account.token_expires_at else None,
+        "followers_count": account.followers_count,
+        "connection_health": "expired" if expired else "healthy" if account.is_active else "disconnected"
+    }
+
+
+@router.post("/disconnect/{platform}")
+def disconnect_platform(
+    platform: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Disconnect any active account for the specified platform."""
+    platform_key = platform.lower().strip()
+    accounts = (
+        db.query(SocialAccount)
+        .filter(
+            SocialAccount.platform == platform_key,
+            SocialAccount.user_id == current_user["user_id"]
+        )
+        .all()
+    )
+    if not accounts:
+        raise HTTPException(status_code=404, detail=f"No connected {platform_key.title()} account found")
+
+    for acc in accounts:
+        log_audit_event(
+            db=db,
+            user_id=current_user["user_id"],
+            action="social_account.disconnected",
+            module="social_accounts",
+            description=f"Disconnected {platform_key.title()} account: {acc.account_name}"
+        )
+        db.delete(acc)
+    db.commit()
+
+    return {"message": f"Successfully disconnected {platform_key.title()} account(s)"}

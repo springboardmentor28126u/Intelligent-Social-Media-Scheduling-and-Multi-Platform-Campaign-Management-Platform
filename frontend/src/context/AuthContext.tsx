@@ -13,6 +13,7 @@ export interface UserProfile {
   job_title?: string;
   company?: string;
   bio?: string;
+  timezone?: string;
   permissions: string[];
 }
 
@@ -31,6 +32,7 @@ interface AuthContextType {
   roleChangeNotice: string | null;
   setRoleChangeNotice: (notice: string | null) => void;
   login: (email: string, password: string) => Promise<void>;
+  loginWithToken: (token: string, refreshToken?: string) => Promise<UserProfile>;
   register: (data: any) => Promise<void>;
   logout: () => void;
   triggerRoleChangeLogout: (newRoleName?: string) => void;
@@ -107,6 +109,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     showToast("Signed In", `Welcome back, ${res.user.name}!`, "success");
   };
 
+  const loginWithToken = async (accessToken: string, _refreshToken?: string): Promise<UserProfile> => {
+    setAuthToken(accessToken);
+    setToken(accessToken);
+    const profile = await api.auth.getMe();
+    setUser(profile);
+    localStorage.setItem("socialpilot_user", JSON.stringify(profile));
+    setRoleChangeNotice(null);
+    showToast("Signed In with Google", `Welcome back, ${profile.name}!`, "success");
+    return profile;
+  };
+
   const register = async (data: any) => {
     const res = await api.auth.register(data);
     setAuthToken(res.access_token);
@@ -154,6 +167,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         roleChangeNotice,
         setRoleChangeNotice,
         login,
+        loginWithToken,
         register,
         logout,
         triggerRoleChangeLogout,

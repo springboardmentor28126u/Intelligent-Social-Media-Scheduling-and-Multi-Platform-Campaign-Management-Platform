@@ -193,9 +193,69 @@ npm run build
 | | `GET` | `/reports/{id}/excel` | Download binary Excel workbook |
 | **Channels** | `GET` | `/social-accounts` | List connected social accounts & metrics |
 | | `POST` | `/social-accounts/connect-demo` | Authorize social platform in 1 click |
+| **LinkedIn** | `GET` | `/api/linkedin/connect` | Generate LinkedIn OAuth 2.0 authorization URL |
+| | `GET` | `/api/linkedin/callback` | Exchange authorization code and link LinkedIn profile |
+| | `GET` | `/api/linkedin/status` | Current LinkedIn connection status & token health |
+| | `POST` | `/api/linkedin/disconnect` | Disconnect and remove LinkedIn account |
+| | `POST` | `/api/linkedin/publish` | Immediately publish post to LinkedIn |
 | **Admin** | `GET` | `/admin/dashboard` | Administrator system metrics |
 | | `GET` | `/admin/audit-logs` | Enterprise audit trail log stream |
 | | `POST` | `/admin/retry-failed-jobs` | Trigger bulk retry of failed queue items |
+
+---
+
+## 🔗 LinkedIn Integration Guide
+
+SocialPilot natively supports LinkedIn authentication, profile syncing, text publishing, media attachments, and scheduled publishing.
+
+### 1. Configure LinkedIn Developer Credentials
+In your root `.env` (or `backend/.env`) file, provide your LinkedIn Developer credentials:
+
+```ini
+LINKEDIN_CLIENT_ID=your_linkedin_client_id_here
+LINKEDIN_CLIENT_SECRET=your_linkedin_client_secret_here
+LINKEDIN_REDIRECT_URI=http://localhost:8000/api/linkedin/callback
+```
+
+> 🔒 **Security Notice**: Credentials are read strictly from environment variables. Client Secrets are never exposed to the frontend browser or committed to version control.
+
+### 2. LinkedIn Developer Portal Configuration
+1. **OAuth 2.0 Redirect URL**:
+   Ensure `http://localhost:8000/api/linkedin/callback` is listed under the **Auth** tab in your [LinkedIn Developer Portal](https://www.linkedin.com/developers/).
+2. **Products & Permissions**:
+   - Enable **Share on LinkedIn** (grants `w_member_social`).
+   - Enable **Sign In with LinkedIn using OpenID Connect** (grants `openid`, `profile`, `email`).
+
+### 3. Running the Backend & Frontend
+```bash
+# Backend (Port 8000)
+cd backend
+.\venv\Scripts\activate   # (or source venv/bin/activate on Linux/Mac)
+uvicorn app.main:app --reload --port 8000
+
+# Frontend (Port 5173 or 3000)
+cd frontend
+npm run dev
+```
+
+### 4. How to Connect LinkedIn from SocialPilot
+1. Log in to SocialPilot (e.g. `admin@socialpilot.io` / `password123`).
+2. Navigate to **Channels** (`/accounts`) in the left navigation sidebar.
+3. Click **Connect Channel** and select **LinkedIn**.
+4. You will be redirected to LinkedIn's official OAuth authorization consent page.
+5. Once authorized, LinkedIn redirects to `http://localhost:8000/api/linkedin/callback`.
+6. SocialPilot retrieves your profile details (member ID, name, avatar), encrypts/stores the access token, and shows LinkedIn as **Connected**.
+
+### 5. Publishing to LinkedIn
+- **Direct Publishing**: Open the **Create Post** modal, select **LinkedIn**, compose your post (up to 3,000 characters), and click **Publish Now**.
+- **Dedicated Endpoint**: Alternatively, trigger `POST /api/linkedin/publish` with JSON `{"content": "Your post text"}` using standard JWT authentication.
+
+### 6. Background Scheduling Workflow
+- Select **Schedule Post** in the composer and pick a date/time.
+- SocialPilot creates a `Post` and `PostPlatformTarget` with status `pending`.
+- The background APScheduler checks every minute for scheduled posts whose execution time has arrived.
+- The scheduler passes the payload to `LinkedInProvider`, sends the post via the LinkedIn UGC/REST API, logs the execution in `PublishingLog`, and marks the post as `published`.
+- Check live results in the **Queue** or **Posts** tab.
 
 ---
 

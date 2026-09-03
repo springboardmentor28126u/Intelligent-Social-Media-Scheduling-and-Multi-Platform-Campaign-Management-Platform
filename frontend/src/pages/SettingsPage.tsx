@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import UserAvatar from "../components/UserAvatar";
@@ -17,22 +17,42 @@ export default function SettingsPage() {
   const [name, setName] = useState(user?.name || "Jenee");
   const [email, setEmail] = useState(user?.email || "admin@socialpilot.io");
   const [company, setCompany] = useState(user?.company || "Acme Global Marketing");
+  const [jobTitle, setJobTitle] = useState(user?.job_title || "");
+  const [bio, setBio] = useState(user?.bio || "");
+  const [timezone, setTimezone] = useState(user?.timezone || "UTC");
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
+  // Sync state when user profile is loaded/updated
+  useEffect(() => {
+    if (user) {
+      setName(user.name || "");
+      setEmail(user.email || "");
+      setCompany(user.company || "");
+      setJobTitle(user.job_title || "");
+      setBio(user.bio || "");
+      setTimezone(user.timezone || "UTC");
+      setAvatarUrl(user.avatar_url || "");
+    }
+  }, [user]);
+
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingProfile(true);
     try {
-      if (user?.id) {
-        await api.users.update(user.id, {
-          name,
-          company,
-        });
-      }
+      const updated = await api.users.updateMe({
+        name,
+        company,
+        job_title: jobTitle,
+        bio,
+        timezone,
+        avatar_url: avatarUrl || undefined,
+      });
+      localStorage.setItem("socialpilot_user", JSON.stringify(updated));
       showToast("Profile Updated! 👤", "Your personal details have been saved.", "success");
     } catch (err: any) {
       showToast("Error", err.message || "Failed to update profile", "error");
@@ -102,7 +122,7 @@ export default function SettingsPage() {
             <User size={18} className="text-blue-600" />
             Personal & Organization Details
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">Update display name and brand team context</p>
+          <p className="text-xs text-slate-500 mt-0.5">Update display name, job role, and bio</p>
         </div>
 
         <form onSubmit={handleUpdateProfile} className="space-y-4">
@@ -132,15 +152,81 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Job Title
+              </label>
+              <input
+                type="text"
+                value={jobTitle}
+                onChange={(e) => setJobTitle(e.target.value)}
+                placeholder="e.g. Head of Social Marketing"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Company / Organization
+              </label>
+              <input
+                type="text"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                placeholder="e.g. Acme Global"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Timezone
+              </label>
+              <select
+                value={timezone}
+                onChange={(e) => setTimezone(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
+              >
+                <option value="UTC">UTC (Coordinated Universal Time)</option>
+                <option value="America/New_York">Eastern Time (US & Canada)</option>
+                <option value="America/Chicago">Central Time (US & Canada)</option>
+                <option value="America/Denver">Mountain Time (US & Canada)</option>
+                <option value="America/Los_Angeles">Pacific Time (US & Canada)</option>
+                <option value="Europe/London">London (GMT/BST)</option>
+                <option value="Europe/Paris">Paris / Berlin (CET/CEST)</option>
+                <option value="Asia/Tokyo">Tokyo (JST)</option>
+                <option value="Asia/Kolkata">India (IST)</option>
+                <option value="Australia/Sydney">Sydney (AEST)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Avatar Image URL (Optional)
+              </label>
+              <input
+                type="url"
+                value={avatarUrl}
+                onChange={(e) => setAvatarUrl(e.target.value)}
+                placeholder="https://example.com/avatar.jpg"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-              Company / Brand Organization
+              Bio / Creator Summary
             </label>
-            <input
-              type="text"
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
+            <textarea
+              rows={3}
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Tell your team about your social publishing strategy and responsibilities..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition resize-none"
             />
           </div>
 

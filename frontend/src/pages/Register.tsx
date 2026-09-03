@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../services/api";
 import { Zap, Lock, Mail, User, Building, ArrowRight, Shield } from "lucide-react";
+import { FcGoogle } from "react-icons/fc";
 
 export default function Register() {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, showToast } = useAuth();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -14,7 +16,26 @@ export default function Register() {
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("content_creator");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleGoogleSignup = async () => {
+    setGoogleLoading(true);
+    setError(null);
+    try {
+      const res = await api.auth.getGoogleUrl();
+      if (res.auth_url) {
+        window.location.href = res.auth_url;
+      } else {
+        setError(res.message || "Google OAuth is not configured on the server. Please set GOOGLE_CLIENT_ID in .env");
+        showToast("Configuration Needed", "Google Client ID is not configured.", "warning");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to initialize Google Sign Up.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +102,25 @@ export default function Register() {
               {error}
             </div>
           )}
+
+          {/* Google Sign Up Button */}
+          <button
+            type="button"
+            onClick={handleGoogleSignup}
+            disabled={googleLoading || loading}
+            className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold shadow-xs transition cursor-pointer text-sm disabled:opacity-60"
+          >
+            <FcGoogle size={20} />
+            <span>{googleLoading ? "Connecting to Google..." : "Sign up with Google"}</span>
+          </button>
+
+          <div className="relative flex items-center justify-center">
+            <div className="border-t border-slate-200 w-full" />
+            <span className="bg-white px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+              or register with email
+            </span>
+            <div className="border-t border-slate-200 w-full" />
+          </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>

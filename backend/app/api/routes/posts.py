@@ -9,14 +9,16 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.database import get_db
-from app.db.models.post import Post, PostMedia, PublishingLog
+from app.db.models.post import Post, PostMedia, PostPlatformTarget, PublishingLog
 from app.db.models.campaign import Campaign
 from app.db.models.social_account import SocialAccount
+from app.db.models.user import User
 from app.schemas.post import (
     PostCreate,
     PostUpdate,
     PostResponse,
     PostMediaResponse,
+    PostPlatformTargetResponse,
     PostScheduleRequest,
     PostRescheduleRequest,
     PostApprovalAction,
@@ -24,9 +26,11 @@ from app.schemas.post import (
     PublishingLogResponse
 )
 from app.core.security import get_current_user, require_permission
+from app.db.models.approval import ApprovalRequest
 from app.services.scheduler import publish_post_now
 from app.services.audit import log_audit_event
 from app.services.notifications import create_notification
+from app.services.approvals import create_approval_request_for_post
 
 
 router = APIRouter(
@@ -48,6 +52,24 @@ def _format_post_response(post: Post) -> PostResponse:
             media_order=m.media_order,
             created_at=m.created_at
         ) for m in (post.media or [])
+    ]
+    
+    targets_list = [
+        PostPlatformTargetResponse(
+            id=t.id,
+            post_id=t.post_id,
+            platform=t.platform,
+            social_account_id=t.social_account_id,
+            status=t.status,
+            external_post_id=t.external_post_id,
+            external_url=t.external_url,
+            error_message=t.error_message,
+            attempt_count=t.attempt_count,
+            max_attempts=t.max_attempts,
+            published_at=t.published_at,
+            created_at=t.created_at,
+            updated_at=t.updated_at
+        ) for t in (post.platform_targets or [])
     ]
     
     author_name = post.user.name if post.user else None
@@ -78,6 +100,7 @@ def _format_post_response(post: Post) -> PostResponse:
         media_url=media_url,
         media_type=media_type,
         status=post.status,
+        approval_status=getattr(post, "approval_status", "approved") or "approved",
         scheduled_at=post.scheduled_at,
         published_at=post.published_at,
         retry_count=post.retry_count,
@@ -96,6 +119,7 @@ def _format_post_response(post: Post) -> PostResponse:
         created_at=post.created_at,
         updated_at=post.updated_at,
         media=media_list,
+        platform_targets=targets_list,
         author_name=author_name,
         campaign_name=campaign_name,
         account_name=account_name
@@ -330,8 +354,15 @@ async def create_post(
         social_account_id = int(social_account_id_str) if social_account_id_str and str(social_account_id_str).isdigit() else None
 
         initial_status = status_val or "draft"
-        if current_user["role"] == "content_creator" and initial_status == "scheduled":
-            initial_status = "pending_approval"
+        initial_approval_status = "approved"
+        if current_user["role"] == "content_creator":
+            if initial_status in ["scheduled", "published", "pending_approval"]:
+                initial_status = "pending_approval"
+                initial_approval_status = "pending"
+            elif initial_status == "draft":
+                initial_approval_status = "approved"
+        elif initial_status == "pending_approval":
+            initial_approval_status = "pending"
 
         post = Post(
             user_id=current_user["user_id"],
@@ -344,6 +375,7 @@ async def create_post(
             media_url=media_url,
             media_type=media_type,
             status=initial_status,
+            approval_status=initial_approval_status,
             scheduled_at=scheduled_at,
             is_recurring=is_recurring,
             recurrence_rule=recurrence_rule,
@@ -370,7 +402,33 @@ async def create_post(
             db.commit()
             db.refresh(post)
 
-        if initial_status == "published":
+        # Create target platform record
+        target_acc_id = social_account_id
+        if not target_acc_id:
+            acc = db.query(SocialAccount).filter(
+                SocialAccount.user_id == current_user["user_id"],
+                SocialAccount.platform == post.platform,
+                SocialAccount.is_active == True
+            ).first()
+            if acc:
+                target_acc_id = acc.id
+
+        plat_target = PostPlatformTarget(
+            post_id=post.id,
+            platform=post.platform,
+            social_account_id=target_acc_id,
+            status="pending" if initial_status in ["scheduled", "queued", "published", "pending_approval"] else "draft",
+            max_attempts=3
+        )
+        db.add(plat_target)
+        db.commit()
+        db.refresh(post)
+
+        if initial_status == "pending_approval" or initial_approval_status == "pending":
+            creator_user = db.query(User).filter(User.id == current_user["user_id"]).first()
+            if creator_user:
+                create_approval_request_for_post(db, post, creator_user)
+        elif initial_status == "published":
             publish_post_now(post.id, db=db)
             db.refresh(post)
 
@@ -379,7 +437,7 @@ async def create_post(
             user_id=current_user["user_id"],
             action="post.create",
             module="posts",
-            description=f"Created post #{post.id} ({post.platform}, status: {post.status}, media: {media_type or 'none'})"
+            description=f"Created post #{post.id} ({post.platform}, status: {post.status}, approval: {post.approval_status}, media: {media_type or 'none'})"
         )
         return _format_post_response(post)
 
@@ -388,8 +446,15 @@ async def create_post(
         post_data = PostCreate.model_validate(body)
 
         initial_status = post_data.status or "draft"
-        if current_user["role"] == "content_creator" and initial_status == "scheduled":
-            initial_status = "pending_approval"
+        initial_approval_status = "approved"
+        if current_user["role"] == "content_creator":
+            if initial_status in ["scheduled", "published", "pending_approval"]:
+                initial_status = "pending_approval"
+                initial_approval_status = "pending"
+            elif initial_status == "draft":
+                initial_approval_status = "approved"
+        elif initial_status == "pending_approval":
+            initial_approval_status = "pending"
 
         media_url = post_data.media_url
         media_type = post_data.media_type
@@ -413,6 +478,7 @@ async def create_post(
             media_url=media_url,
             media_type=media_type,
             status=initial_status,
+            approval_status=initial_approval_status,
             scheduled_at=post_data.scheduled_at,
             is_recurring=post_data.is_recurring or False,
             recurrence_rule=post_data.recurrence_rule,
@@ -438,7 +504,33 @@ async def create_post(
             db.commit()
             db.refresh(post)
 
-        if initial_status == "published":
+        # Create target platform record
+        target_acc_id = post_data.social_account_id
+        if not target_acc_id:
+            acc = db.query(SocialAccount).filter(
+                SocialAccount.user_id == current_user["user_id"],
+                SocialAccount.platform == post.platform,
+                SocialAccount.is_active == True
+            ).first()
+            if acc:
+                target_acc_id = acc.id
+
+        plat_target = PostPlatformTarget(
+            post_id=post.id,
+            platform=post.platform,
+            social_account_id=target_acc_id,
+            status="pending" if initial_status in ["scheduled", "queued", "published", "pending_approval"] else "draft",
+            max_attempts=3
+        )
+        db.add(plat_target)
+        db.commit()
+        db.refresh(post)
+
+        if initial_status == "pending_approval" or initial_approval_status == "pending":
+            creator_user = db.query(User).filter(User.id == current_user["user_id"]).first()
+            if creator_user:
+                create_approval_request_for_post(db, post, creator_user)
+        elif initial_status == "published":
             publish_post_now(post.id, db=db)
             db.refresh(post)
 
@@ -447,7 +539,7 @@ async def create_post(
             user_id=current_user["user_id"],
             action="post.create",
             module="posts",
-            description=f"Created post #{post.id} ({post.platform}, status: {post.status})"
+            description=f"Created post #{post.id} ({post.platform}, status: {post.status}, approval: {post.approval_status})"
         )
 
         return _format_post_response(post)
@@ -485,6 +577,8 @@ def update_post(
         post.media_type = post_data.media_type
     if post_data.status is not None:
         post.status = post_data.status
+    if post_data.approval_status is not None:
+        post.approval_status = post_data.approval_status
     if post_data.scheduled_at is not None:
         post.scheduled_at = post_data.scheduled_at
     if post_data.campaign_id is not None:
@@ -588,7 +682,34 @@ def schedule_post(
             detail="Scheduled time must be in the future"
         )
 
+    if current_user["role"] == "content_creator":
+        post.status = "pending_approval"
+        post.approval_status = "pending"
+        post.scheduled_at = scheduled
+        if data.is_recurring is not None:
+            post.is_recurring = data.is_recurring
+        if data.recurrence_rule is not None:
+            post.recurrence_rule = data.recurrence_rule
+        post.failure_reason = None
+        db.commit()
+        db.refresh(post)
+
+        creator_user = db.query(User).filter(User.id == current_user["user_id"]).first()
+        if creator_user:
+            create_approval_request_for_post(db, post, creator_user)
+
+        create_notification(
+            db=db,
+            user_id=post.user_id,
+            title="Scheduled Post Awaiting Approval ⏰",
+            message=f"Post scheduled for {post.scheduled_at.strftime('%b %d, %Y at %H:%M UTC')} has been submitted for administrator approval.",
+            type="reminder",
+            link="/posts?status=pending_approval"
+        )
+        return _format_post_response(post)
+
     post.status = "scheduled"
+    post.approval_status = "approved"
     post.scheduled_at = scheduled
     if data.is_recurring is not None:
         post.is_recurring = data.is_recurring
@@ -723,6 +844,18 @@ def publish_post_endpoint(
 
     _check_post_ownership(post, current_user)
 
+    if getattr(post, "approval_status", None) == "pending" or post.status == "pending_approval":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot publish a post that is pending approval. Administrator approval is required before publishing."
+        )
+
+    if getattr(post, "approval_status", None) == "rejected":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot publish a post that has been rejected by an administrator."
+        )
+
     result = publish_post_now(post.id, db=db)
     if result.get("status") == "failed":
         raise HTTPException(status_code=500, detail=result.get("error", "Publishing failed"))
@@ -755,15 +888,23 @@ def retry_failed_post(
     post.status = "scheduled"
     db.commit()
 
+    # Reset failed targets
+    for target in (post.platform_targets or []):
+        if target.status == "failed":
+            target.status = "pending"
+            target.attempt_count = 0
+            target.error_message = None
+    db.commit()
+
     result = publish_post_now(post.id, db=db)
     db.refresh(post)
 
     log_audit_event(
         db=db,
         user_id=current_user["user_id"],
-        action="post.retry",
+        action="post.retried",
         module="posts",
-        description=f"Triggered retry for post #{post.id}"
+        description=f"Retried publishing post #{post.id}"
     )
 
     return _format_post_response(post)
@@ -779,28 +920,33 @@ def duplicate_post(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Duplicate a post as a new draft."""
-    original = db.query(Post).filter(Post.id == post_id).first()
-    if not original:
+    """Duplicate an existing post into a new draft."""
+    orig = db.query(Post).filter(Post.id == post_id).first()
+    if not orig:
         raise HTTPException(status_code=404, detail="Post not found")
 
     new_post = Post(
         user_id=current_user["user_id"],
-        campaign_id=original.campaign_id,
-        social_account_id=original.social_account_id,
-        title=f"Copy of {original.title or 'Post'}",
-        content=original.content,
-        platform=original.platform,
-        post_type=original.post_type,
+        campaign_id=orig.campaign_id,
+        social_account_id=orig.social_account_id,
+        title=f"Copy of {orig.title}" if orig.title else "Untitled Post (Copy)",
+        content=orig.content,
+        platform=orig.platform,
+        post_type=orig.post_type,
+        media_url=orig.media_url,
+        media_type=orig.media_type,
         status="draft",
-        tags=original.tags
+        approval_status="approved",
+        is_recurring=False,
+        tags=orig.tags
     )
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
 
-    for m in original.media:
-        dup_m = PostMedia(
+    # Copy media
+    for m in (orig.media or []):
+        new_media = PostMedia(
             post_id=new_post.id,
             file_name=m.file_name,
             file_type=m.file_type,
@@ -809,7 +955,18 @@ def duplicate_post(
             thumbnail_url=m.thumbnail_url,
             media_order=m.media_order
         )
-        db.add(dup_m)
+        db.add(new_media)
+    db.commit()
+
+    # Create target
+    plat_target = PostPlatformTarget(
+        post_id=new_post.id,
+        platform=new_post.platform,
+        social_account_id=new_post.social_account_id,
+        status="draft",
+        max_attempts=3
+    )
+    db.add(plat_target)
     db.commit()
     db.refresh(new_post)
 
@@ -834,16 +991,24 @@ def submit_for_approval(
         raise HTTPException(status_code=404, detail="Post not found")
 
     post.status = "pending_approval"
+    post.approval_status = "pending"
+    for target in (post.platform_targets or []):
+        target.status = "pending"
     db.commit()
     db.refresh(post)
 
+    creator_user = db.query(User).filter(User.id == post.user_id).first()
+    if creator_user:
+        create_approval_request_for_post(db, post, creator_user)
+
+    # Confirmation to creator
     create_notification(
         db=db,
         user_id=post.user_id,
-        title="Post Submitted for Approval 📩",
-        message=f"Post '{post.content[:35]}...' submitted for manager review.",
+        title="Submitted for Approval 📩",
+        message=f"Your {post.platform.title()} post has been submitted for administrator approval.",
         type="campaign_alert",
-        link="/posts"
+        link="/posts?status=pending_approval"
     )
 
     return _format_post_response(post)
@@ -860,23 +1025,71 @@ def handle_approval(
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
+    # Creator cannot approve their own post!
+    if current_user["user_id"] == post.user_id and current_user.get("role") == "content_creator":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Content creators cannot approve their own posts. An administrator must approve it."
+        )
+
+    # Update or create ApprovalRequest record
+    approval_req = (
+        db.query(ApprovalRequest)
+        .filter(ApprovalRequest.post_id == post.id, ApprovalRequest.status == "pending")
+        .first()
+    )
+    if not approval_req:
+        approval_req = ApprovalRequest(
+            post_id=post.id,
+            requested_by=post.user_id,
+            created_at=datetime.now(timezone.utc)
+        )
+        db.add(approval_req)
+
+    approval_req.reviewed_by = current_user["user_id"]
+    approval_req.reviewed_at = datetime.now(timezone.utc)
+    approval_req.status = "approved" if data.action == "approve" else "rejected"
+    approval_req.rejection_reason = data.rejection_reason if data.action == "reject" else None
+
+    reviewer_user = db.query(User).filter(User.id == current_user["user_id"]).first()
+    creator_user = db.query(User).filter(User.id == post.user_id).first()
+    creator_name = creator_user.name if creator_user else "Creator"
+    reviewer_name = reviewer_user.name if reviewer_user else "Admin"
+    platform_title = (post.platform or "social").title()
+
     if data.action == "approve":
+        # Keep scheduled_at unchanged; if scheduled_at exists, status becomes "scheduled"
+        post.approval_status = "approved"
         post.status = "scheduled" if post.scheduled_at else "draft"
-        msg = "Your post has been APPROVED! 👍"
+        post.failure_reason = None
+        for target in (post.platform_targets or []):
+            target.status = "pending"
+            target.error_message = None
+
+        audit_desc = f"{reviewer_name} approved {creator_name}'s {platform_title} post."
+        notif_msg = f"Your {platform_title} post has been APPROVED by {reviewer_name}! 👍 It is scheduled for publishing."
+        notif_type = "publish_success"
     else:
+        post.approval_status = "rejected"
         post.status = "draft"
-        post.failure_reason = f"Rejected: {data.rejection_reason or 'No reason provided'}"
-        msg = f"Your post was rejected. Note: {data.rejection_reason or 'Needs revision'}"
+        post.failure_reason = f"Rejected: {data.rejection_reason or 'Needs revision'}"
+        for target in (post.platform_targets or []):
+            target.status = "draft"
+
+        audit_desc = f"{reviewer_name} rejected {creator_name}'s {platform_title} post."
+        notif_msg = f"Your {platform_title} post was rejected by {reviewer_name}. Reason: {data.rejection_reason or 'Needs revision'}"
+        notif_type = "publish_failed"
 
     db.commit()
     db.refresh(post)
 
+    # Send real-time notification to the creator
     create_notification(
         db=db,
         user_id=post.user_id,
-        title="Post Approval Decision",
-        message=msg,
-        type="campaign_alert",
+        title=f"Post {'Approved 👍' if data.action == 'approve' else 'Rejected ❌'}",
+        message=notif_msg,
+        type=notif_type,
         link="/posts"
     )
 
@@ -884,8 +1097,8 @@ def handle_approval(
         db=db,
         user_id=current_user["user_id"],
         action=f"post.{data.action}d",
-        module="posts",
-        description=f"Post #{post.id} {data.action}d"
+        module="approvals",
+        description=audit_desc
     )
 
     return _format_post_response(post)
@@ -908,4 +1121,66 @@ def get_post_publishing_logs(
         .order_by(PublishingLog.created_at.desc())
         .all()
     )
+    return logs
+
+
+@router.post("/{post_id}/targets/{target_id}/retry", response_model=PostResponse)
+def retry_single_platform_target(
+    post_id: int,
+    target_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Selective retry for only a single failed platform target.
+    Does not re-publish platforms that already succeeded.
+    """
+    from app.services.scheduler import publish_target_now
+
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    _check_post_ownership(post, current_user)
+
+    target = db.query(PostPlatformTarget).filter(
+        PostPlatformTarget.id == target_id,
+        PostPlatformTarget.post_id == post_id
+    ).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Platform target not found")
+
+    result = publish_target_now(target.id, db=db)
+    db.refresh(post)
+
+    log_audit_event(
+        db=db,
+        user_id=current_user["user_id"],
+        action="post.target_retry",
+        module="posts",
+        description=f"Selective retry for post #{post.id} target {target.platform} (#{target.id})"
+    )
+
+    return _format_post_response(post)
+
+
+@router.get("/logs/all", response_model=List[PublishingLogResponse])
+def get_all_publishing_logs(
+    post_id: Optional[int] = Query(None),
+    level: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """List publishing execution logs with optional filtering."""
+    query = db.query(PublishingLog)
+    if post_id:
+        query = query.filter(PublishingLog.post_id == post_id)
+    if level:
+        query = query.filter(PublishingLog.level == level)
+
+    if current_user["role"] == "content_creator":
+        query = query.join(Post).filter(Post.user_id == current_user["user_id"])
+
+    logs = query.order_by(PublishingLog.created_at.desc()).limit(limit).all()
     return logs

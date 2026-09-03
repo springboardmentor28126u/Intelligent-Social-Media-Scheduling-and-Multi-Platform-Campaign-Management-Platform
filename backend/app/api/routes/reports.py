@@ -42,38 +42,66 @@ def generate_report(
     current_user: dict = Depends(require_permission("reports.generate")),
     db: Session = Depends(get_db)
 ):
+    from app.db.models.social_account import SocialAccount
+
     # Collect data for report
     posts = db.query(Post).all()
     campaigns = db.query(Campaign).all()
+    accounts = db.query(SocialAccount).filter(SocialAccount.is_active == True).all()
+
+    pub_posts = [p for p in posts if p.status == "published"]
+    tot_reach = sum(p.reach_count or 0 for p in pub_posts)
+    tot_impressions = sum(p.impressions_count or 0 for p in pub_posts)
+    tot_likes = sum(p.likes_count or 0 for p in pub_posts)
+    tot_comments = sum(p.comments_count or 0 for p in pub_posts)
+    tot_shares = sum(p.shares_count or 0 for p in pub_posts)
+    tot_engagement = tot_likes + tot_comments + tot_shares
+    tot_followers = sum(a.followers_count or 0 for a in accounts)
+
+    # Compute platform breakdown
+    plat_map = {}
+    for p in pub_posts:
+        plat_name = (p.platform or "Other").title()
+        if plat_name not in plat_map:
+            plat_map[plat_name] = {"posts": 0, "reach": 0, "engagement": 0}
+        plat_map[plat_name]["posts"] += 1
+        plat_map[plat_name]["reach"] += p.reach_count or 0
+        plat_map[plat_name]["engagement"] += (p.likes_count or 0) + (p.comments_count or 0) + (p.shares_count or 0)
+
+    plat_list = []
+    for plat_name, p_stat in plat_map.items():
+        eng_rate = f"{round((p_stat['engagement'] / p_stat['reach'] * 100), 1)}%" if p_stat['reach'] > 0 else "0.0%"
+        plat_list.append({
+            "platform": plat_name,
+            "posts": p_stat["posts"],
+            "reach": f"{p_stat['reach']:,}",
+            "engagement": f"{p_stat['engagement']:,}",
+            "rate": eng_rate
+        })
 
     report_payload = {
         "title": data.title,
         "user_name": current_user["name"],
         "summary": {
-            "total_reach": 124500,
-            "total_impressions": 384100,
-            "total_engagement": 18420,
-            "followers_growth": 2450,
-            "total_posts": len(posts) or 45,
-            "active_campaigns": len(campaigns) or 4
+            "total_reach": tot_reach,
+            "total_impressions": tot_impressions,
+            "total_engagement": tot_engagement,
+            "followers_growth": 0,
+            "total_posts": len(posts),
+            "active_campaigns": len([c for c in campaigns if c.status == "active"])
         },
-        "platforms": [
-            {"platform": "Instagram", "posts": 28, "reach": "64,200", "engagement": "8,920", "rate": "13.9%"},
-            {"platform": "Facebook", "posts": 24, "reach": "38,100", "engagement": "4,150", "rate": "10.8%"},
-            {"platform": "LinkedIn", "posts": 16, "reach": "14,800", "engagement": "3,420", "rate": "23.1%"},
-            {"platform": "Twitter / X", "posts": 42, "reach": "7,400", "engagement": "1,930", "rate": "26.0%"}
+        "platforms": plat_list if plat_list else [
+            {"platform": "Channels", "posts": len(pub_posts), "reach": f"{tot_reach:,}", "engagement": f"{tot_engagement:,}", "rate": "0.0%"}
         ],
         "top_posts": [
             {
-                "title": p.title or p.content[:35],
-                "platform": p.platform.title(),
-                "likes": p.likes_count or 180,
-                "comments": p.comments_count or 24,
-                "shares": p.shares_count or 12,
-                "reach": p.reach_count or 3200
-            } for p in posts[:8]
-        ] if posts else [
-            {"title": "Product Launch Announcement", "platform": "Instagram", "likes": 1840, "comments": 210, "shares": 95, "reach": 32400}
+                "title": p.title or (p.content[:35] if p.content else "Untitled"),
+                "platform": (p.platform or "general").title(),
+                "likes": p.likes_count or 0,
+                "comments": p.comments_count or 0,
+                "shares": p.shares_count or 0,
+                "reach": p.reach_count or 0
+            } for p in pub_posts[:8]
         ],
         "raw_posts": [
             {
@@ -162,7 +190,7 @@ def download_report_pdf(
         generate_pdf_report({
             "title": report.title,
             "user_name": "SocialPilot User",
-            "summary": report.summary_data or {"total_reach": 124500, "total_engagement": 18420, "total_impressions": 384100, "followers_growth": 2450}
+            "summary": report.summary_data or {"total_reach": 0, "total_engagement": 0, "total_impressions": 0, "followers_growth": 0}
         }, file_path)
 
     return FileResponse(
@@ -187,7 +215,7 @@ def download_report_excel(
     if not os.path.exists(file_path):
         generate_excel_report({
             "title": report.title,
-            "summary": report.summary_data or {"total_reach": 124500, "total_engagement": 18420, "total_impressions": 384100, "followers_growth": 2450}
+            "summary": report.summary_data or {"total_reach": 0, "total_engagement": 0, "total_impressions": 0, "followers_growth": 0}
         }, file_path)
 
     return FileResponse(

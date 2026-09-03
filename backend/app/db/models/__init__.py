@@ -7,6 +7,7 @@ from app.db.models.post import Post, PostMedia, PostPlatformTarget, PublishingJo
 from app.db.models.campaign import Campaign, CampaignPost
 from app.db.models.analytics import AnalyticsMetric, AudienceMetric
 from app.db.models.notification import Notification
+from app.db.models.approval import ApprovalRequest
 from app.db.models.report import Report
 from app.db.models.audit import AuditLog
 
@@ -31,6 +32,7 @@ __all__ = [
     "AnalyticsMetric",
     "AudienceMetric",
     "Notification",
+    "ApprovalRequest",
     "Report",
     "AuditLog"
 ]

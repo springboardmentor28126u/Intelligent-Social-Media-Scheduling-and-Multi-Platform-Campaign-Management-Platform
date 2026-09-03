@@ -31,6 +31,61 @@ def list_users(
     return results
 
 
+@router.get("/me", response_model=UserResponse)
+def get_current_user_profile(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get the currently logged-in user profile."""
+    user = db.query(User).filter(User.id == current_user["user_id"]).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    res = UserResponse.model_validate(user)
+    res.permissions = ROLE_DEFAULT_PERMISSIONS.get(user.role, [])
+    return res
+
+
+@router.put("/me", response_model=UserResponse)
+def update_current_user_profile(
+    update_data: UserUpdate,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update current user profile information (name, company, job_title, bio, timezone, avatar)."""
+    user = db.query(User).filter(User.id == current_user["user_id"]).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if update_data.name is not None:
+        user.name = update_data.name
+    if update_data.job_title is not None:
+        user.job_title = update_data.job_title
+    if update_data.company is not None:
+        user.company = update_data.company
+    if update_data.bio is not None:
+        user.bio = update_data.bio
+    if update_data.avatar_url is not None:
+        user.avatar_url = update_data.avatar_url
+    if update_data.timezone is not None:
+        user.timezone = update_data.timezone
+
+    db.commit()
+    db.refresh(user)
+
+    log_audit_event(
+        db=db,
+        user_id=user.id,
+        user_email=user.email,
+        action="user.update_profile",
+        module="users",
+        description=f"User updated their own profile: {user.email}"
+    )
+
+    res = UserResponse.model_validate(user)
+    res.permissions = ROLE_DEFAULT_PERMISSIONS.get(user.role, [])
+    return res
+
+
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(
     user_id: int,

@@ -56,6 +56,7 @@ export default function CampaignsPage() {
         status,
       });
       showToast("Campaign Created! 🎯", `Campaign '${name}' is now active.`, "success");
+      window.dispatchEvent(new Event("campaign_created"));
       setIsModalOpen(false);
       setName("");
       setDescription("");
@@ -70,6 +71,7 @@ export default function CampaignsPage() {
     try {
       await api.campaigns.delete(id);
       showToast("Deleted", "Campaign removed.", "info");
+      window.dispatchEvent(new Event("campaign_created"));
       loadCampaigns();
     } catch (err: any) {
       showToast("Error", err.message, "error");

@@ -97,10 +97,10 @@ def generate_pdf_report(data: Dict[str, Any], output_path: str) -> str:
             Paragraph("<b>Followers Growth</b>", cell_bold)
         ],
         [
-            Paragraph(f"<font size=14 color='#2563eb'><b>{summary.get('total_reach', '124,500'):,}</b></font>", cell_style),
-            Paragraph(f"<font size=14 color='#16a34a'><b>{summary.get('total_engagement', '18,420'):,}</b></font>", cell_style),
-            Paragraph(f"<font size=14 color='#9333ea'><b>{summary.get('total_impressions', '384,100'):,}</b></font>", cell_style),
-            Paragraph(f"<font size=14 color='#ea580c'><b>+{summary.get('followers_growth', '2,450'):,}</b></font>", cell_style)
+            Paragraph(f"<font size=14 color='#2563eb'><b>{summary.get('total_reach', 0):,}</b></font>", cell_style),
+            Paragraph(f"<font size=14 color='#16a34a'><b>{summary.get('total_engagement', 0):,}</b></font>", cell_style),
+            Paragraph(f"<font size=14 color='#9333ea'><b>{summary.get('total_impressions', 0):,}</b></font>", cell_style),
+            Paragraph(f"<font size=14 color='#ea580c'><b>+{summary.get('followers_growth', 0):,}</b></font>", cell_style)
         ]
     ]
     
@@ -232,12 +232,12 @@ def generate_excel_report(data: Dict[str, Any], output_path: str) -> str:
     
     summary = data.get("summary", {})
     metrics = [
-        ("Total Reach", summary.get("total_reach", 124500)),
-        ("Total Impressions", summary.get("total_impressions", 384100)),
-        ("Total Engagement", summary.get("total_engagement", 18420)),
-        ("Followers Growth", summary.get("followers_growth", 2450)),
-        ("Total Posts Published", summary.get("total_posts", 110)),
-        ("Active Campaigns", summary.get("active_campaigns", 5))
+        ("Total Reach", summary.get("total_reach", 0)),
+        ("Total Impressions", summary.get("total_impressions", 0)),
+        ("Total Engagement", summary.get("total_engagement", 0)),
+        ("Followers Growth", summary.get("followers_growth", 0)),
+        ("Total Posts Published", summary.get("total_posts", 0)),
+        ("Active Campaigns", summary.get("active_campaigns", 0))
     ]
     
     ws_summary["A4"] = "Key Performance Metric"

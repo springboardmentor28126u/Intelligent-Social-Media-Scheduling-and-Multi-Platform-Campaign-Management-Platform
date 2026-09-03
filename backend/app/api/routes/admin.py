@@ -38,6 +38,7 @@ def get_admin_dashboard(
     published_posts = db.query(Post).filter(Post.status == "published").count()
     scheduled_posts = db.query(Post).filter(Post.status == "scheduled").count()
     failed_posts = db.query(Post).filter(Post.status == "failed").count()
+    pending_approvals = db.query(Post).filter((Post.status == "pending_approval") | (Post.approval_status == "pending")).count()
     total_campaigns = db.query(Campaign).count()
 
     recent_logs = (
@@ -64,6 +65,7 @@ def get_admin_dashboard(
         published_posts=published_posts,
         scheduled_posts=scheduled_posts,
         failed_posts=failed_posts,
+        pending_approvals=pending_approvals,
         total_campaigns=total_campaigns,
         recent_logs=[AuditLogResponse.model_validate(l) for l in recent_logs],
         system_status=system_status
@@ -144,3 +146,16 @@ def retry_all_failed_jobs(
             retried_count += 1
 
     return {"message": f"Successfully triggered retry for {retried_count} failed jobs."}
+
+
+@router.get("/pending-approvals")
+def get_admin_pending_approvals(
+    current_user: dict = Depends(require_roles("administrator")),
+    db: Session = Depends(get_db)
+):
+    """Retrieve all pending approval requests for admin dashboard."""
+    from app.api.routes.approvals import _format_approval_response
+    from app.db.models.approval import ApprovalRequest
+    requests = db.query(ApprovalRequest).filter(ApprovalRequest.status == "pending").order_by(ApprovalRequest.created_at.desc()).all()
+    return [_format_approval_response(r) for r in requests]
+

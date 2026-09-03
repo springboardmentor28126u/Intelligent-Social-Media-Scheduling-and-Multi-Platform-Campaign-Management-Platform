@@ -44,6 +44,7 @@ export default function QueuePage() {
     try {
       await api.posts.publish(id);
       showToast("Published!", "Post dispatched immediately.", "success");
+      window.dispatchEvent(new Event("post_published"));
       loadQueue();
     } catch (err: any) {
       showToast("Publish Error", err.message, "error");
@@ -54,6 +55,7 @@ export default function QueuePage() {
     try {
       await api.posts.retry(id);
       showToast("Retry Triggered", "Post publish attempt re-queued.", "info");
+      window.dispatchEvent(new Event("post_updated"));
       loadQueue();
     } catch (err: any) {
       showToast("Retry Error", err.message, "error");

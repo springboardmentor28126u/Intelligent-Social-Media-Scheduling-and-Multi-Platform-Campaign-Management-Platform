@@ -174,9 +174,15 @@ def publish_post_now(post_id: int, db: Session = None) -> dict:
         if not post:
             return {"status": "failed", "message": f"Post with id {post_id} not found"}
 
+        if getattr(post, "approval_status", None) == "pending" or post.status == "pending_approval":
+            return {"status": "failed", "message": "Post requires administrator approval before it can be published."}
+
+        if getattr(post, "approval_status", None) == "rejected":
+            return {"status": "failed", "message": "Cannot publish a post that has been rejected by an administrator."}
+
         if post.status == "published":
             # Check if there are any pending platform targets
-            pending = [t for t in (post.platform_targets or []) if t.status in ("pending", "failed")]
+            pending = [t for t in (post.platform_targets or []) if t.status != "published"]
             if not pending:
                 return {"status": "already_published", "post_id": post.id}
 
@@ -190,7 +196,7 @@ def publish_post_now(post_id: int, db: Session = None) -> dict:
         if post.platform_targets:
             targets_to_publish = [
                 t for t in post.platform_targets
-                if t.status in ("pending", "failed")
+                if t.status != "published"
             ]
 
             for target in targets_to_publish:
@@ -405,6 +411,54 @@ def publish_post_now(post_id: int, db: Session = None) -> dict:
             db.close()
 
 
+def publish_target_now(target_id: int, db: Session = None) -> dict:
+    """
+    Publish or retry a single specific PostPlatformTarget without re-publishing
+    other targets of the same post.
+    """
+    is_internal_session = False
+    if db is None:
+        db = SessionLocal()
+        is_internal_session = True
+
+    try:
+        target = db.query(PostPlatformTarget).filter(PostPlatformTarget.id == target_id).first()
+        if not target:
+            return {"status": "failed", "message": f"Platform target {target_id} not found"}
+
+        post = db.query(Post).filter(Post.id == target.post_id).first()
+        if not post:
+            return {"status": "failed", "message": f"Parent post not found"}
+
+        result = _publish_to_platform_target(target, post, db)
+
+        # Re-evaluate parent post status
+        all_targets = db.query(PostPlatformTarget).filter(PostPlatformTarget.post_id == post.id).all()
+        if all_targets:
+            all_statuses = [t.status for t in all_targets]
+            if all(s == "published" for s in all_statuses):
+                post.status = "published"
+                post.failure_reason = None
+                if not post.published_at:
+                    post.published_at = datetime.now(timezone.utc)
+            elif any(s == "published" for s in all_statuses):
+                post.status = "published"
+                failed_platforms = [t.platform for t in all_targets if t.status == "failed"]
+                post.failure_reason = f"Partial: failed on {', '.join(failed_platforms)}" if failed_platforms else None
+            elif all(s == "failed" for s in all_statuses):
+                post.status = "failed"
+                post.failure_reason = "All platform targets failed"
+            db.commit()
+
+        return result
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "error": str(e)}
+    finally:
+        if is_internal_session:
+            db.close()
+
+
 def publish_scheduled_posts():
     """
     Periodic job to check and publish any scheduled posts whose scheduled_at has arrived.
@@ -417,6 +471,7 @@ def publish_scheduled_posts():
             db.query(Post)
             .filter(
                 Post.status.in_(["scheduled", "queued"]),
+                Post.approval_status == "approved",
                 Post.scheduled_at <= now
             )
             .all()

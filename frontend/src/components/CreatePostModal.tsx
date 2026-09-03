@@ -236,6 +236,33 @@ export default function CreatePostModal({
       return;
     }
 
+    // Platform-specific media validations for publishing & scheduling
+    if (action !== "draft") {
+      if (selectedPlatforms.includes("youtube") && mediaType !== "video" && !editPost?.media_url) {
+        showToast("Validation Error", "YouTube requires a video upload. Please attach a video or deselect YouTube.", "error");
+        return;
+      }
+      if (selectedPlatforms.includes("pinterest") && !mediaFile && !editPost?.media_url) {
+        showToast("Validation Error", "Pinterest requires an image or video pin. Please attach media.", "error");
+        return;
+      }
+      if (selectedPlatforms.includes("instagram") && !mediaFile && !editPost?.media_url) {
+        showToast("Validation Error", "Instagram requires an image or video. Please attach media.", "error");
+        return;
+      }
+
+      // Check for unlinked accounts
+      const connectedPlatforms = new Set(socialAccounts.map((a: any) => a.platform.toLowerCase()));
+      const unconnected = selectedPlatforms.filter((p) => !connectedPlatforms.has(p.toLowerCase()));
+      if (unconnected.length > 0) {
+        showToast(
+          "Unconnected Account",
+          `Notice: ${unconnected.map((p) => p.toUpperCase()).join(", ")} will publish in fallback mode until real OAuth is connected.`,
+          "info"
+        );
+      }
+    }
+
     const statusVal =
       action === "draft" ? "draft" : action === "schedule" ? "scheduled" : "published";
 

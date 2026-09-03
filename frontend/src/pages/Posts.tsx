@@ -17,6 +17,7 @@ import {
   Check,
   X,
   Filter,
+  Clock,
   Image as ImageIcon,
   Film as FilmIcon,
 } from "lucide-react";
@@ -38,6 +39,13 @@ export default function Posts() {
   const [activeTab, setActiveTab] = useState<string>(searchParams.get("status") || "all");
   const [selectedPlatform, setSelectedPlatform] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+
+  useEffect(() => {
+    const statusParam = searchParams.get("status");
+    if (statusParam) {
+      setActiveTab(statusParam);
+    }
+  }, [searchParams]);
 
   const loadPosts = async () => {
     setLoading(true);
@@ -62,6 +70,7 @@ export default function Posts() {
     try {
       await api.posts.publish(id);
       showToast("Published!", "Post has been published to the social network.", "success");
+      window.dispatchEvent(new Event("post_published"));
       loadPosts();
     } catch (err: any) {
       showToast("Publish Error", err.message, "error");
@@ -72,6 +81,7 @@ export default function Posts() {
     try {
       await api.posts.retry(id);
       showToast("Retried!", "Post publish attempt re-queued.", "info");
+      window.dispatchEvent(new Event("post_updated"));
       loadPosts();
     } catch (err: any) {
       showToast("Retry Error", err.message, "error");
@@ -82,6 +92,7 @@ export default function Posts() {
     try {
       await api.posts.duplicate(id);
       showToast("Duplicated", "New draft copy created.", "success");
+      window.dispatchEvent(new Event("post_created"));
       loadPosts();
     } catch (err: any) {
       showToast("Error", err.message, "error");
@@ -93,23 +104,36 @@ export default function Posts() {
     try {
       await api.posts.delete(id);
       showToast("Deleted", "Post removed from workspace.", "info");
+      window.dispatchEvent(new Event("post_deleted"));
       loadPosts();
     } catch (err: any) {
       showToast("Delete Error", err.message, "error");
     }
   };
 
-  const handleApprove = async (id: number, action: "approve" | "reject") => {
+  const handleApprove = async (id: number, action: "approve" | "reject", reason?: string) => {
     try {
-      await api.posts.approve(id, action);
+      await api.posts.approve(id, action, reason);
       showToast(
         action === "approve" ? "Post Approved 👍" : "Post Rejected",
-        action === "approve" ? "Scheduled for publishing." : "Returned to creator for revision.",
+        action === "approve" ? "Scheduled for automated publishing." : "Returned to creator for revision.",
         "success"
       );
+      window.dispatchEvent(new Event("post_updated"));
       loadPosts();
     } catch (err: any) {
       showToast("Approval Error", err.message, "error");
+    }
+  };
+
+  const handleSubmitForApproval = async (id: number) => {
+    try {
+      await api.posts.submitApproval(id);
+      showToast("Submitted!", "Post submitted for administrator approval.", "success");
+      window.dispatchEvent(new Event("post_updated"));
+      loadPosts();
+    } catch (err: any) {
+      showToast("Submission Error", err.message, "error");
     }
   };
 
@@ -268,21 +292,31 @@ export default function Posts() {
                       <h3 className="text-base font-bold text-slate-900 truncate">
                         {post.title || post.content.substring(0, 45)}
                       </h3>
-                      <span
-                        className={`text-xs font-bold px-2.5 py-0.5 rounded-full uppercase ${
-                          post.status === "published"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : post.status === "scheduled"
-                            ? "bg-blue-50 text-blue-700 border border-blue-200"
-                            : post.status === "pending_approval"
-                            ? "bg-amber-50 text-amber-700 border border-amber-200"
-                            : post.status === "failed"
-                            ? "bg-rose-50 text-rose-700 border border-rose-200"
-                            : "bg-slate-100 text-slate-600"
-                        }`}
-                      >
-                        {post.status.replace("_", " ")}
-                      </span>
+                      {post.approval_status === "pending" || post.status === "pending_approval" ? (
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full uppercase bg-amber-50 text-amber-700 border border-amber-200">
+                          Awaiting Admin Review
+                        </span>
+                      ) : post.approval_status === "rejected" ? (
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full uppercase bg-rose-50 text-rose-700 border border-rose-200">
+                          Rejected
+                        </span>
+                      ) : post.status === "published" ? (
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Published
+                        </span>
+                      ) : post.status === "scheduled" ? (
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full uppercase bg-blue-50 text-blue-700 border border-blue-200">
+                          Approved / Scheduled
+                        </span>
+                      ) : post.status === "failed" ? (
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full uppercase bg-rose-50 text-rose-700 border border-rose-200">
+                          Failed
+                        </span>
+                      ) : (
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full uppercase bg-slate-100 text-slate-600">
+                          {post.status.replace("_", " ")}
+                        </span>
+                      )}
                     </div>
 
                     <p className="text-sm text-slate-700 leading-relaxed line-clamp-2">
@@ -351,7 +385,12 @@ export default function Posts() {
                         <Check size={15} /> Approve
                       </button>
                       <button
-                        onClick={() => handleApprove(post.id, "reject")}
+                        onClick={() => {
+                          const reason = prompt("Enter reason for rejection:", "Content needs revision");
+                          if (reason !== null) {
+                            handleApprove(post.id, "reject", reason);
+                          }
+                        }}
                         className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
                       >
                         <X size={15} /> Reject
@@ -359,7 +398,22 @@ export default function Posts() {
                     </div>
                   )}
 
-                  {post.status === "draft" && (
+                  {post.status === "pending_approval" && user?.role === "content_creator" && (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold">
+                      <Clock size={14} className="text-amber-600 animate-spin" /> Awaiting Admin Review
+                    </span>
+                  )}
+
+                  {post.status === "draft" && user?.role === "content_creator" && (
+                    <button
+                      onClick={() => handleSubmitForApproval(post.id)}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
+                    >
+                      <Clock size={15} /> Submit for Approval
+                    </button>
+                  )}
+
+                  {post.status === "draft" && user?.role !== "content_creator" && (
                     <button
                       onClick={() => handlePublishNow(post.id)}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"

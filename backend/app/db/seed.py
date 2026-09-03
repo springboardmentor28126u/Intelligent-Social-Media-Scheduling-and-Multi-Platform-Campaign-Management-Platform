@@ -234,19 +234,19 @@ def seed_database(db: Session = None, force: bool = False):
         ]
         
         created_accounts = []
-        for p_code, acc_name, handle, av, f_count, folling, p_count in accounts_seed:
+        for idx, (p_code, acc_name, handle, av, f_count, folling, p_count) in enumerate(accounts_seed):
             sa = SocialAccount(
                 user_id=biz_user.id,
                 team_id=team.id,
                 platform=p_code,
                 account_name=acc_name,
                 account_handle=handle,
-                account_id=f"{p_code}_id_{random.randint(10000, 99999)}",
+                account_id=f"{p_code}_id_{10000 + idx}",
                 avatar_url=av,
-                access_token=f"mock_token_{p_code}_xyz991",
-                followers_count=f_count,
-                following_count=folling,
-                posts_count=p_count,
+                access_token=f"mock_token_{p_code}_seed",
+                followers_count=0,
+                following_count=0,
+                posts_count=0,
                 is_active=True,
                 is_demo=True
             )

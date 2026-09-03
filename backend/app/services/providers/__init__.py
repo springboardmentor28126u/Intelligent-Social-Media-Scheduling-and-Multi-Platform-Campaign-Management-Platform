@@ -54,22 +54,24 @@ REAL_PROVIDERS: Dict[str, SocialProvider] = {
 
 def _has_real_credentials(platform: str) -> bool:
     """Check whether real API credentials are configured for a platform."""
+    from app.core.config import get_settings
+    cfg = get_settings()
     platform = platform.lower()
     if platform == "facebook":
-        return bool(settings.FACEBOOK_CLIENT_ID and settings.FACEBOOK_CLIENT_SECRET)
+        return bool(cfg.FACEBOOK_CLIENT_ID and cfg.FACEBOOK_CLIENT_SECRET)
     if platform == "instagram":
         return bool(
-            (settings.INSTAGRAM_CLIENT_ID or settings.FACEBOOK_CLIENT_ID) and
-            (settings.INSTAGRAM_CLIENT_SECRET or settings.FACEBOOK_CLIENT_SECRET)
+            (cfg.INSTAGRAM_CLIENT_ID or cfg.FACEBOOK_CLIENT_ID) and
+            (cfg.INSTAGRAM_CLIENT_SECRET or cfg.FACEBOOK_CLIENT_SECRET)
         )
     if platform == "linkedin":
-        return bool(settings.LINKEDIN_CLIENT_ID and settings.LINKEDIN_CLIENT_SECRET)
+        return bool(cfg.LINKEDIN_CLIENT_ID and cfg.LINKEDIN_CLIENT_SECRET)
     if platform == "twitter":
-        return bool(settings.TWITTER_CLIENT_ID and settings.TWITTER_CLIENT_SECRET)
+        return bool(cfg.TWITTER_CLIENT_ID and cfg.TWITTER_CLIENT_SECRET)
     if platform == "youtube":
-        return bool(settings.YOUTUBE_CLIENT_ID and settings.YOUTUBE_CLIENT_SECRET)
+        return bool(cfg.YOUTUBE_CLIENT_ID and cfg.YOUTUBE_CLIENT_SECRET)
     if platform == "pinterest":
-        return bool(settings.PINTEREST_CLIENT_ID and settings.PINTEREST_CLIENT_SECRET)
+        return bool(cfg.PINTEREST_CLIENT_ID and cfg.PINTEREST_CLIENT_SECRET)
     return False
 
 

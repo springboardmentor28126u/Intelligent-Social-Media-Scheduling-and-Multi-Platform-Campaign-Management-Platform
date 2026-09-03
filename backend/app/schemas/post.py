@@ -62,6 +62,7 @@ class PostCreate(BaseModel):
     media_url: Optional[str] = None
     media_type: Optional[str] = None
     status: Optional[str] = "draft"  # draft, scheduled, pending_approval, published
+    approval_status: Optional[str] = "approved"  # pending, approved, rejected
     scheduled_at: Optional[datetime] = None
     campaign_id: Optional[int] = None
     social_account_id: Optional[int] = None
@@ -82,6 +83,7 @@ class PostUpdate(BaseModel):
     media_url: Optional[str] = None
     media_type: Optional[str] = None
     status: Optional[str] = None
+    approval_status: Optional[str] = None
     scheduled_at: Optional[datetime] = None
     campaign_id: Optional[int] = None
     social_account_id: Optional[int] = None
@@ -111,6 +113,29 @@ class PostApprovalAction(BaseModel):
     rejection_reason: Optional[str] = None
 
 
+class ApprovalRequestResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    uuid: str
+    post_id: int
+    requested_by: int
+    reviewed_by: Optional[int] = None
+    status: str
+    rejection_reason: Optional[str] = None
+    created_at: datetime
+    reviewed_at: Optional[datetime] = None
+
+    creator_name: Optional[str] = None
+    reviewer_name: Optional[str] = None
+    post_title: Optional[str] = None
+    post_content: Optional[str] = None
+    post_platform: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
+    media_url: Optional[str] = None
+    media_type: Optional[str] = None
+
+
 class PostCalendarEvent(BaseModel):
     """Lightweight calendar event representation for the calendar view."""
     id: int
@@ -122,6 +147,7 @@ class PostCalendarEvent(BaseModel):
     media_url: Optional[str] = None
     media_type: Optional[str] = None
     status: str
+    approval_status: Optional[str] = "approved"
     scheduled_at: Optional[datetime] = None
     published_at: Optional[datetime] = None
     is_recurring: bool
@@ -173,6 +199,7 @@ class PostResponse(BaseModel):
     media_url: Optional[str] = None
     media_type: Optional[str] = None
     status: str
+    approval_status: Optional[str] = "approved"
     scheduled_at: Optional[datetime] = None
     published_at: Optional[datetime] = None
     retry_count: int

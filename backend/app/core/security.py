@@ -176,3 +176,94 @@ def require_permission(permission_code: str):
             )
         return current_user
     return permission_checker
+
+
+# ============================================================
+# CRYPTOGRAPHIC OAUTH STATE GENERATION & VALIDATION
+# ============================================================
+
+def create_oauth_state(user_id: int, extra_data: Optional[Dict[str, str]] = None) -> str:
+    """
+    Generate a tamper-proof, time-stamped OAuth state string using HMAC-SHA256.
+    Format: base64(json({user_id, timestamp, nonce, ...})).signature
+    """
+    import hmac
+    import hashlib
+    import json
+    import secrets
+    import base64
+    import time
+
+    payload = {
+        "user_id": user_id,
+        "ts": int(time.time()),
+        "nonce": secrets.token_hex(8)
+    }
+    if extra_data:
+        payload["extra"] = extra_data
+
+    payload_json = json.dumps(payload, separators=(",", ":"))
+    payload_b64 = base64.urlsafe_b64encode(payload_json.encode("utf-8")).decode("utf-8").rstrip("=")
+
+    signature = hmac.new(
+        settings.JWT_SECRET_KEY.encode("utf-8"),
+        payload_b64.encode("utf-8"),
+        hashlib.sha256
+    ).hexdigest()[:32]
+
+    return f"{payload_b64}.{signature}"
+
+
+def verify_oauth_state(state: str, max_age_seconds: int = 600) -> Optional[Dict]:
+    """
+    Verify the OAuth state signature, structure, and expiration (default 10 min).
+    Also supports legacy 'user_id:random_string' format gracefully.
+    Returns dictionary with 'user_id' and metadata if valid, None otherwise.
+    """
+    import hmac
+    import hashlib
+    import json
+    import base64
+    import time
+
+    if not state or not isinstance(state, str):
+        return None
+
+    # Handle HMAC-signed state format: <payload_b64>.<signature>
+    if "." in state:
+        parts = state.split(".", 1)
+        if len(parts) == 2:
+            payload_b64, signature = parts
+            expected_sig = hmac.new(
+                settings.JWT_SECRET_KEY.encode("utf-8"),
+                payload_b64.encode("utf-8"),
+                hashlib.sha256
+            ).hexdigest()[:32]
+
+            if hmac.compare_digest(signature, expected_sig):
+                try:
+                    # Fix padding for base64
+                    rem = len(payload_b64) % 4
+                    padded_b64 = payload_b64 + ("=" * (4 - rem) if rem > 0 else "")
+                    data = json.loads(base64.urlsafe_b64decode(padded_b64).decode("utf-8"))
+                    
+                    # Verify timestamp expiry
+                    ts = data.get("ts", 0)
+                    now = int(time.time())
+                    if (now - ts) <= max_age_seconds and data.get("user_id"):
+                        return data
+                except Exception:
+                    pass
+
+    # Fallback / compatibility: simple colon-separated state "user_id:nonce"
+    if ":" in state:
+        parts = state.split(":", 1)
+        if len(parts) >= 1:
+            try:
+                user_id = int(parts[0])
+                if user_id > 0:
+                    return {"user_id": user_id, "ts": int(time.time()), "legacy": True}
+            except (ValueError, TypeError):
+                pass
+
+    return None

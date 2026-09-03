@@ -116,13 +116,13 @@ export default function AnalyticsPage() {
             <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
               <Eye size={22} />
             </div>
-            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-              +{data?.reach_growth_pct || 18.4}%
+            <span className="text-xs font-bold text-slate-700 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200">
+              {data?.reach_growth_pct ? `+${data.reach_growth_pct}%` : "DB Aggregated"}
             </span>
           </div>
           <div>
             <h3 className="text-3xl font-extrabold text-slate-900 font-display">
-              {data?.total_reach ? `${(data.total_reach / 1000).toFixed(1)}K` : "124.5K"}
+              {data?.total_reach ? (data.total_reach >= 1000 ? `${(data.total_reach / 1000).toFixed(1)}K` : data.total_reach.toLocaleString()) : "0"}
             </h3>
             <p className="text-sm font-bold text-slate-800 mt-1">Audience Reach</p>
             <p className="text-xs text-slate-500 mt-0.5 font-medium">Unique accounts reached</p>
@@ -134,13 +134,13 @@ export default function AnalyticsPage() {
             <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
               <Heart size={22} />
             </div>
-            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-              +{data?.engagement_growth_pct || 14.2}%
+            <span className="text-xs font-bold text-slate-700 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200">
+              {data?.engagement_growth_pct ? `+${data.engagement_growth_pct}%` : "DB Aggregated"}
             </span>
           </div>
           <div>
             <h3 className="text-3xl font-extrabold text-slate-900 font-display">
-              {data?.total_engagement ? `${(data.total_engagement / 1000).toFixed(1)}K` : "18.4K"}
+              {data?.total_engagement ? (data.total_engagement >= 1000 ? `${(data.total_engagement / 1000).toFixed(1)}K` : data.total_engagement.toLocaleString()) : "0"}
             </h3>
             <p className="text-sm font-bold text-slate-800 mt-1">Interactions</p>
             <p className="text-xs text-slate-500 mt-0.5 font-medium">Likes, comments, and shares</p>
@@ -152,16 +152,16 @@ export default function AnalyticsPage() {
             <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100">
               <Users size={22} />
             </div>
-            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-              +{data?.followers_growth_pct || 8.9}%
+            <span className="text-xs font-bold text-slate-700 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200">
+              {data?.followers_growth_pct ? `+${data.followers_growth_pct}%` : "Channels"}
             </span>
           </div>
           <div>
             <h3 className="text-3xl font-extrabold text-slate-900 font-display">
-              {data?.total_followers ? `${(data.total_followers / 1000).toFixed(1)}K` : "98.2K"}
+              {data?.total_followers ? (data.total_followers >= 1000 ? `${(data.total_followers / 1000).toFixed(1)}K` : data.total_followers.toLocaleString()) : "0"}
             </h3>
             <p className="text-sm font-bold text-slate-800 mt-1">Followers Base</p>
-            <p className="text-xs text-slate-500 mt-0.5 font-medium">Across all connected channels</p>
+            <p className="text-xs text-slate-500 mt-0.5 font-medium">Across connected channels</p>
           </div>
         </div>
 
@@ -171,15 +171,15 @@ export default function AnalyticsPage() {
               <MousePointerClick size={22} />
             </div>
             <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
-              {data?.average_engagement_rate || 5.8}% Avg
+              {data?.average_engagement_rate ? `${data.average_engagement_rate}%` : "0.0%"} Avg
             </span>
           </div>
           <div>
             <h3 className="text-3xl font-extrabold text-slate-900 font-display">
-              {data?.total_clicks ? `${(data.total_clicks / 1000).toFixed(1)}K` : "4.2K"}
+              {data?.total_clicks ? (data.total_clicks >= 1000 ? `${(data.total_clicks / 1000).toFixed(1)}K` : data.total_clicks.toLocaleString()) : "0"}
             </h3>
             <p className="text-sm font-bold text-slate-800 mt-1">Clicks & Traffic</p>
-            <p className="text-xs text-slate-500 mt-0.5 font-medium">Bio link clicks & outbound</p>
+            <p className="text-xs text-slate-500 mt-0.5 font-medium">Outbound link clicks</p>
           </div>
         </div>
       </div>
@@ -191,7 +191,7 @@ export default function AnalyticsPage() {
             <h3 className="text-lg font-bold text-slate-900 font-display">
               Audience Reach & Impressions Trajectory
             </h3>
-            <p className="text-xs text-slate-500">Chronological impression volume comparison</p>
+            <p className="text-xs text-slate-500">Chronological impression volume comparison from SocialPilot records</p>
           </div>
 
           <div className="h-72 w-full pt-2">
@@ -225,29 +225,33 @@ export default function AnalyticsPage() {
             <h3 className="text-lg font-bold text-slate-900 font-display">
               Channel Engagement Mix
             </h3>
-            <p className="text-xs text-slate-500">Distribution of audience engagement</p>
+            <p className="text-xs text-slate-500">Distribution of audience engagement across published posts</p>
           </div>
 
           <div className="h-56 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data?.platforms || []}
-                  dataKey="reach"
-                  nameKey="platform"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={75}
-                  innerRadius={45}
-                  paddingAngle={4}
-                >
-                  {(data?.platforms || []).map((_: any, idx: number) => (
-                    <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ backgroundColor: "#ffffff", borderColor: "#cbd5e1", borderRadius: "0.5rem" }} />
-              </PieChart>
-            </ResponsiveContainer>
+            {(!data?.platforms || data.platforms.length === 0) ? (
+              <p className="text-xs text-slate-400">No published posts on record yet</p>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={data?.platforms || []}
+                    dataKey="reach"
+                    nameKey="platform"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={75}
+                    innerRadius={45}
+                    paddingAngle={4}
+                  >
+                    {(data?.platforms || []).map((_: any, idx: number) => (
+                      <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ backgroundColor: "#ffffff", borderColor: "#cbd5e1", borderRadius: "0.5rem" }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
@@ -266,16 +270,22 @@ export default function AnalyticsPage() {
         {/* Age Groups */}
         <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3.5">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">Age Breakdown (%)</h3>
-          <div className="h-44 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data?.demographics_age || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="label" stroke="#64748b" fontSize={11} />
-                <YAxis stroke="#64748b" fontSize={11} />
-                <Tooltip contentStyle={{ backgroundColor: "#ffffff", borderColor: "#cbd5e1", borderRadius: "0.5rem" }} />
-                <Bar dataKey="value" fill="#2563eb" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="h-44 w-full flex items-center justify-center">
+            {(!data?.demographics_age || data.demographics_age.length === 0) ? (
+              <p className="text-xs text-slate-400 text-center px-4">
+                Audience demographics require Organization / Company Page API access
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data?.demographics_age || []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="label" stroke="#64748b" fontSize={11} />
+                  <YAxis stroke="#64748b" fontSize={11} />
+                  <Tooltip contentStyle={{ backgroundColor: "#ffffff", borderColor: "#cbd5e1", borderRadius: "0.5rem" }} />
+                  <Bar dataKey="value" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -283,20 +293,26 @@ export default function AnalyticsPage() {
         <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3.5">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">Gender Audience Share</h3>
           <div className="space-y-3 pt-1">
-            {(data?.demographics_gender || []).map((g: any, idx: number) => (
-              <div key={idx} className="space-y-1">
-                <div className="flex justify-between text-xs font-semibold">
-                  <span className="text-slate-700">{g.label}</span>
-                  <span className="text-slate-900 font-bold">{g.value}%</span>
+            {(!data?.demographics_gender || data.demographics_gender.length === 0) ? (
+              <p className="text-xs text-slate-400 text-center py-12 px-4">
+                Not available with standard Member permissions
+              </p>
+            ) : (
+              (data?.demographics_gender || []).map((g: any, idx: number) => (
+                <div key={idx} className="space-y-1">
+                  <div className="flex justify-between text-xs font-semibold">
+                    <span className="text-slate-700">{g.label}</span>
+                    <span className="text-slate-900 font-bold">{g.value}%</span>
+                  </div>
+                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                    <div
+                      className="h-full bg-blue-600 rounded-full"
+                      style={{ width: `${g.value}%`, backgroundColor: COLORS[idx % COLORS.length] }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                  <div
-                    className="h-full bg-blue-600 rounded-full"
-                    style={{ width: `${g.value}%`, backgroundColor: COLORS[idx % COLORS.length] }}
-                  />
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
@@ -304,12 +320,18 @@ export default function AnalyticsPage() {
         <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3.5">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">Top Geographic Markets</h3>
           <div className="space-y-2.5">
-            {(data?.demographics_location || []).map((loc: any, idx: number) => (
-              <div key={idx} className="flex items-center justify-between text-xs sm:text-sm p-2.5 rounded-xl bg-slate-50 border border-slate-200 font-semibold">
-                <span className="text-slate-800">{loc.label}</span>
-                <span className="text-blue-600 font-extrabold">{loc.value}%</span>
-              </div>
-            ))}
+            {(!data?.demographics_location || data.demographics_location.length === 0) ? (
+              <p className="text-xs text-slate-400 text-center py-12 px-4">
+                Requires connected business page audience metrics
+              </p>
+            ) : (
+              (data?.demographics_location || []).map((loc: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between text-xs sm:text-sm p-2.5 rounded-xl bg-slate-50 border border-slate-200 font-semibold">
+                  <span className="text-slate-800">{loc.label}</span>
+                  <span className="text-blue-600 font-extrabold">{loc.value}%</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

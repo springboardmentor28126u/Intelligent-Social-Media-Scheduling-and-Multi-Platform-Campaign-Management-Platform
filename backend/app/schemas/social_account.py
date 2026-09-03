@@ -47,9 +47,9 @@ class SocialAccountResponse(BaseModel):
     account_handle: Optional[str] = None
     account_id: Optional[str] = None
     avatar_url: Optional[str] = None
-    followers_count: int
-    following_count: int
-    posts_count: int
+    followers_count: Optional[int] = None
+    following_count: Optional[int] = None
+    posts_count: Optional[int] = 0
     is_active: bool
     is_demo: bool
     created_at: datetime

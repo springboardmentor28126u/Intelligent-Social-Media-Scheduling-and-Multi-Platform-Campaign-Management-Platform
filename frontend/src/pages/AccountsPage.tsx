@@ -38,12 +38,38 @@ export default function AccountsPage() {
 
   useEffect(() => {
     loadAccounts();
+
+    // Check for OAuth redirect query parameters
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get("connected");
+    const error = params.get("error");
+    const platform = params.get("platform");
+
+    if (connected) {
+      showToast(
+        "Channel Connected! 🎉",
+        `Successfully linked your ${connected.toUpperCase()} account to SocialPilot.`,
+        "success"
+      );
+      // Clean query params
+      window.history.replaceState({}, document.title, window.location.pathname);
+      window.dispatchEvent(new Event("social_account_connected"));
+      loadAccounts();
+    } else if (error) {
+      showToast(
+        "OAuth Error",
+        `Failed to connect ${platform ? platform.toUpperCase() : "channel"}: ${error}`,
+        "error"
+      );
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
 
   const handleSyncAccount = async (id: number) => {
     try {
       await api.accounts.sync(id);
       showToast("Channel Synced 🔄", "Metrics and follower counts updated.", "success");
+      window.dispatchEvent(new Event("social_account_synced"));
       loadAccounts();
     } catch (err: any) {
       showToast("Sync Error", err.message, "error");
@@ -55,6 +81,7 @@ export default function AccountsPage() {
     try {
       await api.accounts.disconnect(id);
       showToast("Disconnected", "Channel disconnected from workspace.", "info");
+      window.dispatchEvent(new Event("social_account_disconnected"));
       loadAccounts();
     } catch (err: any) {
       showToast("Error", err.message, "error");
@@ -63,17 +90,38 @@ export default function AccountsPage() {
 
   const handleConnectChannel = async (platform: string) => {
     try {
+      if (platform.toLowerCase() === "linkedin") {
+        try {
+          const liRes = await api.linkedin.getConnectUrl();
+          if (liRes && liRes.auth_url) {
+            window.location.href = liRes.auth_url;
+            return;
+          }
+        } catch {
+          // Fall back to general getOAuthUrl
+        }
+      }
+
+      // 1. Check for real OAuth URL
+      const oauthRes = await api.accounts.getOAuthUrl(platform);
+      if (oauthRes && oauthRes.is_real_oauth && oauthRes.auth_url) {
+        window.location.href = oauthRes.auth_url;
+        return;
+      }
+
+      // If credentials not configured in backend, connect via verified provider / sandbox
       await api.accounts.connect({
         platform,
-        account_name: `${platform.toUpperCase()} Acme Brand`,
+        account_name: `${platform.toUpperCase()} Workspace Channel`,
         account_id: `${platform}_page_${Math.floor(Math.random() * 89999 + 10000)}`,
         avatar_url: null,
       });
-      showToast("Channel Connected! 🎉", `${platform.toUpperCase()} connected successfully.`, "success");
+      showToast("Channel Connected! 🎉", `${platform.toUpperCase()} connected successfully. (Add ${platform.toUpperCase()}_CLIENT_ID in .env for production OAuth)`, "success");
+      window.dispatchEvent(new Event("social_account_connected"));
       setIsConnectModalOpen(false);
       loadAccounts();
     } catch (err: any) {
-      showToast("Connect Error", err.message, "error");
+      showToast("Connect Error", err.message || "Failed to initiate channel authorization", "error");
     }
   };
 
@@ -164,13 +212,23 @@ export default function AccountsPage() {
                   <div>
                     <p className="text-xs text-slate-500">Followers</p>
                     <p className="text-base font-extrabold text-slate-900 mt-0.5">
-                      {acc.followers_count ? acc.followers_count.toLocaleString() : "24,800"}
+                      {acc.followers_count !== null && acc.followers_count !== undefined && acc.followers_count > 0
+                        ? acc.followers_count.toLocaleString()
+                        : "N/A"}
                     </p>
+                    {acc.platform?.toLowerCase() === "linkedin" && (
+                      <p className="text-[10px] text-slate-400 font-normal leading-tight mt-0.5" title="LinkedIn Member API does not expose follower metrics (Page permissions required)">
+                        Member profile
+                      </p>
+                    )}
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Posts Published</p>
                     <p className="text-base font-extrabold text-slate-900 mt-0.5">
-                      {acc.posts_count || 32}
+                      {acc.posts_count ?? 0}
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-normal leading-tight mt-0.5">
+                      SocialPilot records
                     </p>
                   </div>
                 </div>
