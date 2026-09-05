@@ -1,9 +1,74 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import or_
 from celery_app import celery_app
 from database import SessionLocal
 import models
 from publishers import publish_linkedin, publish_youtube
+
+
+def _log(db, post_id, platform, event, message=None):
+    db.add(models.PublishLog(
+        post_id=post_id,
+        platform=platform,
+        event=event,
+        message=message,
+    ))
+    db.commit()
+
+
+def _next_occurrence(current_time, pattern):
+    if pattern == "daily":
+        return current_time + timedelta(days=1)
+    elif pattern == "weekly":
+        return current_time + timedelta(weeks=1)
+    elif pattern == "monthly":
+        month = current_time.month + 1
+        year = current_time.year
+        if month > 12:
+            month = 1
+            year += 1
+        day = min(current_time.day, 28)
+        return current_time.replace(year=year, month=month, day=day)
+    return None
+
+
+def _spawn_next_recurrence(db, post):
+    if not post.is_recurring or not post.recurrence_pattern:
+        return
+    if not post.scheduled_time:
+        return
+
+    next_time = _next_occurrence(post.scheduled_time, post.recurrence_pattern)
+    if next_time is None:
+        return
+
+    if post.recurrence_end_date and next_time > post.recurrence_end_date:
+        return
+
+    new_post = models.Post(
+        user_id=post.user_id,
+        title=post.title,
+        content=post.content,
+        media_urls=post.media_urls,
+        scheduled_time=next_time,
+        status="scheduled",
+        is_recurring=True,
+        recurrence_pattern=post.recurrence_pattern,
+        recurrence_end_date=post.recurrence_end_date,
+    )
+    db.add(new_post)
+    db.flush()
+
+    for pp in post.platform_posts:
+        db.add(models.PostPlatform(
+            post_id=new_post.id,
+            social_account_id=pp.social_account_id,
+            platform=pp.platform,
+            status="pending",
+        ))
+
+    db.commit()
+    _log(db, new_post.id, "system", "success", f"Auto-generated next recurrence from post {post.id}")
 
 
 @celery_app.task(name="publish_post")
@@ -27,6 +92,7 @@ def publish_post(post_id: int):
 
             pp.status = "publishing"
             db.commit()
+            _log(db, post.id, pp.platform, "attempt", f"Attempting to publish to {pp.platform}")
 
             account = pp.social_account
             platform_lower = pp.platform.lower()
@@ -57,10 +123,12 @@ def publish_post(post_id: int):
                 pp.published_at = datetime.now(timezone.utc)
                 pp.error_message = None
                 any_success = True
+                _log(db, post.id, pp.platform, "success", f"Published successfully, external_id={result}")
             else:
                 pp.status = "failed"
                 pp.error_message = result
                 any_failure = True
+                _log(db, post.id, pp.platform, "failure", result)
 
             db.commit()
 
@@ -71,6 +139,9 @@ def publish_post(post_id: int):
         else:
             post.status = "failed"
         db.commit()
+
+        if post.status == "published":
+            _spawn_next_recurrence(db, post)
 
         return f"Post {post_id} processed: status={post.status}"
     finally:

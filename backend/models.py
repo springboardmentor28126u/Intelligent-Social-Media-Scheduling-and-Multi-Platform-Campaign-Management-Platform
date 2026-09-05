@@ -1,4 +1,4 @@
-﻿from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from database import Base
 from sqlalchemy import DateTime, Text, JSON
@@ -36,9 +36,13 @@ class Post(Base):
     scheduled_time = Column(DateTime(timezone=True), nullable=True)
     status = Column(String, default="draft")
     created_at = Column(DateTime(timezone=True), server_default="now()")
+    is_recurring = Column(Boolean, default=False)
+    recurrence_pattern = Column(String, nullable=True)
+    recurrence_end_date = Column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="posts")
     platform_posts = relationship("PostPlatform", back_populates="post", cascade="all, delete-orphan")
+    logs = relationship("PublishLog", back_populates="post", cascade="all, delete-orphan")
 
 
 class PostPlatform(Base):
@@ -54,3 +58,15 @@ class PostPlatform(Base):
 
     post = relationship("Post", back_populates="platform_posts")
     social_account = relationship("SocialAccount")
+
+
+class PublishLog(Base):
+    __tablename__ = "publish_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("posts.id"), nullable=False)
+    platform = Column(String, nullable=False)
+    event = Column(String, nullable=False)
+    message = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default="now()")
+
+    post = relationship("Post", back_populates="logs")
