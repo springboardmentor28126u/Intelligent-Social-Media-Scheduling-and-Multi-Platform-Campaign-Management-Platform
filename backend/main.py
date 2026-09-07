@@ -1,5 +1,8 @@
-from fastapi import FastAPI, Depends, HTTPException
+import os
+import uuid
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from typing import List
 from database import get_db, engine, Base
@@ -9,6 +12,9 @@ from youtube_auth import router as youtube_router
 from posts import router as posts_router
 
 Base.metadata.create_all(bind=engine)
+
+MEDIA_DIR = os.path.join(os.path.dirname(__file__), "media")
+os.makedirs(MEDIA_DIR, exist_ok=True)
 
 app = FastAPI()
 app.include_router(posts_router)
@@ -22,6 +28,42 @@ app.add_middleware(
 
 app.include_router(linkedin_router)
 app.include_router(youtube_router)
+
+ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".webm"}
+MAX_UPLOAD_SIZE_BYTES = 200 * 1024 * 1024
+
+@app.post("/media/upload")
+async def upload_media(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in ALLOWED_VIDEO_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type '{ext}'. Allowed: {ALLOWED_VIDEO_EXTENSIONS}")
+
+    unique_name = f"{uuid.uuid4().hex}{ext}"
+    save_path = os.path.join(MEDIA_DIR, unique_name)
+
+    size = 0
+    with open(save_path, "wb") as out_file:
+        while True:
+            chunk = await file.read(1024 * 1024)
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > MAX_UPLOAD_SIZE_BYTES:
+                out_file.close()
+                os.remove(save_path)
+                raise HTTPException(status_code=400, detail="File too large (max 200MB)")
+            out_file.write(chunk)
+
+    file_url = str(request.base_url).rstrip("/") + "/media/" + unique_name
+    return {"url": file_url, "filename": unique_name, "size_bytes": size}
+
+
+app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
+
 
 @app.get("/")
 def read_root():

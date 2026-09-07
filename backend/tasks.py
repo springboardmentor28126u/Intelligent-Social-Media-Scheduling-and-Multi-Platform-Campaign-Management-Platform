@@ -96,6 +96,7 @@ def publish_post(post_id: int):
 
             account = pp.social_account
             platform_lower = pp.platform.lower()
+            video_url = (post.media_urls or [None])[0]
 
             try:
                 if platform_lower == "linkedin":
@@ -103,9 +104,9 @@ def publish_post(post_id: int):
                         account.access_token,
                         account.platform_user_id,
                         post.content,
+                        video_url=video_url,
                     )
                 elif platform_lower == "youtube":
-                    video_url = (post.media_urls or [None])[0]
                     if not video_url:
                         success, result = False, "No video URL provided for YouTube post"
                     else:

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   Calendar,
@@ -17,6 +17,10 @@ import {
   Repeat,
   Sparkles,
   Save,
+  Upload,
+  Trash2,
+  Film,
+  Check,
 } from 'lucide-react';
 import PageHeader from '@/components/common/PageHeader';
 import Card from '@/components/common/Card';
@@ -35,6 +39,14 @@ import {
 
 const API_BASE = 'http://localhost:8000';
 
+function formatBytes(bytes?: number): string {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
 interface SocialAccountData {
   id: number;
   platform: string;
@@ -47,7 +59,8 @@ export default function CreatePost() {
   const location = useLocation();
   const token = localStorage.getItem('token');
 
-  const editPost = (location.state as { editPost?: PostOut })?.editPost;
+  const locationState = location.state as { editPost?: PostOut; initialVideoUrl?: string } | undefined;
+  const editPost = locationState?.editPost;
   const isEditMode = Boolean(editPost);
 
   // Status check: Only "draft" and "scheduled" posts can be edited
@@ -77,7 +90,100 @@ export default function CreatePost() {
 
   const [content, setContent] = useState(editPost?.content || '');
   const [title, setTitle] = useState(editPost?.title || '');
-  const [videoUrl, setVideoUrl] = useState(editPost?.media_urls?.[0] || '');
+  const [videoUrl, setVideoUrl] = useState(editPost?.media_urls?.[0] || locationState?.initialVideoUrl || '');
+  const [uploadedVideoMeta, setUploadedVideoMeta] = useState<{ filename: string; size_bytes?: number } | null>(null);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (file: File) => {
+    if (!token) {
+      setUploadError('You must be logged in to upload video files.');
+      return;
+    }
+
+    const allowedExts = ['.mp4', '.mov', '.avi', '.webm'];
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    if (!allowedExts.includes(ext)) {
+      setUploadError(`Unsupported file type "${ext}". Allowed types: .mp4, .mov, .avi, .webm`);
+      return;
+    }
+
+    if (file.size > 200 * 1024 * 1024) {
+      setUploadError('File exceeds maximum size limit of 200MB.');
+      return;
+    }
+
+    setUploadingVideo(true);
+    setUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${API_BASE}/media/upload`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setUploadError(data.detail || 'Failed to upload video.');
+        return;
+      }
+
+      setVideoUrl(data.url);
+      setUploadedVideoMeta({
+        filename: file.name,
+        size_bytes: data.size_bytes || file.size,
+      });
+    } catch (err: any) {
+      console.error('Error uploading video:', err);
+      setUploadError(err.message || 'An error occurred during video upload.');
+    } finally {
+      setUploadingVideo(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (!isStatusEditable) return;
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFileUpload(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (!isStatusEditable) return;
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleFileUpload(e.target.files[0]);
+    }
+  };
+
+  const handleRemoveVideo = () => {
+    setVideoUrl('');
+    setUploadedVideoMeta(null);
+    setUploadError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   // Parse initial scheduled date & time if editing
   const getInitialSchedule = () => {
@@ -248,7 +354,7 @@ export default function CreatePost() {
       const payload: Record<string, any> = {
         title: hasYouTube && title.trim() ? title.trim() : null,
         content: content.trim(),
-        media_urls: hasYouTube && videoUrl.trim() ? [videoUrl.trim()] : null,
+        media_urls: videoUrl.trim() ? [videoUrl.trim()] : null,
         scheduled_time,
         social_account_ids: selectedAccountIds,
         action: effectiveAction,
@@ -512,44 +618,153 @@ export default function CreatePost() {
             )}
           </Card>
 
-          {/* YouTube specific fields (conditional) */}
+          {/* YouTube specific title field (conditional: only when YouTube account selected) */}
           {hasYouTube && (
             <Card className="border-red-100 bg-red-50/20 p-6">
               <div className="flex items-center gap-2.5">
                 <Video className="h-5 w-5 text-red-600" />
                 <div>
-                  <h3 className="text-base font-semibold text-ink-900">YouTube Video Details</h3>
-                  <p className="text-xs text-ink-400">Settings specific to your selected YouTube channel.</p>
+                  <h3 className="text-base font-semibold text-ink-900">YouTube Video Title</h3>
+                  <p className="text-xs text-ink-400">YouTube requires a title for all video uploads.</p>
                 </div>
               </div>
 
-              <div className="mt-4 space-y-4">
-                <div>
-                  <label className="text-xs font-medium text-ink-600">Video title (for YouTube)</label>
-                  <input
-                    type="text"
-                    disabled={!isStatusEditable}
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Enter YouTube video title"
-                    className="mt-1.5 w-full rounded-xl border border-ink-100 bg-white px-4 py-2.5 text-sm text-ink-800 placeholder:text-ink-400 transition-all focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 disabled:bg-ink-50 disabled:text-ink-400"
-                  />
-                </div>
+              <div className="mt-4">
+                <label className="text-xs font-medium text-ink-600">Video title (required for YouTube)</label>
+                <input
+                  type="text"
+                  disabled={!isStatusEditable}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Enter YouTube video title"
+                  className="mt-1.5 w-full rounded-xl border border-ink-100 bg-white px-4 py-2.5 text-sm text-ink-800 placeholder:text-ink-400 transition-all focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 disabled:bg-ink-50 disabled:text-ink-400"
+                />
+              </div>
+            </Card>
+          )}
 
-                <div>
-                  <label className="text-xs font-medium text-ink-600">Video URL (for YouTube)</label>
-                  <input
-                    type="url"
-                    disabled={!isStatusEditable}
-                    value={videoUrl}
-                    onChange={(e) => setVideoUrl(e.target.value)}
-                    placeholder="https://example.com/video.mp4"
-                    className="mt-1.5 w-full rounded-xl border border-ink-100 bg-white px-4 py-2.5 text-sm text-ink-800 placeholder:text-ink-400 transition-all focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 disabled:bg-ink-50 disabled:text-ink-400"
-                  />
-                  <p className="mt-1 text-xs text-ink-400">
-                    Provide a direct publicly accessible MP4 video URL for YouTube publishing.
-                  </p>
+          {/* Video Attachment for all selected platforms (LinkedIn, YouTube, etc.) */}
+          {selectedAccountIds.length > 0 && (
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Film className="h-5 w-5 text-ink-700" />
+                  <div>
+                    <h3 className="text-base font-semibold text-ink-900">Attach video (optional)</h3>
+                    <p className="text-xs text-ink-400">
+                      Upload an MP4, MOV, AVI, or WebM video to publish on your selected accounts.
+                    </p>
+                  </div>
                 </div>
+                {videoUrl && (
+                  <Badge variant="success" size="sm">
+                    <Check className="mr-1 h-3 w-3" /> Attached
+                  </Badge>
+                )}
+              </div>
+
+              {uploadError && (
+                <div className="mt-4 flex items-center gap-3 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-xs text-danger-700">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-danger-600" />
+                  <span>{uploadError}</span>
+                </div>
+              )}
+
+              {/* Hidden file input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileInputChange}
+                accept="video/mp4,video/quicktime,video/x-msvideo,video/webm,.mp4,.mov,.avi,.webm"
+                className="hidden"
+                disabled={!isStatusEditable || uploadingVideo}
+              />
+
+              <div className="mt-4">
+                {uploadingVideo ? (
+                  <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50/40 py-10">
+                    <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
+                    <div className="text-center">
+                      <p className="text-sm font-semibold text-ink-900">Uploading video to server...</p>
+                      <p className="mt-0.5 text-xs text-ink-400">This may take a moment depending on file size.</p>
+                    </div>
+                  </div>
+                ) : videoUrl ? (
+                  <div className="rounded-xl border border-ink-200 bg-ink-50/50 p-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
+                          <Film className="h-6 w-6" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-ink-900 truncate">
+                            {uploadedVideoMeta?.filename || videoUrl.split('/').pop() || 'Uploaded video'}
+                          </p>
+                          <p className="text-xs text-ink-400">
+                            {uploadedVideoMeta?.size_bytes ? formatBytes(uploadedVideoMeta.size_bytes) + ' • ' : ''}
+                            Ready to publish
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={!isStatusEditable}
+                          onClick={() => fileInputRef.current?.click()}
+                          leftIcon={<Upload className="h-3.5 w-3.5" />}
+                        >
+                          Replace
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="sm"
+                          disabled={!isStatusEditable}
+                          onClick={handleRemoveVideo}
+                          leftIcon={<Trash2 className="h-3.5 w-3.5" />}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Video preview player */}
+                    <div className="mt-3 overflow-hidden rounded-lg border border-ink-200 bg-black">
+                      <video
+                        src={videoUrl}
+                        controls
+                        className="max-h-56 w-full object-contain"
+                        preload="metadata"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => isStatusEditable && fileInputRef.current?.click()}
+                    className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-8 text-center transition-all ${
+                      isDragging
+                        ? 'border-brand-500 bg-brand-50/60 ring-2 ring-brand-500/20'
+                        : 'border-ink-200 bg-ink-50/30 hover:border-brand-300 hover:bg-brand-50/20'
+                    } ${!isStatusEditable ? 'cursor-not-allowed opacity-60' : ''}`}
+                  >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-ink-500 shadow-sm">
+                      <Upload className="h-6 w-6 text-brand-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-ink-800">
+                        Click to browse or drag and drop video
+                      </p>
+                      <p className="mt-1 text-xs text-ink-400">
+                        MP4, MOV, AVI, WebM (up to 200MB)
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
           )}
@@ -843,13 +1058,8 @@ export default function CreatePost() {
                         {isYouTubeAcc && (
                           <div className="rounded-lg bg-ink-50 p-2.5 text-xs">
                             <p className="font-semibold text-ink-800">
-                              Title: <span className="font-normal text-ink-600">{title || '(Untitled Video)'}</span>
+                              YouTube Title: <span className="font-normal text-ink-600">{title || '(Untitled Video)'}</span>
                             </p>
-                            {videoUrl && (
-                              <p className="mt-1 font-semibold text-ink-800 truncate">
-                                Video: <span className="font-normal text-brand-600">{videoUrl}</span>
-                              </p>
-                            )}
                           </div>
                         )}
 
@@ -861,13 +1071,22 @@ export default function CreatePost() {
                           <p className="text-sm text-ink-300 italic">Your content preview will appear here...</p>
                         )}
 
-                        {isYouTubeAcc && videoUrl ? (
-                          <div className="flex h-28 items-center justify-center rounded-xl bg-ink-900 text-white">
-                            <Video className="h-8 w-8 text-white/60" />
+                        {videoUrl ? (
+                          <div className="overflow-hidden rounded-xl border border-ink-200 bg-black">
+                            <video
+                              src={videoUrl}
+                              controls
+                              className="max-h-48 w-full object-contain"
+                              preload="metadata"
+                            />
+                            <div className="flex items-center gap-2 bg-ink-900 px-3 py-1.5 text-xs text-ink-200">
+                              <Film className="h-3.5 w-3.5 text-brand-400" />
+                              <span className="truncate">{uploadedVideoMeta?.filename || 'Attached Video'}</span>
+                            </div>
                           </div>
                         ) : (
-                          <div className="mt-4 h-20 rounded-xl border-2 border-dashed border-ink-100 bg-ink-50/30 flex items-center justify-center">
-                            <span className="text-xs text-ink-400">Content Preview Area</span>
+                          <div className="mt-2 h-16 rounded-xl border border-dashed border-ink-100 bg-ink-50/30 flex items-center justify-center">
+                            <span className="text-xs text-ink-400">No media attached</span>
                           </div>
                         )}
                       </div>
