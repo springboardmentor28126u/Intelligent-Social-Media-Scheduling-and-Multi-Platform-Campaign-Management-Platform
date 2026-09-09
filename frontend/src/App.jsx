@@ -1,5 +1,7 @@
+
 import { useEffect, useState } from "react";
 import "./App.css";
+import Calendar from "./Calendar";
 
 const API_URL = "http://localhost:5000/api";
 
@@ -463,6 +465,38 @@ function App() {
     }
   };
 
+  // =========================================================
+  // PUBLISHING CALENDAR
+  // =========================================================
+
+  const loadCalendar = async () => {
+    const token = localStorage.getItem("token");
+
+    try {
+      const response = await fetch(
+        `${API_URL}/scheduled-posts`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || "Failed to load calendar");
+        return;
+      }
+
+      setScheduledPosts(data.scheduled_posts || []);
+      setPage("calendar");
+    } catch (error) {
+      console.error(error);
+      alert("Cannot connect to backend");
+    }
+  };
+
   const schedulePost = async (e) => {
     e.preventDefault();
 
@@ -532,29 +566,36 @@ function App() {
     const token = localStorage.getItem("token");
 
     try {
-      const [campaignResponse, accountResponse, postResponse, scheduleResponse] =
-        await Promise.all([
-          fetch(`${API_URL}/campaigns`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }),
-          fetch(`${API_URL}/social-accounts`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }),
-          fetch(`${API_URL}/posts`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }),
-          fetch(`${API_URL}/scheduled-posts`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }),
-        ]);
+      const [
+        campaignResponse,
+        accountResponse,
+        postResponse,
+        scheduleResponse,
+      ] = await Promise.all([
+        fetch(`${API_URL}/campaigns`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+
+        fetch(`${API_URL}/social-accounts`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+
+        fetch(`${API_URL}/posts`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+
+        fetch(`${API_URL}/scheduled-posts`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+      ]);
 
       const campaignData = await campaignResponse.json();
       const accountData = await accountResponse.json();
@@ -581,6 +622,7 @@ function App() {
           <div className="login-icon">📱</div>
 
           <h1>SocialFlow</h1>
+
           <p className="login-subtitle">
             Social Media Campaign Management
           </p>
@@ -588,6 +630,7 @@ function App() {
           <form onSubmit={handleLogin}>
             <div className="form-group">
               <label>Email Address</label>
+
               <input
                 type="email"
                 placeholder="Enter your email"
@@ -599,6 +642,7 @@ function App() {
 
             <div className="form-group">
               <label>Password</label>
+
               <input
                 type="password"
                 placeholder="Enter your password"
@@ -613,7 +657,9 @@ function App() {
             </button>
           </form>
 
-          {message && <p className="error-message">{message}</p>}
+          {message && (
+            <p className="error-message">{message}</p>
+          )}
         </div>
       </div>
     );
@@ -627,6 +673,7 @@ function App() {
     <aside className="sidebar">
       <div className="brand">
         <div className="brand-icon">📱</div>
+
         <div>
           <h2>SocialFlow</h2>
           <span>Management Platform</span>
@@ -668,6 +715,14 @@ function App() {
         >
           <span>📅</span> Scheduled Posts
         </button>
+
+        {/* NEW CALENDAR BUTTON */}
+        <button
+          className={page === "calendar" ? "nav-active" : ""}
+          onClick={loadCalendar}
+        >
+          <span>🗓️</span> Publishing Calendar
+        </button>
       </nav>
 
       <div className="sidebar-bottom">
@@ -702,7 +757,10 @@ function App() {
           <div className="topbar">
             <div>
               <h1>Dashboard</h1>
-              <p>Manage your social media activities from one place.</p>
+
+              <p>
+                Manage your social media activities from one place.
+              </p>
             </div>
 
             <div className="top-user">
@@ -714,6 +772,7 @@ function App() {
           <div className="stats-grid">
             <div className="stat-card">
               <div className="stat-icon purple">📢</div>
+
               <div>
                 <span>Total Campaigns</span>
                 <h2>{campaigns.length}</h2>
@@ -722,6 +781,7 @@ function App() {
 
             <div className="stat-card">
               <div className="stat-icon blue">🔗</div>
+
               <div>
                 <span>Social Accounts</span>
                 <h2>{accounts.length}</h2>
@@ -730,6 +790,7 @@ function App() {
 
             <div className="stat-card">
               <div className="stat-icon green">📝</div>
+
               <div>
                 <span>Total Posts</span>
                 <h2>{posts.length}</h2>
@@ -738,6 +799,7 @@ function App() {
 
             <div className="stat-card">
               <div className="stat-icon orange">📅</div>
+
               <div>
                 <span>Scheduled Posts</span>
                 <h2>{scheduledPosts.length}</h2>
@@ -778,6 +840,13 @@ function App() {
                   <strong>Scheduled Posts</strong>
                   <small>View scheduled content</small>
                 </button>
+
+                {/* NEW CALENDAR QUICK ACTION */}
+                <button onClick={loadCalendar}>
+                  <span>🗓️</span>
+                  <strong>Publishing Calendar</strong>
+                  <small>View scheduled content on calendar</small>
+                </button>
               </div>
             </div>
 
@@ -810,8 +879,10 @@ function App() {
                     >
                       <div>
                         <strong>{campaign.campaign_name}</strong>
+
                         <small>
-                          {campaign.description || "No description"}
+                          {campaign.description ||
+                            "No description"}
                         </small>
                       </div>
 
@@ -894,7 +965,10 @@ function App() {
               <EmptyState text="No social accounts connected." />
             ) : (
               accounts.map((account) => (
-                <div className="account-card-new" key={account.account_id}>
+                <div
+                  className="account-card-new"
+                  key={account.account_id}
+                >
                   <div className="platform-icon">
                     {account.platform === "Instagram"
                       ? "📸"
@@ -908,7 +982,9 @@ function App() {
                   <div className="account-info">
                     <h3>{account.platform}</h3>
                     <p>{account.username}</p>
-                    <span className="connected">● Connected</span>
+                    <span className="connected">
+                      ● Connected
+                    </span>
                   </div>
 
                   <button
@@ -960,6 +1036,7 @@ function App() {
               <div className="form-grid">
                 <div className="form-group">
                   <label>Campaign Name</label>
+
                   <input
                     type="text"
                     placeholder="Enter campaign name"
@@ -973,6 +1050,7 @@ function App() {
 
                 <div className="form-group">
                   <label>Status</label>
+
                   <select
                     value={campaignStatus}
                     onChange={(e) =>
@@ -990,6 +1068,7 @@ function App() {
 
               <div className="form-group">
                 <label>Description</label>
+
                 <textarea
                   placeholder="Enter campaign description"
                   value={campaignDescription}
@@ -1002,6 +1081,7 @@ function App() {
               <div className="form-grid">
                 <div className="form-group">
                   <label>Start Date</label>
+
                   <input
                     type="date"
                     value={startDate}
@@ -1013,6 +1093,7 @@ function App() {
 
                 <div className="form-group">
                   <label>End Date</label>
+
                   <input
                     type="date"
                     value={endDate}
@@ -1024,7 +1105,10 @@ function App() {
               </div>
 
               <div className="form-actions">
-                <button className="primary-btn" type="submit">
+                <button
+                  className="primary-btn"
+                  type="submit"
+                >
                   {editingCampaignId
                     ? "UPDATE CAMPAIGN"
                     : "CREATE CAMPAIGN"}
@@ -1058,7 +1142,9 @@ function App() {
                   key={campaign.campaign_id}
                 >
                   <div className="campaign-top">
-                    <div className="campaign-icon">📢</div>
+                    <div className="campaign-icon">
+                      📢
+                    </div>
 
                     <span
                       className={`status-badge ${campaign.status}`}
@@ -1142,6 +1228,7 @@ function App() {
               <div className="form-grid">
                 <div className="form-group">
                   <label>Campaign ID</label>
+
                   <input
                     type="number"
                     placeholder="Enter Campaign ID"
@@ -1155,6 +1242,7 @@ function App() {
 
                 <div className="form-group">
                   <label>Social Account ID</label>
+
                   <input
                     type="number"
                     placeholder="Enter Account ID"
@@ -1169,6 +1257,7 @@ function App() {
 
               <div className="form-group">
                 <label>Post Content</label>
+
                 <textarea
                   placeholder="Write your post content..."
                   value={postContent}
@@ -1182,6 +1271,7 @@ function App() {
               <div className="form-grid">
                 <div className="form-group">
                   <label>Media URL</label>
+
                   <input
                     type="text"
                     placeholder="https://example.com/image.jpg"
@@ -1194,6 +1284,7 @@ function App() {
 
                 <div className="form-group">
                   <label>Scheduled Time</label>
+
                   <input
                     type="datetime-local"
                     value={postScheduledTime}
@@ -1204,7 +1295,10 @@ function App() {
                 </div>
               </div>
 
-              <button className="primary-btn" type="submit">
+              <button
+                className="primary-btn"
+                type="submit"
+              >
                 CREATE POST
               </button>
             </form>
@@ -1220,7 +1314,10 @@ function App() {
               <EmptyState text="No posts found." />
             ) : (
               posts.map((post) => (
-                <div className="post-card" key={post.post_id}>
+                <div
+                  className="post-card"
+                  key={post.post_id}
+                >
                   <div className="post-header">
                     <div className="post-number">
                       #{post.post_id}
@@ -1242,17 +1339,20 @@ function App() {
                   <div className="post-details">
                     <span>
                       📢 Campaign:{" "}
-                      {post.campaign_name || post.campaign_id}
+                      {post.campaign_name ||
+                        post.campaign_id}
                     </span>
 
                     <span>
                       🔗 Platform:{" "}
-                      {post.platform || "Not available"}
+                      {post.platform ||
+                        "Not available"}
                     </span>
 
                     <span>
                       👤 Username:{" "}
-                      {post.username || "Not available"}
+                      {post.username ||
+                        "Not available"}
                     </span>
 
                     <span>
@@ -1277,7 +1377,7 @@ function App() {
   }
 
   // =========================================================
-  // SCHEDULED PAGE
+  // SCHEDULED POSTS PAGE
   // =========================================================
 
   if (page === "scheduled") {
@@ -1311,7 +1411,9 @@ function App() {
                 </div>
 
                 <div className="form-group">
-                  <label>Scheduled Date & Time</label>
+                  <label>
+                    Scheduled Date & Time
+                  </label>
 
                   <input
                     type="datetime-local"
@@ -1324,7 +1426,10 @@ function App() {
                 </div>
               </div>
 
-              <button className="primary-btn" type="submit">
+              <button
+                className="primary-btn"
+                type="submit"
+              >
                 SCHEDULE POST
               </button>
             </form>
@@ -1332,7 +1437,9 @@ function App() {
 
           <div className="section-title">
             <h2>My Scheduled Posts</h2>
-            <span>{scheduledPosts.length} scheduled</span>
+            <span>
+              {scheduledPosts.length} scheduled
+            </span>
           </div>
 
           <div className="schedule-list">
@@ -1344,7 +1451,9 @@ function App() {
                   className="schedule-card"
                   key={schedule.schedule_id}
                 >
-                  <div className="schedule-icon">📅</div>
+                  <div className="schedule-icon">
+                    📅
+                  </div>
 
                   <div className="schedule-content">
                     <div className="schedule-title">
@@ -1354,18 +1463,24 @@ function App() {
 
                       <span
                         className={`status-badge ${
-                          schedule.status || "scheduled"
+                          schedule.status ||
+                          "scheduled"
                         }`}
                       >
-                        {schedule.status || "scheduled"}
+                        {schedule.status ||
+                          "scheduled"}
                       </span>
                     </div>
 
-                    <p>{schedule.content}</p>
+                    <p>
+                      {schedule.content ||
+                        `Post #${schedule.post_id}`}
+                    </p>
 
                     <div className="schedule-details">
                       <span>
-                        📝 Post ID: {schedule.post_id}
+                        📝 Post ID:{" "}
+                        {schedule.post_id}
                       </span>
 
                       <span>
@@ -1390,6 +1505,24 @@ function App() {
               ))
             )}
           </div>
+        </main>
+      </div>
+    );
+  }
+
+  // =========================================================
+  // PUBLISHING CALENDAR PAGE
+  // =========================================================
+
+  if (page === "calendar") {
+    return (
+      <div className="app-layout">
+        <Sidebar />
+
+        <main className="main-content">
+          <Calendar
+            scheduledPosts={scheduledPosts}
+          />
         </main>
       </div>
     );

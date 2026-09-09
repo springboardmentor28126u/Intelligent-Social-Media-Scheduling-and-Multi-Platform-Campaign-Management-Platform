@@ -4,11 +4,25 @@
 
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  margin: 0;
   font-family: Arial, Helvetica, sans-serif;
+  background: #f5f7fb;
+  color: #1f2937;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
 }
 
 
@@ -28,7 +42,6 @@ body {
   position: relative;
   overflow: hidden;
 
-  /* Social media inspired background */
   background:
     radial-gradient(
       circle at 10% 15%,
@@ -87,9 +100,6 @@ body {
 
   pointer-events: none;
 }
-
-
-/* Second decorative layer */
 
 .login-container::after {
   content:
@@ -175,9 +185,6 @@ body {
   text-align: left;
 }
 
-
-/* Labels */
-
 .login-box label {
   margin-bottom: 7px;
 
@@ -187,9 +194,6 @@ body {
 
   font-size: 14px;
 }
-
-
-/* Inputs */
 
 .login-box input {
   width: 100%;
@@ -208,9 +212,6 @@ body {
 
   transition: 0.3s;
 }
-
-
-/* Input focus */
 
 .login-box input:focus {
   border-color: #219653;
@@ -250,9 +251,6 @@ body {
   transition: 0.3s;
 }
 
-
-/* Button hover */
-
 .login-box button:hover {
   background: linear-gradient(
     90deg,
@@ -283,146 +281,1301 @@ body {
 
 
 /* ========================================
-   DASHBOARD
+   APPLICATION LAYOUT
 ======================================== */
 
-.dashboard {
+.app-layout {
   min-height: 100vh;
 
-  padding: 40px;
-
-  background: #f5fff8;
+  display: flex;
 }
 
 
-/* Dashboard heading */
+/* ========================================
+   SIDEBAR
+======================================== */
 
-.dashboard h1 {
-  color: #17233c;
+.sidebar {
+  width: 260px;
+
+  background: #111827;
+
+  color: white;
+
+  min-height: 100vh;
+
+  padding: 25px 16px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  position: fixed;
+
+  left: 0;
+  top: 0;
+  bottom: 0;
+
+  z-index: 10;
+}
+
+.brand {
+  display: flex;
+
+  gap: 12px;
+
+  align-items: center;
+
+  padding: 5px 10px 30px;
+}
+
+.brand-icon {
+  width: 42px;
+  height: 42px;
+
+  border-radius: 12px;
+
+  background: #4f46e5;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  font-size: 21px;
+}
+
+.brand h2 {
+  font-size: 19px;
+}
+
+.brand span {
+  font-size: 10px;
+
+  color: #9ca3af;
+}
+
+
+/* Sidebar navigation */
+
+.sidebar nav {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 6px;
+}
+
+.sidebar nav button {
+  width: 100%;
+
+  border: none;
+
+  background: transparent;
+
+  color: #cbd5e1;
+
+  padding: 13px 14px;
+
+  border-radius: 10px;
+
+  text-align: left;
+
+  font-size: 14px;
+
+  transition: 0.2s;
+}
+
+.sidebar nav button:hover {
+  background: #1f2937;
+
+  color: white;
+}
+
+.sidebar nav button.nav-active {
+  background: #4f46e5;
+
+  color: white;
+}
+
+.sidebar nav button span {
+  margin-right: 10px;
+}
+
+
+/* Sidebar bottom */
+
+.sidebar-bottom {
+  margin-top: auto;
+}
+
+.user-mini {
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 14px 8px;
+
+  border-top: 1px solid #374151;
 
   margin-bottom: 10px;
 }
 
-.dashboard h2 {
-  color: #333;
+.avatar {
+  width: 38px;
+  height: 38px;
+
+  border-radius: 50%;
+
+  background: #4f46e5;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  font-weight: bold;
 }
 
+.user-mini strong {
+  display: block;
 
-/* Dashboard buttons */
+  font-size: 11px;
 
-.dashboard button {
-  padding: 11px 20px;
+  max-width: 150px;
 
-  margin: 5px;
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+}
+
+.user-mini small {
+  color: #9ca3af;
+}
+
+.logout-btn {
+  width: 100%;
 
   border: none;
 
-  border-radius: 8px;
+  padding: 12px;
 
-  background: #219653;
+  border-radius: 9px;
+
+  background: #374151;
 
   color: white;
 
-  font-weight: bold;
-
-  cursor: pointer;
-
-  transition: 0.3s;
+  font-weight: 600;
 }
 
-.dashboard button:hover {
-  background: #16733f;
-
-  transform: translateY(-1px);
+.logout-btn:hover {
+  background: #4b5563;
 }
 
 
-/* Dashboard inputs */
+/* ========================================
+   MAIN CONTENT
+======================================== */
 
-.dashboard input,
-.dashboard select,
-.dashboard textarea {
-  padding: 11px;
+.main-content {
+  margin-left: 260px;
 
-  border: 1px solid #bbb;
+  width: calc(100% - 260px);
 
-  border-radius: 7px;
+  padding: 35px;
+
+  min-height: 100vh;
+}
+
+.topbar,
+.page-header {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  margin-bottom: 30px;
+}
+
+.topbar h1,
+.page-header h1 {
+  font-size: 30px;
+
+  margin-bottom: 7px;
+}
+
+.topbar p,
+.page-header p {
+  color: #64748b;
+}
+
+.top-user {
+  background: white;
+
+  padding: 12px 18px;
+
+  border-radius: 12px;
+
+  box-shadow:
+    0 4px 15px rgba(15, 23, 42, 0.05);
+}
+
+.top-user span {
+  color: #94a3b8;
+
+  font-size: 12px;
+
+  margin-right: 5px;
+}
+
+
+/* ========================================
+   STAT CARDS
+======================================== */
+
+.stats-grid {
+  display: grid;
+
+  grid-template-columns: repeat(4, 1fr);
+
+  gap: 18px;
+
+  margin-bottom: 25px;
+}
+
+.stat-card {
+  background: white;
+
+  padding: 22px;
+
+  border-radius: 15px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 15px;
+
+  box-shadow:
+    0 4px 15px rgba(15, 23, 42, 0.05);
+}
+
+.stat-icon {
+  width: 50px;
+  height: 50px;
+
+  border-radius: 13px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  font-size: 23px;
+}
+
+.stat-icon.purple {
+  background: #ede9fe;
+}
+
+.stat-icon.blue {
+  background: #dbeafe;
+}
+
+.stat-icon.green {
+  background: #dcfce7;
+}
+
+.stat-icon.orange {
+  background: #ffedd5;
+}
+
+.stat-card span {
+  color: #64748b;
+
+  font-size: 13px;
+}
+
+.stat-card h2 {
+  font-size: 26px;
+
+  margin-top: 4px;
+}
+
+
+/* ========================================
+   PANELS
+======================================== */
+
+.content-grid {
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 22px;
+}
+
+.panel,
+.form-panel {
+  background: white;
+
+  border-radius: 16px;
+
+  padding: 25px;
+
+  margin-bottom: 25px;
+
+  box-shadow:
+    0 4px 15px rgba(15, 23, 42, 0.05);
+}
+
+.panel-header {
+  display: flex;
+
+  justify-content: space-between;
+
+  margin-bottom: 20px;
+}
+
+.panel h2,
+.form-panel h2 {
+  font-size: 19px;
+
+  margin-bottom: 5px;
+}
+
+.panel-header p {
+  color: #94a3b8;
+
+  font-size: 13px;
+}
+
+
+/* ========================================
+   QUICK ACTIONS
+======================================== */
+
+.quick-actions {
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 12px;
+}
+
+.quick-actions button {
+  background: #f8fafc;
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 12px;
+
+  padding: 17px;
+
+  text-align: left;
+
+  transition: 0.2s;
+}
+
+.quick-actions button:hover {
+  border-color: #4f46e5;
+
+  transform: translateY(-2px);
+}
+
+.quick-actions span {
+  display: block;
+
+  font-size: 23px;
+
+  margin-bottom: 9px;
+}
+
+.quick-actions strong {
+  display: block;
+
+  font-size: 13px;
+}
+
+.quick-actions small {
+  display: block;
+
+  color: #94a3b8;
 
   margin-top: 5px;
-
-  font-family: Arial, sans-serif;
 }
 
 
-/* Dashboard textarea */
+/* ========================================
+   RECENT CAMPAIGNS
+======================================== */
 
-.dashboard textarea {
-  width: 350px;
+.recent-list {
+  display: flex;
 
-  height: 100px;
+  flex-direction: column;
+}
+
+.recent-item {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  padding: 13px 0;
+
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.recent-item strong {
+  display: block;
+
+  font-size: 14px;
+}
+
+.recent-item small {
+  display: block;
+
+  color: #94a3b8;
+
+  margin-top: 4px;
+}
+
+.text-btn {
+  border: none;
+
+  background: transparent;
+
+  color: #4f46e5;
+
+  font-weight: 600;
+}
+
+
+/* ========================================
+   FORMS
+======================================== */
+
+.form-grid {
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 18px;
+
+  align-items: end;
+}
+
+.form-group {
+  margin-bottom: 18px;
+}
+
+.form-group label {
+  display: block;
+
+  margin-bottom: 7px;
+
+  font-size: 13px;
+
+  font-weight: 600;
+
+  color: #374151;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+
+  border: 1px solid #dbe1ea;
+
+  border-radius: 9px;
+
+  padding: 12px 13px;
+
+  outline: none;
+
+  font-size: 14px;
+
+  background: white;
+}
+
+.form-group textarea {
+  min-height: 110px;
 
   resize: vertical;
 }
 
-
-/* ========================================
-   ACCOUNT / CAMPAIGN / POST CARDS
-======================================== */
-
-.account-card {
-  background: white;
-
-  padding: 20px;
-
-  margin: 15px 0;
-
-  max-width: 600px;
-
-  border-left: 5px solid #219653;
-
-  border-radius: 10px;
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #4f46e5;
 
   box-shadow:
-    0 4px 15px rgba(0, 0, 0, 0.08);
+    0 0 0 3px rgba(79, 70, 229, 0.1);
 }
 
+.primary-btn,
+.secondary-btn,
+.danger-btn,
+.edit-btn {
+  border: none;
 
-/* Card heading */
+  border-radius: 8px;
 
-.account-card h3 {
-  color: #17233c;
+  padding: 11px 16px;
 
-  margin-top: 0;
+  font-weight: 600;
+
+  font-size: 12px;
+}
+
+.primary-btn {
+  background: #4f46e5;
+
+  color: white;
+}
+
+.primary-btn:hover {
+  background: #4338ca;
+}
+
+.full-btn {
+  width: 100%;
+
+  padding: 13px;
+
+  margin-top: 5px;
+}
+
+.secondary-btn {
+  background: #e2e8f0;
+
+  color: #334155;
+}
+
+.danger-btn {
+  background: #fee2e2;
+
+  color: #dc2626;
+}
+
+.danger-btn:hover {
+  background: #fecaca;
+}
+
+.edit-btn {
+  background: #eef2ff;
+
+  color: #4f46e5;
+}
+
+.form-actions {
+  display: flex;
+
+  gap: 10px;
 }
 
 
 /* ========================================
-   MOBILE RESPONSIVE
+   SECTION TITLE
 ======================================== */
 
-@media (max-width: 600px) {
+.section-title {
+  display: flex;
 
-  .login-box {
-    padding: 30px 25px;
+  justify-content: space-between;
+
+  align-items: center;
+
+  margin: 30px 0 15px;
+}
+
+.section-title h2 {
+  font-size: 20px;
+}
+
+.section-title span {
+  color: #64748b;
+
+  font-size: 13px;
+}
+
+
+/* ========================================
+   ACCOUNT CARDS
+======================================== */
+
+.cards-grid {
+  display: grid;
+
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 18px;
+}
+
+.account-card-new {
+  background: white;
+
+  border-radius: 15px;
+
+  padding: 22px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 15px;
+
+  box-shadow:
+    0 4px 15px rgba(15, 23, 42, 0.05);
+}
+
+.platform-icon {
+  width: 50px;
+  height: 50px;
+
+  border-radius: 13px;
+
+  background: #f1f5f9;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  font-size: 23px;
+}
+
+.account-info {
+  flex: 1;
+}
+
+.account-info h3 {
+  font-size: 16px;
+}
+
+.account-info p {
+  color: #64748b;
+
+  margin: 4px 0;
+}
+
+.connected {
+  color: #16a34a;
+
+  font-size: 11px;
+}
+
+
+/* ========================================
+   CAMPAIGNS
+======================================== */
+
+.campaign-grid {
+  display: grid;
+
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 18px;
+}
+
+.campaign-card {
+  background: white;
+
+  padding: 22px;
+
+  border-radius: 15px;
+
+  box-shadow:
+    0 4px 15px rgba(15, 23, 42, 0.05);
+}
+
+.campaign-top {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  margin-bottom: 17px;
+}
+
+.campaign-icon {
+  width: 42px;
+  height: 42px;
+
+  border-radius: 11px;
+
+  background: #ede9fe;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+}
+
+.campaign-card h3 {
+  margin-bottom: 8px;
+}
+
+.campaign-card > p {
+  color: #64748b;
+
+  line-height: 1.5;
+
+  font-size: 13px;
+
+  min-height: 40px;
+}
+
+.status-badge {
+  padding: 5px 9px;
+
+  border-radius: 20px;
+
+  font-size: 10px;
+
+  font-weight: bold;
+
+  text-transform: uppercase;
+}
+
+.status-badge.draft {
+  background: #f1f5f9;
+
+  color: #64748b;
+}
+
+.status-badge.active {
+  background: #dcfce7;
+
+  color: #15803d;
+}
+
+.status-badge.completed {
+  background: #dbeafe;
+
+  color: #1d4ed8;
+}
+
+.status-badge.scheduled {
+  background: #fef3c7;
+
+  color: #b45309;
+}
+
+.date-row {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 6px;
+
+  margin: 18px 0;
+
+  padding: 13px;
+
+  background: #f8fafc;
+
+  border-radius: 9px;
+
+  color: #64748b;
+
+  font-size: 11px;
+}
+
+.card-actions {
+  display: flex;
+
+  gap: 8px;
+}
+
+
+/* ========================================
+   POSTS
+======================================== */
+
+.post-list,
+.schedule-list {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 15px;
+}
+
+.post-card,
+.schedule-card {
+  background: white;
+
+  padding: 22px;
+
+  border-radius: 15px;
+
+  box-shadow:
+    0 4px 15px rgba(15, 23, 42, 0.05);
+}
+
+.post-header {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+}
+
+.post-number {
+  font-weight: bold;
+
+  color: #4f46e5;
+}
+
+.post-content {
+  font-size: 15px;
+
+  line-height: 1.6;
+
+  margin: 15px 0;
+}
+
+.post-details,
+.schedule-details {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 12px;
+
+  color: #64748b;
+
+  font-size: 12px;
+}
+
+.media-url {
+  margin-top: 12px;
+
+  padding: 10px;
+
+  background: #f8fafc;
+
+  border-radius: 8px;
+
+  color: #64748b;
+
+  font-size: 12px;
+}
+
+
+/* ========================================
+   SCHEDULE
+======================================== */
+
+.schedule-card {
+  display: flex;
+
+  gap: 18px;
+}
+
+.schedule-icon {
+  width: 50px;
+  height: 50px;
+
+  flex-shrink: 0;
+
+  border-radius: 12px;
+
+  background: #fff7ed;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  font-size: 23px;
+}
+
+.schedule-content {
+  flex: 1;
+}
+
+.schedule-title {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  margin-bottom: 8px;
+}
+
+.schedule-content > p {
+  color: #64748b;
+
+  margin-bottom: 15px;
+}
+
+.error-box {
+  margin-top: 12px;
+
+  padding: 10px;
+
+  border-radius: 8px;
+
+  background: #fee2e2;
+
+  color: #b91c1c;
+
+  font-size: 12px;
+}
+
+
+/* ========================================
+   EMPTY STATE
+======================================== */
+
+.empty-state {
+  color: #94a3b8;
+
+  text-align: center;
+
+  padding: 30px;
+}
+
+.empty-state span {
+  display: block;
+
+  font-size: 30px;
+
+  margin-bottom: 10px;
+}
+
+.empty-state.large {
+  background: white;
+
+  border-radius: 15px;
+
+  padding: 50px;
+}
+
+
+/* ========================================
+   ERROR
+======================================== */
+
+.error-message {
+  margin-top: 15px;
+
+  padding: 10px;
+
+  border-radius: 8px;
+
+  background: #fee2e2;
+
+  color: #b91c1c;
+
+  font-size: 13px;
+}
+
+
+/* =====================================================
+   PUBLISHING CALENDAR
+===================================================== */
+
+.calendar-page {
+  width: 100%;
+}
+
+.calendar-page .page-header {
+  margin-bottom: 20px;
+}
+
+.calendar-page .page-header h1 {
+  font-size: 30px;
+
+  margin-bottom: 7px;
+}
+
+.calendar-page .page-header p {
+  color: #64748b;
+}
+
+
+/* Calendar white container */
+
+.calendar-panel {
+  background: white;
+
+  border-radius: 16px;
+
+  padding: 24px;
+
+  margin-top: 20px;
+
+  box-shadow:
+    0 4px 15px rgba(15, 23, 42, 0.05);
+
+  overflow-x: auto;
+}
+
+
+/* FullCalendar main */
+
+.fc {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+
+/* Calendar toolbar */
+
+.fc .fc-toolbar {
+  margin-bottom: 20px;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 24px;
+
+  font-weight: 700;
+
+  color: #1f2937;
+}
+
+
+/* Calendar buttons */
+
+.fc .fc-button {
+  background: #4f46e5;
+
+  border-color: #4f46e5;
+
+  text-transform: capitalize;
+
+  font-weight: 600;
+
+  border-radius: 7px;
+}
+
+.fc .fc-button:hover {
+  background: #4338ca;
+
+  border-color: #4338ca;
+}
+
+.fc .fc-button:disabled {
+  opacity: 0.6;
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active {
+  background: #3730a3;
+
+  border-color: #3730a3;
+}
+
+
+/* Calendar days */
+
+.fc .fc-daygrid-day {
+  min-height: 100px;
+}
+
+.fc .fc-daygrid-day-number {
+  font-weight: 600;
+
+  color: #374151;
+
+  padding: 8px;
+
+  text-decoration: none;
+}
+
+
+/* Weekday names */
+
+.fc .fc-col-header-cell-cushion {
+  color: #475569;
+
+  font-weight: 600;
+
+  padding: 10px 4px;
+
+  text-decoration: none;
+}
+
+
+/* Calendar events */
+
+.fc .fc-event {
+  cursor: pointer;
+
+  padding: 3px 5px;
+
+  border-radius: 5px;
+
+  border: none;
+
+  background: #4f46e5;
+}
+
+.fc .fc-event:hover {
+  opacity: 0.85;
+}
+
+.fc .fc-event-title {
+  font-size: 12px;
+
+  font-weight: 600;
+}
+
+
+/* Highlight today's date */
+
+.fc .fc-day-today {
+  background: #eef2ff !important;
+}
+
+
+/* Calendar borders */
+
+.fc .fc-scrollgrid {
+  border-radius: 10px;
+
+  overflow: hidden;
+}
+
+.fc td,
+.fc th {
+  border-color: #e2e8f0;
+}
+
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media (max-width: 1100px) {
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 
-  .login-box h1 {
-    font-size: 24px;
+  .cards-grid,
+  .campaign-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 
-  .login-container::before {
-    font-size: 28px;
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+@media (max-width: 800px) {
+
+  .sidebar {
+    width: 210px;
   }
 
-  .login-container::after {
-    font-size: 18px;
-  }
+  .main-content {
+    margin-left: 210px;
 
-  .dashboard {
+    width: calc(100% - 210px);
+
     padding: 20px;
   }
 
-  .dashboard textarea {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cards-grid,
+  .campaign-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .top-user {
+    display: none;
+  }
+
+  /* Calendar responsive */
+
+  .calendar-panel {
+    padding: 15px;
+  }
+
+  .fc .fc-toolbar {
+    flex-wrap: wrap;
+
+    gap: 10px;
+  }
+
+  .fc .fc-toolbar-title {
+    font-size: 20px;
+  }
+}
+
+
+@media (max-width: 600px) {
+
+  .sidebar {
+    position: relative;
+
     width: 100%;
+
+    min-height: auto;
+  }
+
+  .app-layout {
+    display: block;
+  }
+
+  .main-content {
+    margin-left: 0;
+
+    width: 100%;
+
+    padding: 20px;
+  }
+
+  .sidebar nav {
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-card {
+    flex-direction: column;
+  }
+
+  /* Calendar mobile */
+
+  .calendar-panel {
+    padding: 10px;
+  }
+
+  .fc .fc-toolbar-title {
+    font-size: 18px;
+  }
+
+  .fc .fc-button {
+    font-size: 12px;
+
+    padding: 6px 10px;
+  }
+
+  .fc .fc-daygrid-day {
+    min-height: 70px;
   }
 }

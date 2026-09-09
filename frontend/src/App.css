@@ -770,7 +770,125 @@ button {
   font-size: 13px;
 }
 
-/* ================= RESPONSIVE ================= */
+/* ================================================= */
+/* ================= CALENDAR ====================== */
+/* ================================================= */
+
+.calendar-page {
+  width: 100%;
+}
+
+.calendar-page .page-header {
+  margin-bottom: 20px;
+}
+
+.calendar-page .page-header h1 {
+  font-size: 30px;
+  margin-bottom: 7px;
+}
+
+.calendar-page .page-header p {
+  color: #64748b;
+}
+
+.calendar-panel {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  margin-top: 20px;
+  box-shadow: 0 4px 15px rgba(15, 23, 42, 0.05);
+  overflow-x: auto;
+}
+
+/* FullCalendar */
+
+.fc {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.fc .fc-toolbar {
+  margin-bottom: 20px;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.fc .fc-button {
+  background: #4f46e5;
+  border-color: #4f46e5;
+  text-transform: capitalize;
+  font-weight: 600;
+  border-radius: 7px;
+}
+
+.fc .fc-button:hover {
+  background: #4338ca;
+  border-color: #4338ca;
+}
+
+.fc .fc-button:disabled {
+  opacity: 0.6;
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active {
+  background: #3730a3;
+  border-color: #3730a3;
+}
+
+.fc .fc-daygrid-day {
+  min-height: 100px;
+}
+
+.fc .fc-daygrid-day-number {
+  font-weight: 600;
+  color: #374151;
+  padding: 8px;
+}
+
+.fc .fc-col-header-cell-cushion {
+  color: #475569;
+  font-weight: 600;
+  padding: 10px 4px;
+  text-decoration: none;
+}
+
+.fc .fc-event {
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: 5px;
+  border: none;
+  background: #4f46e5;
+}
+
+.fc .fc-event:hover {
+  opacity: 0.85;
+}
+
+.fc .fc-event-title {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.fc .fc-day-today {
+  background: #eef2ff !important;
+}
+
+.fc .fc-scrollgrid {
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.fc td,
+.fc th {
+  border-color: #e2e8f0;
+}
+
+/* ================================================= */
+/* ================= RESPONSIVE ==================== */
+/* ================================================= */
 
 @media (max-width: 1100px) {
   .stats-grid {
@@ -810,6 +928,19 @@ button {
   .top-user {
     display: none;
   }
+
+  .calendar-panel {
+    padding: 15px;
+  }
+
+  .fc .fc-toolbar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .fc .fc-toolbar-title {
+    font-size: 20px;
+  }
 }
 
 @media (max-width: 600px) {
@@ -843,5 +974,18 @@ button {
 
   .schedule-card {
     flex-direction: column;
+  }
+
+  .calendar-panel {
+    padding: 10px;
+  }
+
+  .fc .fc-toolbar-title {
+    font-size: 18px;
+  }
+
+  .fc .fc-button {
+    font-size: 12px;
+    padding: 6px 10px;
   }
 }
