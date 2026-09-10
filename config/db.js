@@ -1,5 +1,9 @@
 const { Pool } = require("pg");
-require("dotenv").config();
+const path = require("path");
+
+require("dotenv").config({
+    path: path.join(__dirname, "../.env")
+});
 
 const pool = new Pool({
     user: process.env.DB_USER,
@@ -7,6 +11,17 @@ const pool = new Pool({
     database: process.env.DB_NAME,
     password: process.env.DB_PASSWORD,
     port: process.env.DB_PORT,
+    ssl: {
+        rejectUnauthorized: false
+    }
 });
+
+pool.connect()
+    .then(() => {
+        console.log("Connected to Supabase PostgreSQL");
+    })
+    .catch((err) => {
+        console.error("Database connection error:", err.message);
+    });
 
 module.exports = pool;
