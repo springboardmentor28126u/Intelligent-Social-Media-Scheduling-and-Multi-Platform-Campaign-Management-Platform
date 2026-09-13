@@ -49,13 +49,25 @@ class Settings(BaseSettings):
     GOOGLE_REDIRECT_URI: str = "http://localhost:8000/auth/google/callback"
 
     # ── Social Platform API Credentials ──────────────────────────────────────
-    # Facebook / Instagram (uses Facebook Graph API)
+    # Facebook (Meta Business / Page Management)
+    FACEBOOK_APP_ID: str = ""
+    FACEBOOK_APP_SECRET: str = ""
     FACEBOOK_CLIENT_ID: str = ""
     FACEBOOK_CLIENT_SECRET: str = ""
+    FACEBOOK_REDIRECT_URI: str = "http://localhost:8000/api/facebook/callback"
+    FACEBOOK_SCOPES: str = "pages_show_list,pages_read_engagement,pages_manage_posts"
+    META_APP_ID: str = ""
+    META_APP_SECRET: str = ""
 
-    # Instagram (Basic Display API - separate app)
+    # Instagram (Meta Graph API & Instagram Professional)
+    INSTAGRAM_APP_ID: str = ""
+    INSTAGRAM_APP_SECRET: str = ""
+    INSTAGRAM_ACCESS_TOKEN: str = ""
+    INSTAGRAM_USER_ID: str = ""
+    INSTAGRAM_REDIRECT_URI: str = "http://localhost:8000/api/instagram/callback"
     INSTAGRAM_CLIENT_ID: str = ""
     INSTAGRAM_CLIENT_SECRET: str = ""
+    INSTAGRAM_SCOPES: str = "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_messages,instagram_business_manage_comments"
 
     # LinkedIn
     LINKEDIN_CLIENT_ID: str = ""

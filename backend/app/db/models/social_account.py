@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Text, JSON
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Text, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 from app.db.database import Base
 
@@ -21,6 +21,9 @@ class SocialPlatform(Base):
 
 class SocialAccount(Base):
     __tablename__ = "social_accounts"
+    __table_args__ = (
+        UniqueConstraint("user_id", "platform", "account_id", name="uq_user_platform_account"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     uuid = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, index=True)

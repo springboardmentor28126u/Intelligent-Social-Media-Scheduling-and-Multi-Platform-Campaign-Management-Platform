@@ -284,6 +284,43 @@ export const api = {
       apiRequest("/api/linkedin/publish", { method: "POST", body: JSON.stringify(data) }),
   },
 
+  // ── Instagram Dedicated Integration ──────────────────────────
+  instagram: {
+    getConnectUrl: (redirectUri?: string) =>
+      apiRequest(`/api/instagram/connect${redirectUri ? `?redirect_uri=${encodeURIComponent(redirectUri)}` : ""}`),
+    verifyToken: (data?: { access_token?: string; user_id?: string }) =>
+      apiRequest("/api/instagram/verify", { method: "POST", body: JSON.stringify(data || {}) }),
+    connectToken: (data?: { access_token?: string; user_id?: string; account_name?: string; account_handle?: string }) =>
+      apiRequest("/api/instagram/connect-token", { method: "POST", body: JSON.stringify(data || {}) }),
+    getStatus: () => apiRequest("/api/instagram/status"),
+    disconnect: () => apiRequest("/api/instagram/disconnect", { method: "POST" }),
+    publish: (data: { content: string; media_urls?: string[]; post_type?: string; title?: string }) =>
+      apiRequest("/api/instagram/publish", { method: "POST", body: JSON.stringify(data) }),
+  },
+
+  // ── Facebook Dedicated Integration ───────────────────────────
+  facebook: {
+    getConnectUrl: (redirectUri?: string) =>
+      apiRequest(`/api/facebook/connect${redirectUri ? `?redirect_uri=${encodeURIComponent(redirectUri)}` : ""}`),
+    getPages: () => apiRequest("/api/facebook/pages"),
+    connectPage: (data: {
+      page_id: string;
+      page_name: string;
+      page_access_token: string;
+      avatar_url?: string;
+      followers_count?: number;
+    }) => apiRequest("/api/facebook/connect-page", { method: "POST", body: JSON.stringify(data) }),
+    connectToken: (data?: { access_token?: string; page_id?: string; account_name?: string; account_handle?: string }) =>
+      apiRequest("/api/facebook/connect-token", { method: "POST", body: JSON.stringify(data || {}) }),
+    verifyToken: (data?: { access_token?: string; page_id?: string }) =>
+      apiRequest("/api/facebook/verify", { method: "POST", body: JSON.stringify(data || {}) }),
+    getStatus: () => apiRequest("/api/facebook/status"),
+    disconnect: () => apiRequest("/api/facebook/disconnect", { method: "DELETE" }),
+    publish: (data: { content: string; media_urls?: string[]; post_type?: string; title?: string }) =>
+      apiRequest("/api/facebook/publish", { method: "POST", body: JSON.stringify(data) }),
+  },
+
+
   // ── Media ───────────────────────────────────────────────────
   media: {
     upload: async (file: File) => {
@@ -335,8 +372,16 @@ export const api = {
 
   // ── Notifications ───────────────────────────────────────────
   notifications: {
-    list: () => apiRequest("/notifications"),
+    list: (limit?: number, unread_only?: boolean) => {
+      const params = new URLSearchParams();
+      if (limit) params.append("limit", String(limit));
+      if (unread_only) params.append("unread_only", "true");
+      const qs = params.toString();
+      return apiRequest(`/notifications${qs ? `?${qs}` : ""}`);
+    },
     getUnreadCount: () => apiRequest("/notifications/unread-count"),
+    markOneRead: (id: number) => apiRequest(`/notifications/${id}/read`, { method: "PATCH" }),
+    markAllRead: () => apiRequest("/notifications/read-all", { method: "PATCH" }),
     markRead: (params: { notification_ids?: number[]; mark_all?: boolean }) =>
       apiRequest("/notifications/mark-read", {
         method: "POST",

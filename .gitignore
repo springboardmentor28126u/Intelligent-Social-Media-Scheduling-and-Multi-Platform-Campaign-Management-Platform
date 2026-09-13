@@ -1,4 +1,4 @@
-﻿# Byte-compiled / optimized / DLL files
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
 *$py.class
@@ -223,3 +223,11 @@ __marimo__/
 # Runtime files
 backend/celerybeat-schedule-*
 backend/uploads/
+
+# Environment files
+.env
+.env.*
+*.env
+backend/.env
+frontend/.env.local
+

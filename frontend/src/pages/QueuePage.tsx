@@ -42,8 +42,14 @@ export default function QueuePage() {
 
   const handlePublishNow = async (id: number) => {
     try {
-      await api.posts.publish(id);
-      showToast("Published!", "Post dispatched immediately.", "success");
+      const res = await api.posts.publish(id);
+      if (res && res.status === "published") {
+        showToast("Published! 🎉", `Post successfully published to ${res.platform ? res.platform.toUpperCase() : "social platform"}.`, "success");
+      } else if (res && res.status === "failed") {
+        showToast("Publish Failed ⚠️", res.failure_reason || "Publishing to social platform failed.", "error");
+      } else {
+        showToast("Post Updated", `Post status: ${res?.status || "dispatched"}`, "info");
+      }
       window.dispatchEvent(new Event("post_published"));
       loadQueue();
     } catch (err: any) {
@@ -53,8 +59,14 @@ export default function QueuePage() {
 
   const handleRetry = async (id: number) => {
     try {
-      await api.posts.retry(id);
-      showToast("Retry Triggered", "Post publish attempt re-queued.", "info");
+      const res = await api.posts.retry(id);
+      if (res && res.status === "published") {
+        showToast("Published! 🎉", `Retry succeeded: post published to ${res.platform ? res.platform.toUpperCase() : "social platform"}.`, "success");
+      } else if (res && res.status === "failed") {
+        showToast("Retry Failed ⚠️", res.failure_reason || "Retry publish failed.", "error");
+      } else {
+        showToast("Retried", `Post status: ${res?.status || "updated"}`, "info");
+      }
       window.dispatchEvent(new Event("post_updated"));
       loadQueue();
     } catch (err: any) {

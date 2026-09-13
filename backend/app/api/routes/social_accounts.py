@@ -8,6 +8,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.db.models.user import User
 from app.db.models.social_account import SocialAccount, SocialPlatform
 from app.schemas.social_account import (
     SocialAccountCreate, SocialAccountResponse, SocialPlatformResponse, ConnectDemoAccountRequest
@@ -15,6 +16,10 @@ from app.schemas.social_account import (
 from app.core.security import get_current_user, require_permission, create_oauth_state, verify_oauth_state
 from app.services.providers import get_social_provider, get_oauth_provider, list_configured_platforms
 from app.services.audit import log_audit_event
+from app.services.notifications import (
+    notify_admins_social_account_connected,
+    notify_admins_social_account_disconnected
+)
 from app.core.config import settings
 
 
@@ -106,10 +111,19 @@ def get_oauth_url(
     # Encode user_id in cryptographically secure HMAC state
     state = create_oauth_state(user_id=current_user["user_id"])
     redirect_uri = (
-        settings.LINKEDIN_REDIRECT_URI or f"{settings.BACKEND_URL}/api/linkedin/callback"
+        (settings.LINKEDIN_REDIRECT_URI or f"{settings.BACKEND_URL}/api/linkedin/callback")
         if platform_key == "linkedin"
-        else f"{settings.BACKEND_URL}/social-accounts/oauth/{platform_key}/callback"
+        else (
+            (settings.INSTAGRAM_REDIRECT_URI or f"{settings.BACKEND_URL}/api/instagram/callback")
+            if platform_key == "instagram"
+            else (
+                (settings.FACEBOOK_REDIRECT_URI or f"{settings.BACKEND_URL}/api/facebook/callback")
+                if platform_key == "facebook"
+                else f"{settings.BACKEND_URL}/social-accounts/oauth/{platform_key}/callback"
+            )
+        )
     )
+
 
     provider = get_oauth_provider(platform_key)
     auth_url = provider.get_auth_url(state=state, redirect_uri=redirect_uri)
@@ -167,17 +181,24 @@ def oauth_callback(
 
     try:
         redirect_uri = (
-            settings.LINKEDIN_REDIRECT_URI or f"{settings.BACKEND_URL}/api/linkedin/callback"
+            (settings.LINKEDIN_REDIRECT_URI or f"{settings.BACKEND_URL}/api/linkedin/callback")
             if platform_key == "linkedin"
-            else f"{settings.BACKEND_URL}/social-accounts/oauth/{platform_key}/callback"
+            else (
+                (settings.INSTAGRAM_REDIRECT_URI or f"{settings.BACKEND_URL}/api/instagram/callback")
+                if platform_key == "instagram"
+                else f"{settings.BACKEND_URL}/social-accounts/oauth/{platform_key}/callback"
+            )
         )
         provider = get_oauth_provider(platform_key)
         token_data = provider.exchange_code_for_token(code=code, redirect_uri=redirect_uri)
 
-        # Check if account already exists for this user/platform
+        target_account_id = token_data.get("account_id") or f"{platform_key}_{uuid.uuid4().hex[:8]}"
+
+        # Check if account already exists for this user/platform/account_id
         existing = db.query(SocialAccount).filter(
             SocialAccount.user_id == user_id,
-            SocialAccount.platform == platform_key
+            SocialAccount.platform == platform_key,
+            SocialAccount.account_id == target_account_id
         ).first()
 
         is_demo = token_data.get("is_demo", False)
@@ -186,7 +207,6 @@ def oauth_callback(
             existing.access_token = token_data.get("access_token", existing.access_token)
             existing.refresh_token = token_data.get("refresh_token", existing.refresh_token)
             existing.account_name = token_data.get("account_name", existing.account_name)
-            existing.account_id = token_data.get("account_id", existing.account_id)
             existing.avatar_url = token_data.get("avatar_url", existing.avatar_url)
             existing.is_active = True
             existing.is_demo = is_demo
@@ -198,7 +218,7 @@ def oauth_callback(
                 platform=platform_key,
                 account_name=token_data.get("account_name", f"{platform_key.title()} Account"),
                 account_handle=token_data.get("account_handle", ""),
-                account_id=token_data.get("account_id", f"{platform_key}_{uuid.uuid4().hex[:8]}"),
+                account_id=target_account_id,
                 avatar_url=token_data.get("avatar_url"),
                 access_token=token_data.get("access_token", ""),
                 refresh_token=token_data.get("refresh_token"),
@@ -212,6 +232,10 @@ def oauth_callback(
             db.commit()
             db.refresh(account)
             account_id = account.id
+
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            notify_admins_social_account_connected(db=db, account=account, actor_user=user)
 
         log_audit_event(
             db=db,
@@ -254,12 +278,16 @@ def connect_demo_social_account(
         SocialAccount.platform == platform_key
     ).first()
 
+    user = db.query(User).filter(User.id == current_user["user_id"]).first()
+
     if existing:
         existing.is_active = True
         existing.account_name = data.account_name or token_data.get("account_name", existing.account_name)
         existing.account_handle = data.account_handle or token_data.get("account_handle", existing.account_handle)
         db.commit()
         db.refresh(existing)
+        if user:
+            notify_admins_social_account_connected(db=db, account=existing, actor_user=user)
         return existing
 
     account = SocialAccount(
@@ -281,6 +309,9 @@ def connect_demo_social_account(
     db.add(account)
     db.commit()
     db.refresh(account)
+
+    if user:
+        notify_admins_social_account_connected(db=db, account=account, actor_user=user)
 
     log_audit_event(
         db=db,
@@ -318,6 +349,10 @@ def create_custom_social_account(
     db.commit()
     db.refresh(account)
 
+    user = db.query(User).filter(User.id == current_user["user_id"]).first()
+    if user:
+        notify_admins_social_account_connected(db=db, account=account, actor_user=user)
+
     return account
 
 
@@ -328,17 +363,24 @@ def delete_social_account(
     db: Session = Depends(get_db)
 ):
     """Disconnect/delete a social account."""
-    account = (
-        db.query(SocialAccount)
-        .filter(
-            SocialAccount.id == account_id,
-            SocialAccount.user_id == current_user["user_id"]
-        )
-        .first()
-    )
+    query = db.query(SocialAccount).filter(SocialAccount.id == account_id)
+    if current_user.get("role") not in ["administrator", "admin", "superadmin", "owner", "workspace_admin"]:
+        query = query.filter(SocialAccount.user_id == current_user["user_id"])
+
+    account = query.first()
 
     if not account:
         raise HTTPException(status_code=404, detail="Social account not found")
+
+    user = db.query(User).filter(User.id == current_user["user_id"]).first()
+    if user:
+        notify_admins_social_account_disconnected(
+            db=db,
+            platform=account.platform,
+            account_name=account.account_name,
+            actor_user=user,
+            account_id=account.id
+        )
 
     log_audit_event(
         db=db,
@@ -453,7 +495,16 @@ def disconnect_platform(
     if not accounts:
         raise HTTPException(status_code=404, detail=f"No connected {platform_key.title()} account found")
 
+    user = db.query(User).filter(User.id == current_user["user_id"]).first()
     for acc in accounts:
+        if user:
+            notify_admins_social_account_disconnected(
+                db=db,
+                platform=acc.platform,
+                account_name=acc.account_name,
+                actor_user=user,
+                account_id=acc.id
+            )
         log_audit_event(
             db=db,
             user_id=current_user["user_id"],

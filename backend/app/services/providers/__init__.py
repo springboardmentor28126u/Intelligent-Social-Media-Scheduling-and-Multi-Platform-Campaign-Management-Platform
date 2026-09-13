@@ -58,12 +58,23 @@ def _has_real_credentials(platform: str) -> bool:
     cfg = get_settings()
     platform = platform.lower()
     if platform == "facebook":
-        return bool(cfg.FACEBOOK_CLIENT_ID and cfg.FACEBOOK_CLIENT_SECRET)
+        return bool(
+            (getattr(cfg, "FACEBOOK_APP_ID", "") and getattr(cfg, "FACEBOOK_APP_SECRET", "")) or
+            (cfg.FACEBOOK_CLIENT_ID and cfg.FACEBOOK_CLIENT_SECRET) or
+            (getattr(cfg, "META_APP_ID", "") and getattr(cfg, "META_APP_SECRET", "")) or
+            (cfg.INSTAGRAM_APP_ID and cfg.INSTAGRAM_APP_SECRET) or
+            (cfg.INSTAGRAM_CLIENT_ID and cfg.INSTAGRAM_CLIENT_SECRET)
+        )
+
     if platform == "instagram":
         return bool(
-            (cfg.INSTAGRAM_CLIENT_ID or cfg.FACEBOOK_CLIENT_ID) and
-            (cfg.INSTAGRAM_CLIENT_SECRET or cfg.FACEBOOK_CLIENT_SECRET)
+            cfg.INSTAGRAM_APP_ID or
+            cfg.INSTAGRAM_CLIENT_ID or
+            cfg.INSTAGRAM_ACCESS_TOKEN or
+            cfg.FACEBOOK_CLIENT_ID
         )
+
+
     if platform == "linkedin":
         return bool(cfg.LINKEDIN_CLIENT_ID and cfg.LINKEDIN_CLIENT_SECRET)
     if platform == "twitter":

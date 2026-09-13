@@ -37,5 +37,5 @@ class User(Base):
     campaigns = relationship("Campaign", back_populates="user", cascade="all, delete-orphan")
     social_accounts = relationship("SocialAccount", back_populates="user", cascade="all, delete-orphan")
     team_memberships = relationship("TeamMember", back_populates="user", cascade="all, delete-orphan")
-    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan", foreign_keys="[Notification.user_id]")
     audit_logs = relationship("AuditLog", back_populates="user")

@@ -102,7 +102,43 @@ export default function AccountsPage() {
         }
       }
 
-      // 1. Check for real OAuth URL
+      if (platform.toLowerCase() === "instagram") {
+        try {
+          const igRes = await api.instagram.getConnectUrl();
+          if (igRes && igRes.auth_url) {
+            window.location.href = igRes.auth_url;
+            return;
+          }
+        } catch (err: any) {
+          showToast("Instagram Error", err.message || "Failed to connect Instagram account", "error");
+          return;
+        }
+      }
+
+      if (platform.toLowerCase() === "facebook") {
+        try {
+          const fbRes = await api.facebook.getConnectUrl();
+          if (fbRes && fbRes.auth_url) {
+            window.location.href = fbRes.auth_url;
+            return;
+          }
+          const tokenRes = await api.facebook.connectToken();
+          if (tokenRes && tokenRes.success) {
+            showToast(
+              "Facebook Connected! 🎉",
+              tokenRes.message || "Connected Facebook Page.",
+              "success"
+            );
+            window.dispatchEvent(new Event("social_account_connected"));
+            setIsConnectModalOpen(false);
+            loadAccounts();
+            return;
+          }
+        } catch (err: any) {
+          showToast("Facebook Error", err.message || "Failed to connect Facebook Page", "error");
+          return;
+        }
+      }
       const oauthRes = await api.accounts.getOAuthUrl(platform);
       if (oauthRes && oauthRes.is_real_oauth && oauthRes.auth_url) {
         window.location.href = oauthRes.auth_url;
@@ -197,8 +233,9 @@ export default function AccountsPage() {
                         {acc.account_name}
                       </h3>
                       <p className="text-xs font-semibold text-slate-500 capitalize mt-0.5">
-                        {acc.platform}
+                        {acc.account_handle || acc.platform}
                       </p>
+
                     </div>
                   </div>
 

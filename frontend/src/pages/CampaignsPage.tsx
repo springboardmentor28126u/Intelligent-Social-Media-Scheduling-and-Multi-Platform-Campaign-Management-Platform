@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -14,6 +15,7 @@ import {
 
 export default function CampaignsPage() {
   const { showToast } = useAuth();
+  const [searchParams] = useSearchParams();
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -42,6 +44,12 @@ export default function CampaignsPage() {
   useEffect(() => {
     loadCampaigns();
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get("action") === "create") {
+      setIsModalOpen(true);
+    }
+  }, [searchParams]);
 
   const handleCreateCampaign = async (e: React.FormEvent) => {
     e.preventDefault();

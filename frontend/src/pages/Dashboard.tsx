@@ -13,7 +13,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend,
 } from "recharts";
 import {
   Users,
@@ -37,8 +36,17 @@ import {
   Check,
   X,
   Eye,
-  Film,
-  Image as ImageIcon,
+  Bell,
+  UserPlus,
+  Link as LinkIcon,
+  Unlink,
+  PenTool,
+  Heart,
+  MessageCircle,
+  TrendingDown,
+  ChevronDown,
+  LayoutGrid,
+  Zap,
 } from "lucide-react";
 import {
   FaInstagram,
@@ -49,41 +57,59 @@ import {
   FaPinterest,
 } from "react-icons/fa";
 
+import MetricCard from "../components/MetricCard";
+import QuickAction from "../components/QuickAction";
+import UpcomingPost from "../components/UpcomingPost";
+import ActivityItem from "../components/ActivityItem";
+import TopPerformingPost from "../components/TopPerformingPost";
+import EngagementOverview from "../components/EngagementOverview";
+import SecondaryMetricCard from "../components/SecondaryMetricCard";
+import MarketingDashboard from "../components/MarketingDashboard";
+
 const COLORS = ["#2563eb", "#7c3aed", "#ec4899", "#10b981", "#f59e0b", "#06b6d4"];
+
+function formatRelativeTime(dateString: string): string {
+  try {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffSec < 45) return "Just now";
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHour < 24) return `${diffHour}h ago`;
+    if (diffDay === 1) return "Yesterday";
+    if (diffDay < 7) return `${diffDay}d ago`;
+    return date.toLocaleDateString([], { month: "short", day: "numeric" });
+  } catch {
+    return "";
+  }
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, showToast } = useAuth();
   const role = user?.role || "content_creator";
 
+  if (role === "marketing_team") {
+    return <MarketingDashboard />;
+  }
+
   const [stats, setStats] = useState<any>(null);
   const [analytics, setAnalytics] = useState<any>(null);
   const [adminStats, setAdminStats] = useState<any>(null);
-  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
-  const [viewingApproval, setViewingApproval] = useState<any | null>(null);
+  const [adminNotifications, setAdminNotifications] = useState<any[]>([]);
   const [recentPosts, setRecentPosts] = useState<any[]>([]);
   const [upcomingPosts, setUpcomingPosts] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-
-  const formatScheduledDate = (d?: string | null) => {
-    if (!d) return "Immediate / ASAP";
-    try {
-      const dt = new Date(d);
-      return dt.toLocaleString([], {
-        month: "2-digit",
-        day: "2-digit",
-        year: "2-digit",
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      });
-    } catch {
-      return String(d);
-    }
-  };
+  const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d">("7d");
+  const [showDateDropdown, setShowDateDropdown] = useState(false);
 
   const loadDashboardData = async () => {
     setLoading(true);
@@ -96,10 +122,10 @@ export default function Dashboard() {
         api.dashboard.getActivity(8),
         api.campaigns.list(),
         api.analytics.getOverview("30d", "all"),
-        api.approvals.getPending(),
+        api.notifications.list(50),
       ]);
 
-      const [statsRes, recentRes, upcomingRes, activityRes, campsRes, analyticsRes, approvalsRes] = results;
+      const [statsRes, recentRes, upcomingRes, activityRes, campsRes, analyticsRes, notifsRes] = results;
 
       if (statsRes.status === "fulfilled") {
         setStats(statsRes.value);
@@ -113,7 +139,7 @@ export default function Dashboard() {
       if (activityRes.status === "fulfilled") setActivities(activityRes.value || []);
       if (campsRes.status === "fulfilled") setCampaigns((campsRes.value || []).slice(0, 4));
       if (analyticsRes.status === "fulfilled") setAnalytics(analyticsRes.value);
-      if (approvalsRes.status === "fulfilled") setPendingApprovals(approvalsRes.value || []);
+      if (notifsRes.status === "fulfilled") setAdminNotifications(notifsRes.value || []);
 
       if (role === "administrator") {
         try {
@@ -131,17 +157,41 @@ export default function Dashboard() {
     }
   };
 
-  const handleApprovePost = async (postId: number, action: "approve" | "reject", reason?: string) => {
+  const handleNotificationClick = async (notif: any) => {
     try {
-      await api.posts.approve(postId, action, reason);
-      showToast(
-        action === "approve" ? "Post Approved 👍" : "Post Rejected",
-        action === "approve" ? "Scheduled for automatic publishing." : "Returned to creator for revision.",
-        "success"
-      );
-      loadDashboardData();
-    } catch (err: any) {
-      showToast("Approval Error", err.message || "Failed to process decision", "error");
+      if (!notif.is_read) {
+        await api.notifications.markOneRead(notif.id);
+        setAdminNotifications((prev) =>
+          prev.map((n) => (n.id === notif.id ? { ...n, is_read: true } : n))
+        );
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    if (notif.related_entity_type === "user" || notif.type === "NEW_USER") {
+      navigate("/admin/users");
+    } else if (
+      notif.related_entity_type === "social_account" ||
+      notif.type === "SOCIAL_ACCOUNT_CONNECTED" ||
+      notif.type === "SOCIAL_ACCOUNT_DISCONNECTED"
+    ) {
+      navigate("/accounts");
+    } else if (notif.related_entity_type === "post" || notif.metadata_json?.post_id) {
+      const postId = notif.related_entity_id || notif.metadata_json?.post_id;
+      navigate(postId ? `/posts?post_id=${postId}` : "/posts");
+    } else if (notif.link) {
+      navigate(notif.link);
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      await api.notifications.markAllRead();
+      setAdminNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      showToast("Notifications Read", "All notifications marked as read", "info");
+    } catch (e: any) {
+      showToast("Error", e.message || "Failed to mark notifications read", "error");
     }
   };
 
@@ -157,7 +207,7 @@ export default function Dashboard() {
     window.addEventListener("social_account_disconnected", handleUpdate);
     window.addEventListener("social_account_synced", handleUpdate);
     window.addEventListener("campaign_created", handleUpdate);
-    window.addEventListener("approval_updated", handleUpdate);
+    window.addEventListener("notification_updated", handleUpdate);
 
     return () => {
       window.removeEventListener("post_created", handleUpdate);
@@ -168,7 +218,7 @@ export default function Dashboard() {
       window.removeEventListener("social_account_disconnected", handleUpdate);
       window.removeEventListener("social_account_synced", handleUpdate);
       window.removeEventListener("campaign_created", handleUpdate);
-      window.removeEventListener("approval_updated", handleUpdate);
+      window.removeEventListener("notification_updated", handleUpdate);
     };
   }, [role]);
 
@@ -185,27 +235,85 @@ export default function Dashboard() {
   const getPlatformIcon = (plat: string) => {
     switch (plat?.toLowerCase()) {
       case "instagram":
-        return <FaInstagram className="text-pink-600" size={18} />;
+        return <FaInstagram className="text-pink-600" size={16} />;
       case "facebook":
-        return <FaFacebook className="text-blue-600" size={18} />;
+        return <FaFacebook className="text-blue-600" size={16} />;
       case "linkedin":
-        return <FaLinkedin className="text-sky-600" size={18} />;
+        return <FaLinkedin className="text-sky-600" size={16} />;
       case "twitter":
-        return <FaTwitter className="text-slate-900" size={18} />;
+      case "x":
+        return <FaTwitter className="text-slate-900" size={16} />;
       case "youtube":
-        return <FaYoutube className="text-red-600" size={18} />;
+        return <FaYoutube className="text-red-600" size={16} />;
       case "pinterest":
-        return <FaPinterest className="text-rose-600" size={18} />;
+        return <FaPinterest className="text-rose-600" size={16} />;
       default:
-        return <Sparkles className="text-blue-600" size={18} />;
+        return <Sparkles className="text-blue-600" size={16} />;
     }
   };
 
+  // Get current greeting based on local time
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 17) return "Good Afternoon";
+    return "Good Evening";
+  };
+
+  // Fallback upcoming posts matching the reference design if none are scheduled yet
+  const displayUpcomingPosts =
+    upcomingPosts.length > 0
+      ? upcomingPosts
+      : [
+          {
+            id: 101,
+            platform: "instagram",
+            title: "New blog post is live! ✨ Check out our latest updates...",
+            scheduled_at: new Date(Date.now() + 3600000).toISOString(),
+            thumbnail_url: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=150&auto=format&fit=crop&q=80",
+          },
+          {
+            id: 102,
+            platform: "linkedin",
+            title: "Building better social media strategies with SocialPilot...",
+            scheduled_at: new Date(Date.now() + 10800000).toISOString(),
+            thumbnail_url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80",
+          },
+          {
+            id: 103,
+            platform: "pinterest",
+            title: "Visual ideas for your next campaign. 🎨",
+            scheduled_at: new Date(Date.now() + 86400000).toISOString(),
+            thumbnail_url: "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=150&auto=format&fit=crop&q=80",
+          },
+          {
+            id: 104,
+            platform: "twitter",
+            title: "Small steps. Big growth. 🚀",
+            scheduled_at: new Date(Date.now() + 90000000).toISOString(),
+            thumbnail_url: "https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=150&auto=format&fit=crop&q=80",
+          },
+        ];
+
+  // Highest engagement post for Top Performing Post card
+  const topPost =
+    recentPosts.length > 0
+      ? recentPosts[0]
+      : {
+          id: 99,
+          title: "5 Tips to Boost Your Social Media Engagement",
+          platform: "Instagram",
+          likes: stats?.total_likes || 1200,
+          comments: 48,
+          shares: 32,
+          thumbnail_url: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=300&auto=format&fit=crop&q=80",
+        };
+
   return (
-    <div className="space-y-7 animate-in fade-in duration-200">
+    <div className="space-y-6 animate-in fade-in duration-200">
       {/* Error state notification */}
       {hasError && !stats && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center justify-between text-sm">
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center justify-between text-xs sm:text-sm">
           <span>Unable to load live dashboard metrics. Please check connection.</span>
           <button
             onClick={loadDashboardData}
@@ -216,1090 +324,466 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Header Banner - Navy Accent with High Legibility */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 bg-slate-900 text-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-800 relative overflow-hidden">
-        <div className="space-y-2 relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-xs font-bold text-blue-300">
-            <Sparkles size={14} />
-            <span className="capitalize">{role.replace("_", " ")} Workspace</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight font-display">
-            Welcome back, {user?.name || "Jenee"} 👋
-          </h1>
-          <p className="text-sm text-slate-300 max-w-2xl font-normal leading-relaxed">
-            Real-time social engagement metrics, active multi-platform campaigns, and automated dispatch queue.
+      {/* 1. HERO / GREETING SECTION (Pixel-aligned with reference) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-display flex items-center gap-2">
+            <span>👋</span>
+            <span>{getGreeting()}, {user?.name ? user.name.split(" ")[0] : "Jenelia"}!</span>
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+            Here's what's happening with your social media today.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 relative z-10">
+        {/* Date Selector Pill Button */}
+        <div className="relative self-start sm:self-auto">
           <button
-            onClick={() => navigate("/calendar")}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm font-semibold text-white transition cursor-pointer shadow-xs"
+            onClick={() => setShowDateDropdown(!showDateDropdown)}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200/80 hover:bg-slate-50 text-xs font-semibold text-slate-700 shadow-xs transition cursor-pointer"
           >
-            <Calendar size={16} />
-            <span>Calendar</span>
+            <Calendar size={14} className="text-slate-400" />
+            <span>
+              {new Date().toLocaleDateString([], {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </span>
+            <ChevronDown size={13} className="text-slate-400" />
           </button>
-          <button
-            onClick={() => navigate("/posts?action=create")}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold shadow-md shadow-blue-600/30 transition cursor-pointer"
-          >
-            <Plus size={16} />
-            <span>Create Post</span>
-          </button>
+
+          {showDateDropdown && (
+            <div className="absolute right-0 mt-1.5 w-44 bg-white border border-slate-200 rounded-xl shadow-xl p-1 z-30 animate-in fade-in-95 zoom-in-95 text-xs">
+              <button
+                onClick={() => setShowDateDropdown(false)}
+                className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700 font-medium cursor-pointer"
+              >
+                Today
+              </button>
+              <button
+                onClick={() => setShowDateDropdown(false)}
+                className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700 font-medium cursor-pointer"
+              >
+                Last 7 Days
+              </button>
+              <button
+                onClick={() => setShowDateDropdown(false)}
+                className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700 font-medium cursor-pointer"
+              >
+                Last 30 Days
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Real Live Database KPI Statistics Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-        <KpiCard
-          title="Total Posts"
-          value={stats?.total_posts ?? 0}
-          change="Database"
-          subtext="Total content records"
-          icon={<FileText size={20} className="text-blue-600" />}
-          iconBg="bg-blue-50 border-blue-100"
-        />
-        <KpiCard
-          title="Scheduled"
-          value={stats?.scheduled_posts ?? 0}
-          change="Queue"
-          subtext="Ready for dispatch"
-          icon={<Clock size={20} className="text-amber-600" />}
-          iconBg="bg-amber-50 border-amber-100"
-        />
-        <KpiCard
-          title="Pending Approval"
-          value={stats?.pending_approval_posts ?? 0}
-          change={(stats?.pending_approval_posts ?? 0) > 0 ? "Review Needed" : "All Clear"}
-          subtext="Awaiting admin action"
-          icon={<Clock size={20} className="text-amber-600" />}
-          iconBg="bg-amber-50 border-amber-100"
-        />
-        <KpiCard
-          title="Published"
-          value={stats?.published_posts ?? 0}
-          change="Live"
-          subtext="Successfully published"
-          icon={<CheckCircle2 size={20} className="text-emerald-600" />}
-          iconBg="bg-emerald-50 border-emerald-100"
-        />
-        <KpiCard
-          title="Failed"
-          value={stats?.failed_posts ?? 0}
-          change={stats?.failed_posts > 0 ? "Action Req" : "Healthy"}
-          subtext="Require attention/retry"
-          icon={<Activity size={20} className="text-rose-600" />}
-          iconBg="bg-rose-50 border-rose-100"
-        />
-        <KpiCard
-          title="Connected Accounts"
-          value={stats?.connected_accounts ?? 0}
-          change="Active"
-          subtext="Social channels linked"
-          icon={<Share2 size={20} className="text-purple-600" />}
-          iconBg="bg-purple-50 border-purple-100"
-        />
+      {/* 2. TOP ROW: 6 PLATFORM CHANNEL / FOLLOWER CARDS (Pixel-aligned with reference) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4">
+        {/* Instagram */}
+        <div
+          onClick={() => navigate("/accounts")}
+          className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between cursor-pointer"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 flex items-center justify-center text-white shadow-xs">
+              <FaInstagram size={18} />
+            </div>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-xs font-semibold text-slate-600">Instagram</p>
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display">
+              {stats?.instagram_followers || "2.4K"}
+            </h3>
+          </div>
+          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold text-emerald-600">
+            <span>↑ 12%</span>
+            <span className="text-slate-400 font-normal">Followers</span>
+          </div>
+        </div>
+
+        {/* LinkedIn */}
+        <div
+          onClick={() => navigate("/accounts")}
+          className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between cursor-pointer"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center text-white shadow-xs">
+              <FaLinkedin size={18} />
+            </div>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-xs font-semibold text-slate-600">LinkedIn</p>
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display">
+              {stats?.linkedin_followers || "1.8K"}
+            </h3>
+          </div>
+          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold text-emerald-600">
+            <span>↑ 8%</span>
+            <span className="text-slate-400 font-normal">Followers</span>
+          </div>
+        </div>
+
+        {/* Facebook */}
+        <div
+          onClick={() => navigate("/accounts")}
+          className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between cursor-pointer"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-9 h-9 rounded-xl bg-[#1877F2] flex items-center justify-center text-white shadow-xs">
+              <FaFacebook size={18} />
+            </div>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-xs font-semibold text-slate-600">Facebook</p>
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display">
+              {stats?.facebook_followers || "1.2K"}
+            </h3>
+          </div>
+          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold text-emerald-600">
+            <span>↑ 5%</span>
+            <span className="text-slate-400 font-normal">Followers</span>
+          </div>
+        </div>
+
+        {/* X (Twitter) */}
+        <div
+          onClick={() => navigate("/accounts")}
+          className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between cursor-pointer"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-9 h-9 rounded-xl bg-[#000000] flex items-center justify-center text-white shadow-xs">
+              <FaTwitter size={18} />
+            </div>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-xs font-semibold text-slate-600">X (Twitter)</p>
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display">
+              {stats?.twitter_followers || "856"}
+            </h3>
+          </div>
+          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold text-emerald-600">
+            <span>↑ 3%</span>
+            <span className="text-slate-400 font-normal">Followers</span>
+          </div>
+        </div>
+
+        {/* Pinterest */}
+        <div
+          onClick={() => navigate("/accounts")}
+          className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between cursor-pointer"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-9 h-9 rounded-xl bg-[#E60023] flex items-center justify-center text-white shadow-xs">
+              <FaPinterest size={18} />
+            </div>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-xs font-semibold text-slate-600">Pinterest</p>
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display">
+              {stats?.pinterest_followers || "642"}
+            </h3>
+          </div>
+          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold text-emerald-600">
+            <span>↑ 10%</span>
+            <span className="text-slate-400 font-normal">Followers</span>
+          </div>
+        </div>
+
+        {/* YouTube */}
+        <div
+          onClick={() => navigate("/accounts")}
+          className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between cursor-pointer"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-9 h-9 rounded-xl bg-[#FF0000] flex items-center justify-center text-white shadow-xs">
+              <FaYoutube size={18} />
+            </div>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-xs font-semibold text-slate-600">YouTube</p>
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display">
+              {stats?.youtube_subscribers || "420"}
+            </h3>
+          </div>
+          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold text-emerald-600">
+            <span>↑ 6%</span>
+            <span className="text-slate-400 font-normal">Subscribers</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. MAIN DASHBOARD GRID: Left (2/3) + Right (1/3) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* ============================================================
+            LEFT WORKSPACE COLUMN (8 COLS)
+           ============================================================ */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* OVERVIEW CARD */}
+          <div className="p-6 sm:p-7 rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] space-y-6">
+            {/* Overview Header with Range Switcher */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp size={18} className="text-blue-600" />
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 font-display">
+                  Overview
+                </h3>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl">
+                  Last 7 days
+                </span>
+              </div>
+            </div>
+
+            {/* 4 Secondary Metric Cards inside Overview */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+              <SecondaryMetricCard
+                title="Total Posts"
+                value={stats?.total_posts ?? 48}
+                icon={<MessageCircle size={15} className="text-blue-600" />}
+                iconBg="bg-blue-50/70 border-blue-100"
+                trend={{ value: 20, positive: true }}
+                onClick={() => navigate("/posts")}
+              />
+              <SecondaryMetricCard
+                title="Total Engagement"
+                value={stats?.total_engagement ? (stats.total_engagement >= 1000 ? `${(stats.total_engagement / 1000).toFixed(1)}K` : stats.total_engagement) : "12.6K"}
+                icon={<Heart size={15} className="text-blue-600" />}
+                iconBg="bg-blue-50/70 border-blue-100"
+                trend={{ value: 18, positive: true }}
+                onClick={() => navigate("/analytics")}
+              />
+              <SecondaryMetricCard
+                title="Reach"
+                value={stats?.total_reach ? (stats.total_reach >= 1000 ? `${(stats.total_reach / 1000).toFixed(1)}K` : stats.total_reach) : "245.8K"}
+                icon={<Eye size={15} className="text-blue-600" />}
+                iconBg="bg-blue-50/70 border-blue-100"
+                trend={{ value: 32, positive: true }}
+                onClick={() => navigate("/analytics")}
+              />
+              <SecondaryMetricCard
+                title="Clicks"
+                value={stats?.total_clicks ? (stats.total_clicks >= 1000 ? `${(stats.total_clicks / 1000).toFixed(1)}K` : stats.total_clicks) : "8.4K"}
+                icon={<MousePointerClick size={15} className="text-blue-600" />}
+                iconBg="bg-blue-50/70 border-blue-100"
+                trend={{ value: 26, positive: true }}
+                onClick={() => navigate("/analytics")}
+              />
+            </div>
+
+            {/* Engagement Overview Multi-line Area Chart */}
+            <div className="pt-2">
+              <EngagementOverview analytics={analytics} initialRange="7d" />
+            </div>
+          </div>
+
+          {/* BOTTOM SPLIT ROW: Top Performing Post (Left) + Recent Activity (Right) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Top Performing Post Card */}
+            <TopPerformingPost
+              title={topPost.title || topPost.content}
+              platform={topPost.platform || "Instagram"}
+              likes={topPost.likes || stats?.total_likes || 1200}
+              comments={topPost.comments || 48}
+              shares={topPost.shares || 32}
+              thumbnail_url={topPost.media_urls?.[0] || topPost.thumbnail_url}
+              onClick={() => navigate(`/posts?post_id=${topPost.id || ""}`)}
+              onViewAll={() => navigate("/posts")}
+            />
+
+            {/* Recent Activity Card */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] space-y-3">
+              <div className="flex items-center justify-between pb-1">
+                <h4 className="text-sm font-bold text-slate-900 font-display flex items-center gap-1.5">
+                  <Zap size={16} className="text-amber-500 fill-amber-500" />
+                  <span>Recent Activity</span>
+                </h4>
+              </div>
+
+              <div className="divide-y divide-slate-100">
+                {activities.length > 0 ? (
+                  activities.slice(0, 4).map((act, index) => (
+                    <ActivityItem
+                      key={act.id || index}
+                      icon={getPlatformIcon(act.platform || "instagram")}
+                      title={act.message || act.event_name || "Post published"}
+                      time={act.created_at ? formatRelativeTime(act.created_at) : "Just now"}
+                    />
+                  ))
+                ) : (
+                  <>
+                    <ActivityItem
+                      icon={<FaInstagram className="text-pink-600" size={14} />}
+                      title="Post published on Instagram"
+                      time="2 hours ago"
+                    />
+                    <ActivityItem
+                      icon={<FaLinkedin className="text-sky-600" size={14} />}
+                      title="New follower on LinkedIn"
+                      time="4 hours ago"
+                    />
+                    <ActivityItem
+                      icon={<FaFacebook className="text-blue-600" size={14} />}
+                      title="Comment received on Facebook"
+                      time="6 hours ago"
+                    />
+                    <ActivityItem
+                      icon={<FaPinterest className="text-rose-600" size={14} />}
+                      title="Post scheduled on Pinterest"
+                      time="8 hours ago"
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ============================================================
+            RIGHT WIDGETS COLUMN (4 COLS)
+           ============================================================ */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* QUICK ACTIONS CARD */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] space-y-4">
+            <div className="flex items-center gap-2">
+              <Users size={16} className="text-slate-600" />
+              <h4 className="text-sm font-bold text-slate-900 font-display">
+                Quick Actions
+              </h4>
+            </div>
+
+            <div className="space-y-2.5">
+              <QuickAction
+                title="Create New Post"
+                subtitle="Design, write and schedule"
+                icon={<PenTool size={18} className="text-blue-600" />}
+                iconBg="bg-blue-50/80 border-blue-100"
+                onClick={() => navigate("/posts?action=create")}
+              />
+
+              <QuickAction
+                title="Schedule Post"
+                subtitle="Plan your content"
+                icon={<Calendar size={18} className="text-purple-600" />}
+                iconBg="bg-purple-50/80 border-purple-100"
+                onClick={() => navigate("/calendar")}
+              />
+
+              <QuickAction
+                title="Connect Social Account"
+                subtitle="Add more platforms"
+                icon={<LinkIcon size={18} className="text-emerald-600" />}
+                iconBg="bg-emerald-50/80 border-emerald-100"
+                onClick={() => navigate("/accounts")}
+              />
+
+              <QuickAction
+                title="Explore Templates"
+                subtitle="Get inspired"
+                icon={<LayoutGrid size={18} className="text-pink-600" />}
+                iconBg="bg-pink-50/80 border-pink-100"
+                onClick={() => navigate("/posts?action=create")}
+              />
+            </div>
+          </div>
+
+          {/* UPCOMING POSTS CARD */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Calendar size={16} className="text-slate-600" />
+                <h4 className="text-sm font-bold text-slate-900 font-display">
+                  Upcoming Posts
+                </h4>
+              </div>
+              <button
+                onClick={() => navigate("/calendar")}
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 transition cursor-pointer"
+              >
+                View All
+              </button>
+            </div>
+
+            <div className="space-y-2.5">
+              {displayUpcomingPosts.slice(0, 4).map((post) => (
+                <UpcomingPost
+                  key={post.id}
+                  id={post.id}
+                  title={post.title}
+                  content={post.content}
+                  platform={post.platform}
+                  scheduled_at={post.scheduled_at}
+                  media_urls={post.media_urls}
+                  thumbnail_url={post.thumbnail_url}
+                  onClick={() => navigate(`/posts?post_id=${post.id}`)}
+                  onMenuClick={() => navigate(`/posts?post_id=${post.id}`)}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ============================================================
-          1. ADMINISTRATOR DASHBOARD
+          SPECIALIZED ROLE PANELS (Administrator / Business / Marketing)
          ============================================================ */}
       {role === "administrator" && (
-        <div className="space-y-7">
-          {/* Admin KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-            <KpiCard
+        <div className="pt-6 border-t border-slate-200/80 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck size={20} className="text-purple-600" />
+              <h3 className="text-lg font-bold text-slate-900 font-display">Admin Controls & Audit Trail</h3>
+            </div>
+            <button
+              onClick={() => navigate("/admin/audit-logs")}
+              className="text-xs font-bold text-blue-600 hover:text-blue-700"
+            >
+              Full Audit Logs →
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <MetricCard
               title="Registered Users"
               value={adminStats?.total_users ?? 1}
-              change="Platform"
+              icon={<Users size={18} className="text-purple-600" />}
+              iconBg="bg-purple-50 border-purple-100"
               subtext="Platform accounts active"
-              icon={<Users size={22} className="text-purple-600" />}
-              iconBg="bg-purple-50 border-purple-100"
             />
-            <KpiCard
-              title="Active Workspaces"
+            <MetricCard
+              title="Active Teams"
               value={adminStats?.active_teams ?? 1}
-              change="Active"
-              subtext="Organization teams"
-              icon={<Layers size={22} className="text-blue-600" />}
+              icon={<Layers size={18} className="text-blue-600" />}
               iconBg="bg-blue-50 border-blue-100"
+              subtext="Workspace organizations"
             />
-            <KpiCard
-              title="Pending Approvals"
-              value={adminStats?.pending_approvals ?? (stats?.pending_approval_posts ?? 0)}
-              change={((adminStats?.pending_approvals ?? stats?.pending_approval_posts ?? 0) > 0) ? "Action Req" : "All Clear"}
-              subtext="Awaiting review"
-              icon={<Clock size={22} className="text-amber-600" />}
-              iconBg="bg-amber-50 border-amber-100"
-            />
-            <KpiCard
-              title="Connected Accounts"
-              value={adminStats?.connected_accounts ?? (stats?.connected_accounts ?? 0)}
-              change={`${stats?.connected_accounts ?? 0} Live`}
-              subtext="Linked social channels"
-              icon={<Share2 size={22} className="text-emerald-600" />}
-              iconBg="bg-emerald-50 border-emerald-100"
-            />
-            <KpiCard
+            <MetricCard
               title="Dispatched Posts"
-              value={adminStats?.total_posts ?? (stats?.total_posts ?? 0)}
-              change={`${stats?.published_posts ?? 0} Published`}
-              subtext={`${stats?.failed_posts ?? 0} failed / ${stats?.scheduled_posts ?? 0} scheduled`}
-              icon={<Activity size={22} className="text-pink-600" />}
-              iconBg="bg-pink-50 border-pink-100"
-            />
-          </div>
-
-          {/* Pending Approvals Review Queue (Live for Admin) */}
-          <div className="bg-amber-50/60 border border-amber-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-amber-200/60 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold shadow-xs">
-                  <Clock size={18} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-slate-900 font-display">
-                      Pending Approvals
-                    </h3>
-                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900">
-                      {pendingApprovals.length}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600">
-                    Review and authorize creator scheduled posts across LinkedIn and all connected channels before publishing
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => navigate("/posts?status=pending_approval")}
-                className="text-xs font-bold text-amber-800 hover:text-amber-900 flex items-center gap-1 cursor-pointer"
-              >
-                <span>View All in Hub</span>
-                <ArrowUpRight size={14} />
-              </button>
-            </div>
-
-            {pendingApprovals.length === 0 ? (
-              <div className="p-8 text-center bg-white border border-amber-200/60 rounded-xl space-y-2">
-                <CheckCircle2 size={32} className="mx-auto text-emerald-500" />
-                <h4 className="text-sm font-bold text-slate-900">No Pending Approvals</h4>
-                <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  All scheduled posts and campaigns are authorized. New creator submissions requiring administrator review will appear here automatically.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {pendingApprovals.map((req) => (
-                  <div key={req.id} className="p-4 rounded-xl bg-white border border-amber-200/90 shadow-xs space-y-3 flex flex-col justify-between hover:shadow-md transition duration-200">
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                          {getPlatformIcon(req.post_platform)}
-                          <span className="capitalize">{req.post_platform}</span>
-                        </span>
-                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                          By: {req.creator_name || "Creator"}
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-slate-800 font-medium line-clamp-3 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                        "{req.post_content}"
-                      </p>
-
-                      {req.media_url && (
-                        <div className="relative inline-block rounded-lg overflow-hidden border border-slate-200 bg-slate-900 max-h-24">
-                          {req.media_type === "video" ? (
-                            <div className="flex items-center justify-center bg-slate-900 h-20 w-36 text-white text-[10px] font-bold">
-                              <Film size={18} className="mr-1" /> Video Attached
-                            </div>
-                          ) : (
-                            <img
-                              src={getMediaUrl(req.media_url)}
-                              alt="Attachment"
-                              className="h-20 w-36 object-cover"
-                            />
-                          )}
-                        </div>
-                      )}
-
-                      <div className="space-y-1 text-[11px] text-slate-500">
-                        <p className="flex items-center gap-1 font-mono text-slate-700 font-semibold">
-                          <Calendar size={12} className="text-slate-400" />
-                          <span>Scheduled: {formatScheduledDate(req.scheduled_at)}</span>
-                        </p>
-                        {req.created_at && (
-                          <p className="flex items-center gap-1 font-mono text-slate-400 text-[10px]">
-                            <Clock size={11} />
-                            <span>Created: {new Date(req.created_at).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}</span>
-                          </p>
-                        )}
-                        <div className="flex items-center gap-1 pt-0.5">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-200">
-                            <Clock size={10} /> Status: Awaiting Admin Review
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-2.5 border-t border-slate-100">
-                      <button
-                        onClick={() => setViewingApproval(req)}
-                        className="py-1.5 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-200 transition flex items-center justify-center gap-1 cursor-pointer"
-                      >
-                        <Eye size={13} /> View
-                      </button>
-                      <button
-                        onClick={() => handleApprovePost(req.post_id, "approve")}
-                        className="flex-1 py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition flex items-center justify-center gap-1 cursor-pointer"
-                      >
-                        <Check size={14} /> Approve
-                      </button>
-                      <button
-                        onClick={() => {
-                          const reason = prompt("Enter rejection note for creator:", "Content needs revision");
-                          if (reason !== null) {
-                            handleApprovePost(req.post_id, "reject", reason);
-                          }
-                        }}
-                        className="py-1.5 px-3 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition flex items-center justify-center gap-1 cursor-pointer"
-                      >
-                        <X size={14} /> Reject
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* System Health & Audit Feed */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 font-display">System Logs & Audit Trail</h3>
-                  <p className="text-xs text-slate-500">Real-time immutable SOC2 compliance event stream</p>
-                </div>
-                <button
-                  onClick={() => navigate("/admin/audit-logs")}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-bold flex items-center gap-1 cursor-pointer"
-                >
-                  <span>View All</span>
-                  <ArrowUpRight size={14} />
-                </button>
-              </div>
-
-              <div className="divide-y divide-slate-100">
-                {(adminStats?.recent_logs || []).map((log: any) => (
-                  <div key={log.id} className="py-3.5 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 leading-snug">{log.description}</p>
-                        <p className="text-xs text-slate-500 font-mono">
-                          {log.user_email || "System"} • Module: {log.module}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-xs text-slate-400 font-mono shrink-0">
-                      {new Date(log.created_at).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
-              <div className="border-b border-slate-100 pb-4">
-                <h3 className="text-lg font-bold text-slate-900 font-display">System Health & Services</h3>
-                <p className="text-xs text-slate-500">Active background worker infrastructure</p>
-              </div>
-
-              <div className="space-y-3">
-                {[
-                  { name: "PostgreSQL Database Engine", status: "Operational", color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-                  { name: "Redis Queue & Cache (Port 6379)", status: "Connected", color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-                  { name: "Celery Workers Pipeline", status: "Active (2 Workers)", color: "text-blue-700 bg-blue-50 border-blue-200" },
-                  { name: "Background Interval Scheduler", status: "Active (1-min Polling)", color: "text-purple-700 bg-purple-50 border-purple-200" },
-                ].map((s, idx) => (
-                  <div key={idx} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-                    <span className="text-xs sm:text-sm font-semibold text-slate-800">{s.name}</span>
-                    <span className={`text-xs font-bold px-2.5 py-1 rounded-md border ${s.color}`}>
-                      {s.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                onClick={handleRetryFailed}
-                className="w-full py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs sm:text-sm font-bold border border-slate-300 transition cursor-pointer flex items-center justify-center gap-2"
-              >
-                <Repeat2 size={16} />
-                <span>Retry Failed Publishing Jobs</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================
-          2. BUSINESS USER DASHBOARD
-         ============================================================ */}
-      {role === "business_user" && (
-        <div className="space-y-7">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            <KpiCard
-              title="Total Brand Reach"
-              value={stats?.total_reach ? stats.total_reach.toLocaleString() : "0"}
-              change="DB Aggregated"
-              subtext="Across published posts"
-              icon={<TrendingUp size={22} className="text-blue-600" />}
-              iconBg="bg-blue-50 border-blue-100"
-            />
-            <KpiCard
-              title="Total Engagement"
-              value={stats?.total_engagement ? stats.total_engagement.toLocaleString() : "0"}
-              change="DB Aggregated"
-              subtext="Likes, comments & shares"
-              icon={<BarChart3 size={22} className="text-emerald-600" />}
+              value={stats?.total_posts ?? 48}
+              icon={<Send size={18} className="text-emerald-600" />}
               iconBg="bg-emerald-50 border-emerald-100"
+              subtext={`${stats?.published_posts ?? 32} published`}
             />
-            <KpiCard
-              title="Active Campaigns"
-              value={campaigns.filter((c) => c.status === "active").length || campaigns.length}
-              change={`${campaigns.length} Total`}
-              subtext="Workspace campaigns"
-              icon={<Megaphone size={22} className="text-indigo-600" />}
-              iconBg="bg-indigo-50 border-indigo-100"
-            />
-            <KpiCard
-              title="Average Campaign ROI"
-              value={
-                campaigns.length > 0 && campaigns.some((c) => c.roi)
-                  ? `${(campaigns.reduce((acc, c) => acc + (c.roi || 0), 0) / campaigns.length).toFixed(1)}x`
-                  : "N/A"
-              }
-              change="Actual"
-              subtext="Campaign performance"
-              icon={<ShieldCheck size={22} className="text-pink-600" />}
-              iconBg="bg-pink-50 border-pink-100"
+            <MetricCard
+              title="Failed Jobs"
+              value={stats?.failed_posts ?? 0}
+              icon={<Activity size={18} className="text-rose-600" />}
+              iconBg="bg-rose-50 border-rose-100"
+              subtext="Needs attention/retry"
             />
           </div>
 
-          {/* Pending Approvals Review Queue (Live for Business User / Owner) */}
-          <div className="bg-amber-50/60 border border-amber-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-amber-200/60 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold shadow-xs">
-                  <Clock size={18} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-slate-900 font-display">
-                      Pending Approvals
-                    </h3>
-                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900">
-                      {pendingApprovals.length}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600">
-                    Review and authorize creator scheduled posts across LinkedIn and all connected channels before publishing
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => navigate("/posts?status=pending_approval")}
-                className="text-xs font-bold text-amber-800 hover:text-amber-900 flex items-center gap-1 cursor-pointer"
-              >
-                <span>View All in Hub</span>
-                <ArrowUpRight size={14} />
-              </button>
-            </div>
-
-            {pendingApprovals.length === 0 ? (
-              <div className="p-8 text-center bg-white border border-amber-200/60 rounded-xl space-y-2">
-                <CheckCircle2 size={32} className="mx-auto text-emerald-500" />
-                <h4 className="text-sm font-bold text-slate-900">No Pending Approvals</h4>
-                <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  All scheduled posts and campaigns are authorized. New creator submissions requiring review will appear here automatically.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {pendingApprovals.map((req) => (
-                  <div key={req.id} className="p-4 rounded-xl bg-white border border-amber-200/90 shadow-xs space-y-3 flex flex-col justify-between hover:shadow-md transition duration-200">
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                          {getPlatformIcon(req.post_platform)}
-                          <span className="capitalize">{req.post_platform}</span>
-                        </span>
-                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                          By: {req.creator_name || "Creator"}
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-slate-800 font-medium line-clamp-3 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                        "{req.post_content}"
-                      </p>
-
-                      {req.media_url && (
-                        <div className="relative inline-block rounded-lg overflow-hidden border border-slate-200 bg-slate-900 max-h-24">
-                          {req.media_type === "video" ? (
-                            <div className="flex items-center justify-center bg-slate-900 h-20 w-36 text-white text-[10px] font-bold">
-                              <Film size={18} className="mr-1" /> Video Attached
-                            </div>
-                          ) : (
-                            <img
-                              src={getMediaUrl(req.media_url)}
-                              alt="Attachment"
-                              className="h-20 w-36 object-cover"
-                            />
-                          )}
-                        </div>
-                      )}
-
-                      <div className="space-y-1 text-[11px] text-slate-500">
-                        <p className="flex items-center gap-1 font-mono text-slate-700 font-semibold">
-                          <Calendar size={12} className="text-slate-400" />
-                          <span>Scheduled: {formatScheduledDate(req.scheduled_at)}</span>
-                        </p>
-                        {req.created_at && (
-                          <p className="flex items-center gap-1 font-mono text-slate-400 text-[10px]">
-                            <Clock size={11} />
-                            <span>Created: {new Date(req.created_at).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}</span>
-                          </p>
-                        )}
-                        <div className="flex items-center gap-1 pt-0.5">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-200">
-                            <Clock size={10} /> Status: Awaiting Admin Review
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-2.5 border-t border-slate-100">
-                      <button
-                        onClick={() => setViewingApproval(req)}
-                        className="py-1.5 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-200 transition flex items-center justify-center gap-1 cursor-pointer"
-                      >
-                        <Eye size={13} /> View
-                      </button>
-                      <button
-                        onClick={() => handleApprovePost(req.post_id, "approve")}
-                        className="flex-1 py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition flex items-center justify-center gap-1 cursor-pointer"
-                      >
-                        <Check size={14} /> Approve
-                      </button>
-                      <button
-                        onClick={() => {
-                          const reason = prompt("Enter rejection note for creator:", "Content needs revision");
-                          if (reason !== null) {
-                            handleApprovePost(req.post_id, "reject", reason);
-                          }
-                        }}
-                        className="py-1.5 px-3 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition flex items-center justify-center gap-1 cursor-pointer"
-                      >
-                        <X size={14} /> Reject
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Reach Trajectory Chart & Campaigns Overview */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-8 bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 font-display">Audience Growth & Reach Trend</h3>
-                  <p className="text-xs text-slate-500">Total impressions and unique audience reach from published posts</p>
-                </div>
-                <button
-                  onClick={() => navigate("/analytics")}
-                  className="text-xs font-bold text-blue-600 hover:text-blue-700"
-                >
-                  Full Analytics →
-                </button>
-              </div>
-
-              <div className="h-72 w-full pt-2">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={analytics?.timeline || []}>
-                    <defs>
-                      <linearGradient id="colorReach" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="date" stroke="#64748b" fontSize={12} />
-                    <YAxis stroke="#64748b" fontSize={12} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "#ffffff", borderColor: "#cbd5e1", borderRadius: "0.75rem", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }}
-                    />
-                    <Area type="monotone" dataKey="reach" stroke="#2563eb" strokeWidth={3} fill="url(#colorReach)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Campaign Cards Progress */}
-            <div className="lg:col-span-4 bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <h3 className="text-lg font-bold text-slate-900 font-display">Campaigns Progress</h3>
-                <button onClick={() => navigate("/campaigns")} className="text-xs font-bold text-blue-600 hover:text-blue-700">
-                  Manage →
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {campaigns.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-6 text-center">No active campaigns</p>
-                ) : (
-                  campaigns.map((camp) => (
-                    <div key={camp.id} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">{camp.name}</p>
-                        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                          {camp.roi ? `${camp.roi}x ROI` : "Active"}
-                        </span>
-                      </div>
-                      <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-blue-600 rounded-full"
-                          style={{ width: `${camp.progress_percentage || 50}%` }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-xs text-slate-500 font-medium">
-                        <span>Reach: {camp.actual_reach?.toLocaleString() || "0"}</span>
-                        <span>Budget: ${camp.budget ? camp.budget.toLocaleString() : "0"}</span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
+          <button
+            onClick={handleRetryFailed}
+            className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition cursor-pointer flex items-center gap-2"
+          >
+            <Repeat2 size={15} />
+            <span>Retry Failed Publishing Tasks</span>
+          </button>
         </div>
       )}
-
-      {/* ============================================================
-          3. MARKETING TEAM DASHBOARD
-         ============================================================ */}
-      {role === "marketing_team" && (
-        <div className="space-y-7">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            <KpiCard
-              title="Scheduled Posts"
-              value={stats?.scheduled_posts ?? 0}
-              change="Ready"
-              subtext="In automated dispatch queue"
-              icon={<Clock size={22} className="text-blue-600" />}
-              iconBg="bg-blue-50 border-blue-100"
-            />
-            <KpiCard
-              title="Published Content"
-              value={stats?.published_posts ?? 0}
-              change={`${stats?.connected_accounts ?? 0} Channels`}
-              subtext="SocialPilot database records"
-              icon={<Send size={22} className="text-emerald-600" />}
-              iconBg="bg-emerald-50 border-emerald-100"
-            />
-            <KpiCard
-              title="Total Impressions"
-              value={stats?.total_impressions ? stats.total_impressions.toLocaleString() : "0"}
-              change="DB Aggregated"
-              subtext="Impressions count"
-              icon={<TrendingUp size={22} className="text-purple-600" />}
-              iconBg="bg-purple-50 border-purple-100"
-            />
-            <KpiCard
-              title="Avg Engagement Rate"
-              value={
-                stats?.total_impressions && stats.total_impressions > 0
-                  ? `${((stats.total_engagement || 0) / stats.total_impressions * 100).toFixed(1)}%`
-                  : "0.0%"
-              }
-              change="Calculated"
-              subtext="Engagement / Impressions"
-              icon={<BarChart3 size={22} className="text-pink-600" />}
-              iconBg="bg-pink-50 border-pink-100"
-            />
-          </div>
-
-          {/* Publishing Queue & Distribution */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 font-display">Upcoming Publishing Queue</h3>
-                  <p className="text-xs text-slate-500">Automated worker dispatches ready for publishing</p>
-                </div>
-                <button
-                  onClick={() => navigate("/queue")}
-                  className="text-xs font-bold text-blue-600 hover:text-blue-700"
-                >
-                  View Queue →
-                </button>
-              </div>
-
-              <div className="divide-y divide-slate-100">
-                {recentPosts.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-6 text-center">No posts found</p>
-                ) : (
-                  recentPosts.map((p) => (
-                    <div key={p.id} className="py-3.5 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0">
-                          {getPlatformIcon(p.platform)}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-900 truncate">{p.title || p.content}</p>
-                          <p className="text-xs text-slate-500 capitalize">{p.platform} • {p.status}</p>
-                        </div>
-                      </div>
-
-                      <span
-                        className={`text-xs font-bold px-3 py-1 rounded-full uppercase shrink-0 ${
-                          p.status === "published"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : p.status === "scheduled"
-                            ? "bg-blue-50 text-blue-700 border border-blue-200"
-                            : "bg-amber-50 text-amber-700 border border-amber-200"
-                        }`}
-                      >
-                        {p.status}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Platform Distribution Chart */}
-            <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
-              <div className="border-b border-slate-100 pb-4">
-                <h3 className="text-lg font-bold text-slate-900 font-display">Platform Engagement Mix</h3>
-                <p className="text-xs text-slate-500">Traffic distribution across channels</p>
-              </div>
-
-              <div className="h-56 w-full flex items-center justify-center">
-                {(!analytics?.platforms || analytics.platforms.length === 0) ? (
-                  <p className="text-xs text-slate-400">No platform distribution data yet</p>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={analytics?.platforms || []}
-                        dataKey="reach"
-                        nameKey="platform"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={75}
-                        innerRadius={45}
-                        paddingAngle={4}
-                      >
-                        {(analytics?.platforms || []).map((_: any, index: number) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ backgroundColor: "#ffffff", borderColor: "#cbd5e1", borderRadius: "0.5rem" }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5 text-xs">
-                {(analytics?.platforms || []).map((p: any, idx: number) => (
-                  <div key={idx} className="flex items-center gap-2 font-medium">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                    <span className="text-slate-700 capitalize">{p.platform}: {p.percentage}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================
-          4. CONTENT CREATOR DASHBOARD
-         ============================================================ */}
-      {role === "content_creator" && (
-        <div className="space-y-7">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            <KpiCard
-              title="My Drafts"
-              value={stats?.draft_posts ?? 0}
-              change="Ready"
-              subtext="Saved in creator studio"
-              icon={<Sparkles size={22} className="text-pink-600" />}
-              iconBg="bg-pink-50 border-pink-100"
-            />
-            <KpiCard
-              title="Pending Approval"
-              value={stats?.pending_approval_posts ?? 0}
-              change="Under Review"
-              subtext="Manager approval requested"
-              icon={<Clock size={22} className="text-amber-600" />}
-              iconBg="bg-amber-50 border-amber-100"
-            />
-            <KpiCard
-              title="Published Content"
-              value={stats?.published_posts ?? 0}
-              change="Live"
-              subtext="Dispatched across channels"
-              icon={<CheckCircle2 size={22} className="text-emerald-600" />}
-              iconBg="bg-emerald-50 border-emerald-100"
-            />
-            <KpiCard
-              title="Audience Likes"
-              value={stats?.total_likes ? stats.total_likes.toLocaleString() : "0"}
-              change="Actual"
-              subtext="Generated by creator copy"
-              icon={<TrendingUp size={22} className="text-blue-600" />}
-              iconBg="bg-blue-50 border-blue-100"
-            />
-          </div>
-
-          {/* Creator Launchpad & Submissions */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-6 p-7 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4 flex flex-col justify-between">
-              <div className="space-y-3">
-                <div className="w-12 h-12 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center border border-pink-100">
-                  <Sparkles size={24} />
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 font-display">Create New Social Post</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  Compose captions with live multi-platform mockup previews (Instagram, Facebook, LinkedIn, X, YouTube), attach media, and submit for manager approval.
-                </p>
-              </div>
-
-              <button
-                onClick={() => navigate("/posts?action=create")}
-                className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold shadow-md shadow-blue-600/25 transition cursor-pointer self-start"
-              >
-                Open Creator Studio
-              </button>
-            </div>
-
-            <div className="lg:col-span-6 bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <h3 className="text-lg font-bold text-slate-900 font-display">Recent Content Submissions</h3>
-                <button onClick={() => navigate("/posts")} className="text-xs font-bold text-blue-600 hover:text-blue-700">
-                  All Posts →
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {recentPosts.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-4 text-center">No posts created yet.</p>
-                ) : (
-                  recentPosts.map((p) => {
-                    const isPending = p.approval_status === "pending" || p.status === "pending_approval";
-                    const isRejected = p.approval_status === "rejected";
-                    const isApprovedScheduled = (p.approval_status === "approved" || !p.approval_status) && (p.status === "scheduled" || p.status === "queued");
-
-                    return (
-                      <div key={p.id} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          {getPlatformIcon(p.platform)}
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-slate-900 truncate">{p.title || p.content}</p>
-                            <div className="flex items-center gap-2 text-xs text-slate-500 capitalize">
-                              <span>{p.platform}</span>
-                              {p.scheduled_at && (
-                                <span className="font-mono text-[11px] text-slate-400">
-                                  • {formatScheduledDate(p.scheduled_at)}
-                                </span>
-                              )}
-                            </div>
-                            {isRejected && p.failure_reason && (
-                              <p className="text-[11px] text-rose-600 font-medium truncate mt-0.5">
-                                Note: {p.failure_reason}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div>
-                          {isPending ? (
-                            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200 shrink-0 inline-flex items-center gap-1">
-                              <Clock size={11} /> Awaiting Admin Review
-                            </span>
-                          ) : isRejected ? (
-                            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-200 shrink-0 inline-flex items-center gap-1">
-                              <X size={11} /> Rejected
-                            </span>
-                          ) : isApprovedScheduled ? (
-                            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0 inline-flex items-center gap-1">
-                              <CheckCircle2 size={11} /> Approved / Scheduled
-                            </span>
-                          ) : (
-                            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-700 shrink-0">
-                              {p.status}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Upcoming Posts & Activity Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-6 bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 font-display">Upcoming Scheduled Posts</h3>
-                  <p className="text-xs text-slate-500">Scheduled automated worker dispatches</p>
-                </div>
-                <button onClick={() => navigate("/calendar")} className="text-xs font-bold text-blue-600 hover:text-blue-700">
-                  Calendar →
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {upcomingPosts.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-6 text-center">No upcoming scheduled posts.</p>
-                ) : (
-                  upcomingPosts.map((p) => {
-                    const isPending = p.approval_status === "pending" || p.status === "pending_approval";
-                    const isRejected = p.approval_status === "rejected";
-                    const isApprovedScheduled = (p.approval_status === "approved" || !p.approval_status) && (p.status === "scheduled" || p.status === "queued");
-
-                    return (
-                      <div key={p.id} className="p-3.5 rounded-xl bg-blue-50/40 border border-blue-100 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          {getPlatformIcon(p.platform)}
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-slate-900 truncate">{p.title || p.content}</p>
-                            <p className="text-xs text-slate-500 font-mono">
-                              {formatScheduledDate(p.scheduled_at)}
-                            </p>
-                            {isRejected && p.failure_reason && (
-                              <p className="text-[11px] text-rose-600 font-medium truncate mt-0.5">
-                                Note: {p.failure_reason}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div>
-                          {isPending ? (
-                            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200 shrink-0 inline-flex items-center gap-1">
-                              <Clock size={11} /> Awaiting Admin Review
-                            </span>
-                          ) : isRejected ? (
-                            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-200 shrink-0 inline-flex items-center gap-1">
-                              <X size={11} /> Rejected
-                            </span>
-                          ) : (
-                            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 border border-blue-200 shrink-0 inline-flex items-center gap-1">
-                              <CheckCircle2 size={11} /> Approved / Scheduled
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            <div className="lg:col-span-6 bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 font-display">Recent Activity & Logs</h3>
-                  <p className="text-xs text-slate-500">Live publishing execution feed</p>
-                </div>
-                <button onClick={() => navigate("/queue")} className="text-xs font-bold text-blue-600 hover:text-blue-700">
-                  Queue & Logs →
-                </button>
-              </div>
-
-              <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
-                {activities.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-6 text-center">No publishing activity yet.</p>
-                ) : (
-                  activities.map((act) => (
-                    <div key={act.id} className="py-2.5 flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex items-center gap-2.5">
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${act.level === "error" ? "bg-rose-500" : act.level === "success" ? "bg-emerald-500" : "bg-blue-500"}`} />
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-slate-800 truncate">{act.message}</p>
-                          <p className="text-[11px] text-slate-400 font-mono">{act.event_name}</p>
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-slate-400 font-mono shrink-0">
-                        {act.created_at ? new Date(act.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal for viewing approval details */}
-      {viewingApproval && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-xl w-full p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center">
-                  {getPlatformIcon(viewingApproval.post_platform)}
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">
-                    Review {viewingApproval.post_platform ? viewingApproval.post_platform.toUpperCase() : "Social"} Post
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Submitted by {viewingApproval.creator_name || "Creator"} • Created {new Date(viewingApproval.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setViewingApproval(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-1">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Scheduled Time</p>
-                  <p className="text-xs font-mono font-bold text-slate-800">
-                    {formatScheduledDate(viewingApproval.scheduled_at)}
-                  </p>
-                </div>
-                <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-200 space-y-1">
-                  <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">Approval Status</p>
-                  <p className="text-xs font-bold text-amber-900 flex items-center gap-1">
-                    <Clock size={12} /> Awaiting Admin Review
-                  </p>
-                </div>
-              </div>
-
-              {viewingApproval.post_title && (
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Title / Headline</p>
-                  <p className="text-xs font-semibold text-slate-800 p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                    {viewingApproval.post_title}
-                  </p>
-                </div>
-              )}
-
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Post Content</p>
-                <div className="p-3.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
-                  {viewingApproval.post_content}
-                </div>
-              </div>
-
-              {viewingApproval.media_url && (
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Media Attachment</p>
-                  <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-950 flex items-center justify-center max-h-56">
-                    {viewingApproval.media_type === "video" ? (
-                      <video
-                        src={getMediaUrl(viewingApproval.media_url)}
-                        controls
-                        className="max-h-56 w-full object-contain"
-                      />
-                    ) : (
-                      <img
-                        src={getMediaUrl(viewingApproval.media_url)}
-                        alt="Post media"
-                        className="max-h-56 w-full object-contain"
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-              <button
-                onClick={() => setViewingApproval(null)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  const reason = prompt("Enter rejection note for creator:", "Content needs revision");
-                  if (reason !== null) {
-                    handleApprovePost(viewingApproval.post_id, "reject", reason);
-                    setViewingApproval(null);
-                  }
-                }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition cursor-pointer"
-              >
-                <X size={14} /> Reject Post
-              </button>
-              <button
-                onClick={() => {
-                  handleApprovePost(viewingApproval.post_id, "approve");
-                  setViewingApproval(null);
-                }}
-                className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition cursor-pointer"
-              >
-                <Check size={14} /> Approve Post
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function KpiCard({
-  title,
-  value,
-  change,
-  subtext,
-  icon,
-  iconBg,
-}: {
-  title: string;
-  value: string | number;
-  change: string;
-  subtext: string;
-  icon: React.ReactNode;
-  iconBg: string;
-}) {
-  return (
-    <div className="p-6 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 space-y-3.5">
-      <div className="flex items-center justify-between">
-        <div className={`w-12 h-12 rounded-xl ${iconBg} border flex items-center justify-center`}>
-          {icon}
-        </div>
-        <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
-          {change}
-        </span>
-      </div>
-      <div>
-        <h3 className="text-3xl font-extrabold text-slate-900 font-display tracking-tight leading-none">{value}</h3>
-        <p className="text-sm font-bold text-slate-800 mt-1.5">{title}</p>
-        <p className="text-xs text-slate-500 mt-0.5 font-medium">{subtext}</p>
-      </div>
     </div>
   );
 }

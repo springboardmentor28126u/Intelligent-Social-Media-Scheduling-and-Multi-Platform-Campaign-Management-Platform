@@ -55,6 +55,12 @@ def _publish_to_platform_target(
             SocialAccount.is_active == True
         ).first()
 
+    if not account:
+        target.status = "failed"
+        target.error_message = f"No active {target.platform.title()} account connected. Please connect your account first."
+        db.commit()
+        return {"status": "failed", "platform": target.platform, "error": target.error_message}
+
     # Get the provider (real if credentials exist, demo otherwise)
     is_demo = (account.is_demo if account else True)
     provider = get_social_provider(target.platform, is_demo=is_demo)
@@ -63,7 +69,7 @@ def _publish_to_platform_target(
     if post.media_url and post.media_url not in media_urls:
         media_urls.insert(0, post.media_url)
 
-    access_token = account.access_token if account else "demo_token"
+    access_token = account.access_token
 
     # Mark as publishing
     target.status = "publishing"
@@ -114,12 +120,7 @@ def _publish_to_platform_target(
         else:
             # Publishing failed
             target.error_message = result.error_message
-
-            if target.attempt_count >= target.max_attempts:
-                target.status = "failed"
-            else:
-                # Will be retried on next scheduler run if post is still scheduled
-                target.status = "failed"  # Mark failed — user can retry manually
+            target.status = "failed"
 
             pub_log = PublishingLog(
                 post_id=post.id,
@@ -174,12 +175,6 @@ def publish_post_now(post_id: int, db: Session = None) -> dict:
         if not post:
             return {"status": "failed", "message": f"Post with id {post_id} not found"}
 
-        if getattr(post, "approval_status", None) == "pending" or post.status == "pending_approval":
-            return {"status": "failed", "message": "Post requires administrator approval before it can be published."}
-
-        if getattr(post, "approval_status", None) == "rejected":
-            return {"status": "failed", "message": "Cannot publish a post that has been rejected by an administrator."}
-
         if post.status == "published":
             # Check if there are any pending platform targets
             pending = [t for t in (post.platform_targets or []) if t.status != "published"]
@@ -211,13 +206,16 @@ def publish_post_now(post_id: int, db: Session = None) -> dict:
             if all(s == "published" for s in all_statuses):
                 post.status = "published"
                 post.published_at = datetime.now(timezone.utc)
+                post.failure_reason = None
                 # Set external_post_id from first published target
                 published_targets = [t for t in post.platform_targets if t.external_post_id]
                 if published_targets:
                     post.external_post_id = published_targets[0].external_post_id
             elif all(s == "failed" for s in all_statuses):
                 post.status = "failed"
-                post.failure_reason = "All platform targets failed"
+                failed_targets = [t for t in post.platform_targets if t.status == "failed"]
+                err_msgs = [t.error_message for t in failed_targets if t.error_message]
+                post.failure_reason = err_msgs[0] if err_msgs else "All platform targets failed"
             elif any(s == "published" for s in all_statuses):
                 # Partial success — some platforms published
                 post.status = "published"
@@ -471,7 +469,6 @@ def publish_scheduled_posts():
             db.query(Post)
             .filter(
                 Post.status.in_(["scheduled", "queued"]),
-                Post.approval_status == "approved",
                 Post.scheduled_at <= now
             )
             .all()

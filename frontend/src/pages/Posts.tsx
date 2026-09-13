@@ -68,8 +68,14 @@ export default function Posts() {
 
   const handlePublishNow = async (id: number) => {
     try {
-      await api.posts.publish(id);
-      showToast("Published!", "Post has been published to the social network.", "success");
+      const res = await api.posts.publish(id);
+      if (res && res.status === "published") {
+        showToast("Published! 🎉", `Post successfully published to ${res.platform ? res.platform.toUpperCase() : "social platform"}.`, "success");
+      } else if (res && res.status === "failed") {
+        showToast("Publish Failed ⚠️", res.failure_reason || "Could not publish post.", "error");
+      } else {
+        showToast("Post Updated", `Post status: ${res?.status || "updated"}`, "info");
+      }
       window.dispatchEvent(new Event("post_published"));
       loadPosts();
     } catch (err: any) {
@@ -79,8 +85,14 @@ export default function Posts() {
 
   const handleRetry = async (id: number) => {
     try {
-      await api.posts.retry(id);
-      showToast("Retried!", "Post publish attempt re-queued.", "info");
+      const res = await api.posts.retry(id);
+      if (res && res.status === "published") {
+        showToast("Published! 🎉", `Retry succeeded: post published to ${res.platform ? res.platform.toUpperCase() : "social platform"}.`, "success");
+      } else if (res && res.status === "failed") {
+        showToast("Retry Failed ⚠️", res.failure_reason || "Retry publish failed.", "error");
+      } else {
+        showToast("Retried", `Post status: ${res?.status || "updated"}`, "info");
+      }
       window.dispatchEvent(new Event("post_updated"));
       loadPosts();
     } catch (err: any) {
@@ -196,7 +208,6 @@ export default function Posts() {
             { id: "all", label: "All Posts" },
             { id: "published", label: "Published" },
             { id: "scheduled", label: "Scheduled" },
-            { id: "pending_approval", label: "Pending Approval" },
             { id: "draft", label: "Drafts" },
             { id: "failed", label: "Failed" },
           ].map((tab) => (
@@ -292,21 +303,13 @@ export default function Posts() {
                       <h3 className="text-base font-bold text-slate-900 truncate">
                         {post.title || post.content.substring(0, 45)}
                       </h3>
-                      {post.approval_status === "pending" || post.status === "pending_approval" ? (
-                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full uppercase bg-amber-50 text-amber-700 border border-amber-200">
-                          Awaiting Admin Review
-                        </span>
-                      ) : post.approval_status === "rejected" ? (
-                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full uppercase bg-rose-50 text-rose-700 border border-rose-200">
-                          Rejected
-                        </span>
-                      ) : post.status === "published" ? (
+                      {post.status === "published" ? (
                         <span className="text-xs font-bold px-2.5 py-0.5 rounded-full uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
                           Published
                         </span>
                       ) : post.status === "scheduled" ? (
                         <span className="text-xs font-bold px-2.5 py-0.5 rounded-full uppercase bg-blue-50 text-blue-700 border border-blue-200">
-                          Approved / Scheduled
+                          Scheduled
                         </span>
                       ) : post.status === "failed" ? (
                         <span className="text-xs font-bold px-2.5 py-0.5 rounded-full uppercase bg-rose-50 text-rose-700 border border-rose-200">
@@ -357,7 +360,7 @@ export default function Posts() {
                     <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 pt-0.5">
                       <span className="capitalize text-slate-700 font-semibold">{post.platform}</span>
                       <span>•</span>
-                      <span>By {post.author_name || "Jenee"}</span>
+                      <span>By {post.author_name || "Creator"}</span>
                       <span>•</span>
                       {post.scheduled_at && (
                         <span>
@@ -375,45 +378,7 @@ export default function Posts() {
 
                 {/* Action Buttons */}
                 <div className="flex items-center gap-2 shrink-0 border-t lg:border-t-0 pt-3 lg:pt-0 border-slate-100">
-                  {/* Approval Actions */}
-                  {post.status === "pending_approval" && (user?.role === "administrator" || user?.role === "business_user" || user?.role === "marketing_team") && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleApprove(post.id, "approve")}
-                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
-                      >
-                        <Check size={15} /> Approve
-                      </button>
-                      <button
-                        onClick={() => {
-                          const reason = prompt("Enter reason for rejection:", "Content needs revision");
-                          if (reason !== null) {
-                            handleApprove(post.id, "reject", reason);
-                          }
-                        }}
-                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
-                      >
-                        <X size={15} /> Reject
-                      </button>
-                    </div>
-                  )}
-
-                  {post.status === "pending_approval" && user?.role === "content_creator" && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold">
-                      <Clock size={14} className="text-amber-600 animate-spin" /> Awaiting Admin Review
-                    </span>
-                  )}
-
-                  {post.status === "draft" && user?.role === "content_creator" && (
-                    <button
-                      onClick={() => handleSubmitForApproval(post.id)}
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
-                    >
-                      <Clock size={15} /> Submit for Approval
-                    </button>
-                  )}
-
-                  {post.status === "draft" && user?.role !== "content_creator" && (
+                  {post.status === "draft" && (
                     <button
                       onClick={() => handlePublishNow(post.id)}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"

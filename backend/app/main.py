@@ -26,6 +26,9 @@ from app.api.routes.approvals import router as approvals_router
 from app.api.routes.admin import router as admin_router
 from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.linkedin import router as linkedin_router
+from app.api.routes.instagram import router as instagram_router
+from app.api.routes.facebook import router as facebook_router
+
 
 
 scheduler = BackgroundScheduler()
@@ -35,6 +38,7 @@ def check_and_migrate_db():
     try:
         from sqlalchemy import text
         with engine.connect() as conn:
+            # Check posts table
             res = conn.execute(text("PRAGMA table_info(posts)"))
             cols = [row[1] for row in res.fetchall()]
             if cols:
@@ -45,7 +49,20 @@ def check_and_migrate_db():
                 if "approval_status" not in cols:
                     conn.execute(text("ALTER TABLE posts ADD COLUMN approval_status VARCHAR(30) DEFAULT 'approved' NOT NULL"))
                     conn.execute(text("UPDATE posts SET approval_status = 'pending' WHERE status = 'pending_approval'"))
-                conn.commit()
+            
+            # Check notifications table
+            res_notif = conn.execute(text("PRAGMA table_info(notifications)"))
+            n_cols = [row[1] for row in res_notif.fetchall()]
+            if n_cols:
+                if "actor_user_id" not in n_cols:
+                    conn.execute(text("ALTER TABLE notifications ADD COLUMN actor_user_id INTEGER"))
+                if "related_entity_type" not in n_cols:
+                    conn.execute(text("ALTER TABLE notifications ADD COLUMN related_entity_type VARCHAR(50)"))
+                if "related_entity_id" not in n_cols:
+                    conn.execute(text("ALTER TABLE notifications ADD COLUMN related_entity_id VARCHAR(100)"))
+                if "uuid" not in n_cols:
+                    conn.execute(text("ALTER TABLE notifications ADD COLUMN uuid VARCHAR(36)"))
+            conn.commit()
     except Exception as e:
         print(f"Database migration check notice: {e}")
 
@@ -122,6 +139,9 @@ app.include_router(approvals_router)
 app.include_router(admin_router)
 app.include_router(dashboard_router)
 app.include_router(linkedin_router)
+app.include_router(instagram_router)
+app.include_router(facebook_router)
+
 
 
 @app.get("/", tags=["Health"])

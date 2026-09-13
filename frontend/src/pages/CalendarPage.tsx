@@ -186,8 +186,14 @@ export default function CalendarPage() {
 
   const handleRetry = async (postId: number) => {
     try {
-      await api.posts.retry(postId);
-      showToast("Retry Triggered", "Publishing attempt re-queued.", "success");
+      const res = await api.posts.retry(postId);
+      if (res && res.status === "published") {
+        showToast("Published! 🎉", `Retry succeeded: post published to ${res.platform ? res.platform.toUpperCase() : "social media"}.`, "success");
+      } else if (res && res.status === "failed") {
+        showToast("Retry Failed ⚠️", res.failure_reason || "Retry publish failed.", "error");
+      } else {
+        showToast("Retried", `Post status: ${res?.status || "updated"}`, "info");
+      }
       setSelectedPost(null);
       loadPosts();
     } catch (err: any) {
@@ -197,8 +203,14 @@ export default function CalendarPage() {
 
   const handlePublishNow = async (postId: number) => {
     try {
-      await api.posts.publish(postId);
-      showToast("Published!", "Post dispatched to social media.", "success");
+      const res = await api.posts.publish(postId);
+      if (res && res.status === "published") {
+        showToast("Published! 🎉", `Post successfully published to ${res.platform ? res.platform.toUpperCase() : "social media"}.`, "success");
+      } else if (res && res.status === "failed") {
+        showToast("Publish Failed ⚠️", res.failure_reason || "Publishing to social media failed.", "error");
+      } else {
+        showToast("Post Updated", `Post status: ${res?.status || "dispatched"}`, "info");
+      }
       setSelectedPost(null);
       loadPosts();
     } catch (err: any) {

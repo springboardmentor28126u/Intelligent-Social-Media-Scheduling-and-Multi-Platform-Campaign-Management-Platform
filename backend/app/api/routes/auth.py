@@ -30,6 +30,7 @@ from app.core.security import (
     ROLE_DEFAULT_PERMISSIONS
 )
 from app.services.audit import log_audit_event
+from app.services.notifications import notify_admins_new_user
 
 try:
     import requests as _requests
@@ -85,6 +86,8 @@ def register(
         description=f"New user registered: {user.email} as {user.role}",
         ip_address=request.client.host if request.client else None
     )
+
+    notify_admins_new_user(db=db, new_user=user)
 
     permissions = ROLE_DEFAULT_PERMISSIONS.get(user.role, [])
     res = UserResponse.model_validate(user)
@@ -336,6 +339,8 @@ def _process_google_identity(google_user_info: dict, db: Session, request: Optio
             description=f"New user created via Google Login: {user.email}",
             ip_address=request.client.host if request and request.client else None
         )
+
+        notify_admins_new_user(db=db, new_user=user)
     else:
         if not user.is_active:
             raise HTTPException(
