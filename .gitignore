@@ -1,29 +1,24 @@
+# Dependencies
+node_modules/
 
-# Virtual environments
-.venv/
-venv/
-env/
-ENV/
-env.bak/
-venv.bak/
+# Build files
+dist/
 
-# Python cache
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*$py.class
-
-# Environment variables / secrets
+# Environment variables
 .env
 .env.*
 !.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
 
 # IDE
 .vscode/
 .idea/
 
-# OS
+# OS files
 .DS_Store
 Thumbs.db
 
@@ -64,3 +59,6 @@ tempCodeRunnerFile.py
 *.sqlite3
 
 uploads/
+# Python cache
+__pycache__/
+*.py[cod]

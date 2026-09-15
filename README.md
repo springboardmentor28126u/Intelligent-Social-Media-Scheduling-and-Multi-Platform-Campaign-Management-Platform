@@ -1,1 +1,2 @@
-# Intelligent-Social-Media-Scheduling-and-Multi-Platform-Campaign-Management-Platform
+SocialPilot : Social Media Scheduler \& Campaign Management Platform 
+
