@@ -25,7 +25,6 @@ function Dashboard() {
       setLoading(true);
       setError("");
 
-
       const response = await fetch(
         "http://127.0.0.1:8000/dashboard/stats",
         {
@@ -204,7 +203,6 @@ function Dashboard() {
 
       <aside className="dashboard-sidebar">
 
-
         <div className="dashboard-logo">
           🚀 SocialPilot
         </div>
@@ -213,51 +211,138 @@ function Dashboard() {
         <nav className="sidebar-nav">
 
 
+          {/* ANALYTICS */}
+
           <button
             className="sidebar-item active"
             onClick={() => navigate("/dashboard")}
           >
+
             📊
+
             <span>
               Analytics
             </span>
+
           </button>
 
+
+          {/* SOCIAL ACCOUNTS */}
 
           <button
             className="sidebar-item"
             onClick={() => navigate("/social-accounts")}
           >
+
             👥
+
             <span>
               Social Accounts
             </span>
+
           </button>
 
+
+          {/* MY POSTS */}
 
           <button
             className="sidebar-item"
             onClick={() => navigate("/posts")}
           >
+
             📝
+
             <span>
               My Posts
             </span>
+
           </button>
 
+
+          {/* CREATE POST */}
 
           <button
             className="sidebar-item"
             onClick={() => navigate("/create-post")}
           >
+
             ➕
+
             <span>
               Create Post
             </span>
+
           </button>
+
+
+          {/* PUBLISHING CALENDAR */}
+
+          <button
+            className="sidebar-item"
+            onClick={() => navigate("/calendar")}
+          >
+
+            📅
+
+            <span>
+              Publishing Calendar
+            </span>
+
+          </button>
+
+
+
+
+
+
+          <button
+          className="quick-action-card"
+          onClick={() => navigate("/publishing-queue")}
+          >
+
+          <div className="quick-action-icon">
+          ⏳
+          </div>
+
+          <div>
+
+          <h3>
+          Publishing Queue
+          </h3>
+
+          <p>
+          View posts waiting to be published
+         </p>
+
+        </div>
+
+        <span>
+         →
+       </span>
+
+       </button>
+
+
+          {/* PUBLISHING LOGS */}
+
+          <button
+            className="sidebar-item"
+            onClick={() => navigate("/publishing-logs")}
+          >
+
+            📋
+
+            <span>
+              Publishing Logs
+            </span>
+
+          </button>
+
 
         </nav>
 
+
+        {/* LOGOUT */}
 
         <div className="sidebar-bottom">
 
@@ -273,10 +358,13 @@ function Dashboard() {
 
             }}
           >
+
             🚪
+
             <span>
               Logout
             </span>
+
           </button>
 
         </div>
@@ -454,6 +542,7 @@ function Dashboard() {
 
           </div>
 
+
         </section>
 
 
@@ -462,7 +551,6 @@ function Dashboard() {
         ================================================= */}
 
         <section className="analytics-section">
-
 
           <div className="section-title">
 
@@ -594,6 +682,7 @@ function Dashboard() {
 
             </div>
 
+
           </div>
 
         </section>
@@ -625,6 +714,8 @@ function Dashboard() {
           <div className="quick-actions">
 
 
+            {/* SOCIAL ACCOUNTS */}
+
             <button
               className="quick-action-card"
               onClick={() => navigate("/social-accounts")}
@@ -652,6 +743,8 @@ function Dashboard() {
 
             </button>
 
+
+            {/* CREATE POST */}
 
             <button
               className="quick-action-card"
@@ -681,6 +774,8 @@ function Dashboard() {
             </button>
 
 
+            {/* VIEW POSTS */}
+
             <button
               className="quick-action-card"
               onClick={() => navigate("/posts")}
@@ -707,6 +802,97 @@ function Dashboard() {
               </span>
 
             </button>
+
+
+            {/* PUBLISHING CALENDAR */}
+
+            <button
+              className="quick-action-card"
+              onClick={() => navigate("/calendar")}
+            >
+
+              <div className="quick-action-icon">
+                📅
+              </div>
+
+              <div>
+
+                <h3>
+                  Publishing Calendar
+                </h3>
+
+                <p>
+                  View your scheduled posts
+                </p>
+
+              </div>
+
+              <span>
+                →
+              </span>
+
+            </button>
+
+
+            {/* PUBLISHING LOGS */}
+
+            <button
+              className="quick-action-card"
+              onClick={() => navigate("/publishing-logs")}
+            >
+
+              <div className="quick-action-icon">
+                📋
+              </div>
+
+              <div>
+
+                <h3>
+                  Publishing Logs
+                </h3>
+
+                <p>
+                  View publishing history
+                </p>
+
+              </div>
+
+              <span>
+                →
+              </span>
+
+            </button>
+
+
+            {/* DRAFT POSTS */}
+
+            <button
+              className="quick-action-card"
+              onClick={() => navigate("/drafts")}
+            >
+
+              <div className="quick-action-icon">
+                📝
+              </div>
+
+              <div>
+
+                <h3>
+                  Draft Posts
+                </h3>
+
+                <p>
+                  Manage your saved drafts
+                </p>
+
+              </div>
+
+              <span>
+                →
+              </span>
+
+            </button>
+
 
           </div>
 

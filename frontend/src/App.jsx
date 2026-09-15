@@ -16,8 +16,10 @@ import AdminUsers from "./pages/AdminUsers";
 import SocialAccounts from "./pages/SocialAccounts";
 import Posts from "./pages/Posts";
 import CreatePost from "./pages/CreatePost";
-
-
+import Calendar from "./pages/Calendar";
+import Drafts from "./pages/Drafts";
+import PublishingLogs from "./pages/PublishingLogs";
+import PublishingQueue from "./pages/PublishingQueue";
 // =====================================================
 // PROTECTED ROUTE
 // =====================================================
@@ -509,6 +511,34 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+
+        <Route
+          path="/calendar"
+          element={
+          <ProtectedRoute>
+          <Calendar />
+          </ProtectedRoute>
+        }
+       />
+
+
+       <Route
+         path="/drafts"
+         element={
+         <ProtectedRoute>
+         <Drafts />
+         </ProtectedRoute>
+       }
+      />
+      <Route path="/publishing-logs" element={<PublishingLogs />} />
+
+
+
+      <Route
+      path="/publishing-queue"
+      element={<PublishingQueue />}
+     />
 
 
         {/* =================================================

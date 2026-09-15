@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
 
 from app.database.postgres import Base
@@ -16,9 +16,9 @@ class Post(Base):
     )
 
     social_account_id = Column(
-    Integer,
-    ForeignKey("social_accounts.id", ondelete="SET NULL"),
-    nullable=True
+        Integer,
+        ForeignKey("social_accounts.id", ondelete="SET NULL"),
+        nullable=True
     )
 
     content = Column(
@@ -31,8 +31,25 @@ class Post(Base):
         nullable=False,
         default="draft"
     )
-    
+
     scheduled_at = Column(
+        DateTime,
+        nullable=True
+    )
+
+    # Recurring post fields
+    is_recurring = Column(
+        Boolean,
+        nullable=False,
+        default=False
+    )
+
+    recurrence_type = Column(
+        String,
+        nullable=True
+    )
+
+    recurrence_end = Column(
         DateTime,
         nullable=True
     )

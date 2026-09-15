@@ -1,0 +1,682 @@
+/* =========================================================
+   SOCIALPILOT - PUBLISHING LOGS
+   Matches Analytics Dashboard Design
+   ========================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+/* =========================================================
+   MAIN PAGE
+   ========================================================= */
+
+.publishing-logs-page {
+  min-height: 100vh;
+
+  padding: 35px 40px 70px;
+
+  background:
+    radial-gradient(
+      circle at 10% 0%,
+      rgba(99, 102, 241, 0.10),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 90% 10%,
+      rgba(139, 92, 246, 0.07),
+      transparent 28%
+    ),
+    #080b12;
+
+  color: #f8fafc;
+}
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+.publishing-logs-header {
+  max-width: 1250px;
+
+  display: flex;
+
+  align-items: flex-end;
+  justify-content: space-between;
+
+  gap: 25px;
+
+  margin: 0 auto 28px;
+}
+
+.publishing-logs-header h1 {
+  margin: 0 0 8px;
+
+  color: #f8fafc;
+
+  font-size: 36px;
+  line-height: 1.15;
+
+  font-weight: 800;
+
+  letter-spacing: -0.8px;
+}
+
+.publishing-logs-header p {
+  margin: 0;
+
+  color: #94a3b8;
+
+  font-size: 13px;
+
+  line-height: 1.6;
+}
+
+/* =========================================================
+   REFRESH BUTTON
+   ========================================================= */
+
+.logs-refresh-button {
+  min-height: 40px;
+
+  padding: 0 17px;
+
+  border: 1px solid #303a50;
+
+  border-radius: 9px;
+
+  background: #151b28;
+
+  color: #cbd5e1;
+
+  font-family: inherit;
+
+  font-size: 11px;
+
+  font-weight: 800;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+.logs-refresh-button:hover {
+  transform: translateY(-1px);
+
+  background: #1d2535;
+
+  border-color: #4b5870;
+
+  color: #ffffff;
+
+  box-shadow:
+    0 7px 20px rgba(0, 0, 0, 0.18);
+}
+
+/* =========================================================
+   ERROR
+   ========================================================= */
+
+.publishing-logs-error {
+  max-width: 1250px;
+
+  margin: 0 auto 22px;
+
+  padding: 14px 17px;
+
+  border: 1px solid rgba(244, 63, 94, 0.25);
+
+  border-radius: 10px;
+
+  background: rgba(244, 63, 94, 0.07);
+
+  color: #fb7185;
+
+  font-size: 12px;
+
+  text-align: center;
+}
+
+/* =========================================================
+   TABLE CARD
+   ========================================================= */
+
+.publishing-logs-card {
+  width: 100%;
+
+  max-width: 1250px;
+
+  margin: 0 auto;
+
+  overflow: hidden;
+
+  border: 1px solid #20293a;
+
+  border-radius: 15px;
+
+  background: #10151f;
+
+  box-shadow:
+    0 15px 40px rgba(0, 0, 0, 0.18);
+}
+
+/* =========================================================
+   TABLE WRAPPER
+   ========================================================= */
+
+.publishing-logs-table-wrapper {
+  width: 100%;
+
+  overflow-x: auto;
+
+  -webkit-overflow-scrolling: touch;
+}
+
+/* =========================================================
+   TABLE
+   ========================================================= */
+
+.publishing-logs-table {
+  width: 100%;
+
+  min-width: 900px;
+
+  border-collapse: collapse;
+
+  background: #10151f;
+
+  color: #cbd5e1;
+}
+
+/* =========================================================
+   TABLE HEADER
+   ========================================================= */
+
+.publishing-logs-table thead {
+  background:
+    linear-gradient(
+      180deg,
+      #171d2a,
+      #141a25
+    );
+}
+
+.publishing-logs-table th {
+  padding: 15px 18px;
+
+  border-bottom: 1px solid #283245;
+
+  color: #64748b;
+
+  font-size: 9px;
+
+  font-weight: 800;
+
+  letter-spacing: 0.8px;
+
+  text-align: left;
+
+  text-transform: uppercase;
+
+  white-space: nowrap;
+}
+
+/* =========================================================
+   TABLE BODY
+   ========================================================= */
+
+.publishing-logs-table td {
+  padding: 17px 18px;
+
+  border-bottom: 1px solid #1d2635;
+
+  color: #cbd5e1;
+
+  font-size: 12px;
+
+  vertical-align: middle;
+}
+
+.publishing-logs-table tbody tr {
+  transition:
+    background 0.2s ease;
+}
+
+.publishing-logs-table tbody tr:hover {
+  background: rgba(99, 102, 241, 0.045);
+}
+
+.publishing-logs-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* =========================================================
+   POST ID
+   ========================================================= */
+
+.post-id {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  min-width: 40px;
+
+  padding: 6px 9px;
+
+  border: 1px solid rgba(99, 102, 241, 0.20);
+
+  border-radius: 8px;
+
+  background: rgba(99, 102, 241, 0.08);
+
+  color: #a5b4fc;
+
+  font-size: 10px;
+
+  font-weight: 800;
+}
+
+/* =========================================================
+   PLATFORM
+   ========================================================= */
+
+.platform-cell {
+  display: flex;
+
+  align-items: center;
+
+  gap: 9px;
+
+  white-space: nowrap;
+}
+
+.platform-icon {
+  width: 31px;
+  height: 31px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border: 1px solid #2a3447;
+
+  border-radius: 8px;
+
+  background: #171e2b;
+
+  font-size: 15px;
+}
+
+.platform-name {
+  color: #cbd5e1;
+
+  font-size: 11px;
+
+  font-weight: 700;
+}
+
+/* =========================================================
+   STATUS
+   ========================================================= */
+
+.publishing-status {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 6px;
+
+  padding: 6px 10px;
+
+  border-radius: 999px;
+
+  font-size: 8px;
+
+  font-weight: 800;
+
+  letter-spacing: 0.6px;
+
+  text-transform: uppercase;
+
+  white-space: nowrap;
+}
+
+.publishing-status::before {
+  content: "";
+
+  width: 5px;
+  height: 5px;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background: currentColor;
+}
+
+/* =========================================================
+   PUBLISHED
+   ========================================================= */
+
+.publishing-status.published {
+  border: 1px solid rgba(16, 185, 129, 0.20);
+
+  background: rgba(16, 185, 129, 0.08);
+
+  color: #34d399;
+}
+
+/* =========================================================
+   FAILED
+   ========================================================= */
+
+.publishing-status.failed {
+  border: 1px solid rgba(244, 63, 94, 0.20);
+
+  background: rgba(244, 63, 94, 0.08);
+
+  color: #fb7185;
+}
+
+/* =========================================================
+   QUEUED
+   ========================================================= */
+
+.publishing-status.queued {
+  border: 1px solid rgba(245, 158, 11, 0.20);
+
+  background: rgba(245, 158, 11, 0.08);
+
+  color: #fbbf24;
+}
+
+/* =========================================================
+   PROCESSING
+   ========================================================= */
+
+.publishing-status.processing {
+  border: 1px solid rgba(59, 130, 246, 0.20);
+
+  background: rgba(59, 130, 246, 0.08);
+
+  color: #60a5fa;
+}
+
+/* =========================================================
+   UNKNOWN STATUS
+   ========================================================= */
+
+.publishing-status.unknown {
+  border: 1px solid #303a50;
+
+  background: #171e2b;
+
+  color: #94a3b8;
+}
+
+/* =========================================================
+   MESSAGE
+   ========================================================= */
+
+.publishing-message {
+  display: block;
+
+  max-width: 360px;
+
+  overflow: hidden;
+
+  color: #94a3b8;
+
+  font-size: 11px;
+
+  line-height: 1.5;
+
+  white-space: nowrap;
+
+  text-overflow: ellipsis;
+}
+
+/* =========================================================
+   PUBLISHED TIME
+   ========================================================= */
+
+.publishing-time {
+  color: #94a3b8;
+
+  font-size: 11px;
+
+  font-weight: 600;
+
+  white-space: nowrap;
+}
+
+/* =========================================================
+   EMPTY STATE
+   ========================================================= */
+
+.publishing-logs-empty {
+  max-width: 1250px;
+
+  min-height: 350px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  margin: 0 auto;
+
+  padding: 50px 20px;
+
+  border: 1px dashed #2b3549;
+
+  border-radius: 15px;
+
+  background: rgba(13, 18, 27, 0.75);
+
+  color: #f8fafc;
+
+  text-align: center;
+}
+
+.empty-icon {
+  width: 65px;
+  height: 65px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 17px;
+
+  border: 1px solid #303a50;
+
+  border-radius: 16px;
+
+  background: #151c29;
+
+  font-size: 27px;
+}
+
+.publishing-logs-empty h2 {
+  margin: 0 0 9px;
+
+  color: #e2e8f0;
+
+  font-size: 19px;
+
+  font-weight: 800;
+}
+
+.publishing-logs-empty p {
+  max-width: 500px;
+
+  margin: 0;
+
+  color: #64748b;
+
+  font-size: 12px;
+
+  line-height: 1.6;
+}
+
+/* =========================================================
+   LOADING
+   ========================================================= */
+
+.publishing-logs-loading {
+  min-height: 500px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 25px;
+
+  text-align: center;
+}
+
+.publishing-logs-loading h2 {
+  margin: 18px 0 7px;
+
+  color: #e2e8f0;
+
+  font-size: 18px;
+
+  font-weight: 800;
+}
+
+.publishing-logs-loading p {
+  margin: 0;
+
+  color: #64748b;
+
+  font-size: 12px;
+}
+
+/* =========================================================
+   SPINNER
+   ========================================================= */
+
+.logs-spinner {
+  width: 42px;
+  height: 42px;
+
+  border: 3px solid #252d3c;
+
+  border-top-color: #6366f1;
+
+  border-right-color: #8b5cf6;
+
+  border-radius: 50%;
+
+  animation:
+    logs-spin 0.8s linear infinite;
+}
+
+@keyframes logs-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media (max-width: 900px) {
+  .publishing-logs-page {
+    padding: 28px 24px 60px;
+  }
+
+  .publishing-logs-header {
+    align-items: flex-start;
+  }
+
+  .publishing-logs-header h1 {
+    font-size: 32px;
+  }
+
+  .publishing-logs-table th,
+  .publishing-logs-table td {
+    padding: 14px;
+  }
+}
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 600px) {
+  .publishing-logs-page {
+    padding: 22px 15px 50px;
+  }
+
+  .publishing-logs-header {
+    flex-direction: column;
+
+    align-items: stretch;
+
+    gap: 16px;
+  }
+
+  .publishing-logs-header h1 {
+    font-size: 28px;
+  }
+
+  .logs-refresh-button {
+    width: 100%;
+  }
+
+  .publishing-logs-card {
+    border-radius: 12px;
+  }
+
+  /*
+     Keep the table horizontally scrollable
+     on mobile because it contains 5 columns.
+  */
+
+  .publishing-logs-table {
+    min-width: 900px;
+  }
+
+  .publishing-logs-table-wrapper {
+    overflow-x: auto;
+
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .publishing-logs-empty {
+    min-height: 300px;
+  }
+}
+
+/* =========================================================
+   SMALL MOBILE
+   ========================================================= */
+
+@media (max-width: 400px) {
+  .publishing-logs-page {
+    padding-left: 11px;
+    padding-right: 11px;
+  }
+
+  .publishing-logs-header h1 {
+    font-size: 25px;
+  }
+}

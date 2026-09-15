@@ -2,56 +2,309 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Posts.css";
 
+const API_URL = "http://127.0.0.1:8000";
+
+
+// ============================================================
+// INDIAN LOCAL DATE/TIME HELPERS
+// ============================================================
+
+// Backend/database stores:
+// 2026-09-07 21:48:00
+//
+// We intentionally treat this as Indian local time.
+// Do NOT use:
+// new Date(dateString)
+// toISOString()
+// Date.parse()
+//
+// because those can introduce timezone conversion.
+
+function parseIndianDateTime(value) {
+  if (!value) {
+    return null;
+  }
+
+  const cleaned = String(value)
+    .replace("T", " ")
+    .replace("Z", "")
+    .trim();
+
+  const match = cleaned.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hours = Number(match[4] || 0);
+  const minutes = Number(match[5] || 0);
+  const seconds = Number(match[6] || 0);
+
+  const date = new Date(
+    year,
+    month - 1,
+    day,
+    hours,
+    minutes,
+    seconds,
+    0
+  );
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+}
+
+
+// ============================================================
+// FORMAT INDIAN DATE/TIME
+// ============================================================
+
+function formatIndianDateTime(value) {
+  if (!value) {
+    return "Not scheduled";
+  }
+
+  const date = parseIndianDateTime(value);
+
+  if (!date) {
+    return "Invalid date";
+  }
+
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+
+// ============================================================
+// FORMAT DATE ONLY
+// ============================================================
+
+function formatIndianDate(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = parseIndianDateTime(value);
+
+  if (!date) {
+    return "";
+  }
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+
+// ============================================================
+// FORMAT TIME ONLY
+// ============================================================
+
+function formatIndianTime(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = parseIndianDateTime(value);
+
+  if (!date) {
+    return "";
+  }
+
+  return date.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+
+// ============================================================
+// GET PLATFORM ICON
+// ============================================================
+
+function getPlatformIcon(platform) {
+  if (!platform) {
+    return "🌐";
+  }
+
+  const value = platform.toLowerCase();
+
+  if (value.includes("instagram")) {
+    return "📸";
+  }
+
+  if (value.includes("facebook")) {
+    return "📘";
+  }
+
+  if (value.includes("twitter") || value === "x") {
+    return "🐦";
+  }
+
+  if (value.includes("linkedin")) {
+    return "💼";
+  }
+
+  if (value.includes("youtube")) {
+    return "▶️";
+  }
+
+  return "🌐";
+}
+
+
+// ============================================================
+// STATUS LABEL
+// ============================================================
+
+function getStatusLabel(status) {
+  if (!status) {
+    return "Unknown";
+  }
+
+  return (
+    status.charAt(0).toUpperCase() +
+    status.slice(1).toLowerCase()
+  );
+}
+
+
+// ============================================================
+// STATUS CLASS
+// ============================================================
+
+function getStatusClass(status) {
+  if (!status) {
+    return "unknown";
+  }
+
+  return status.toLowerCase();
+}
+
+
+// ============================================================
+// POSTS COMPONENT
+// ============================================================
+
 function Posts() {
+  const navigate = useNavigate();
+
   const [posts, setPosts] = useState([]);
   const [filter, setFilter] = useState("all");
 
-  const [editingPost, setEditingPost] = useState(null);
-  const [editContent, setEditContent] = useState("");
-  const [editScheduledAt, setEditScheduledAt] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const navigate = useNavigate();
   const token = localStorage.getItem("access_token");
 
-  // =====================================================
-  // GET POSTS
-  // =====================================================
+
+  // ============================================================
+  // FETCH POSTS
+  // ============================================================
 
   const fetchPosts = async () => {
+    const currentToken =
+      localStorage.getItem("access_token");
+
+    if (!currentToken) {
+      navigate("/login");
+      return;
+    }
+
     try {
+      setLoading(true);
+      setError("");
+
       const response = await fetch(
-        "http://127.0.0.1:8000/posts/",
+        `${API_URL}/posts/`,
         {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${currentToken}`,
+            "Content-Type": "application/json",
           },
         }
       );
 
+
+      // --------------------------------------------------------
+      // UNAUTHORIZED
+      // --------------------------------------------------------
+
       if (response.status === 401) {
         localStorage.removeItem("access_token");
+        localStorage.removeItem("role");
+
         navigate("/login");
         return;
       }
 
+
       const data = await response.json();
 
+      console.log("Posts response:", data);
+
+
+      // --------------------------------------------------------
+      // ERROR
+      // --------------------------------------------------------
+
       if (!response.ok) {
-        alert(data.detail || "Failed to load posts");
+        setError(
+          data.detail ||
+            "Failed to load posts."
+        );
+
         return;
       }
 
-      setPosts(data);
-    } catch (error) {
-      console.error("Fetch posts error:", error);
-      alert("Cannot connect to backend");
+
+      // --------------------------------------------------------
+      // SAVE POSTS
+      // --------------------------------------------------------
+
+      if (Array.isArray(data)) {
+        setPosts(data);
+      } else {
+        setPosts([]);
+      }
+
+    } catch (err) {
+      console.error(
+        "Fetch posts error:",
+        err
+      );
+
+      setError(
+        "Cannot connect to backend. Please make sure FastAPI is running."
+      );
+
+    } finally {
+      setLoading(false);
     }
   };
 
-  // =====================================================
+
+  // ============================================================
   // LOAD POSTS
-  // =====================================================
+  // ============================================================
 
   useEffect(() => {
     if (!token) {
@@ -60,600 +313,780 @@ function Posts() {
     }
 
     fetchPosts();
-  }, []);
 
-  // =====================================================
-  // START EDIT
-  // =====================================================
+  }, [navigate]);
 
-  const startEdit = (post) => {
-    setEditingPost(post.id);
-    setEditContent(post.content);
 
-    if (post.scheduled_at) {
-      const date = new Date(post.scheduled_at);
+  // ============================================================
+  // FILTER POSTS
+  // ============================================================
 
-      const formatted =
-        date.getFullYear() +
-        "-" +
-        String(date.getMonth() + 1).padStart(2, "0") +
-        "-" +
-        String(date.getDate()).padStart(2, "0") +
-        "T" +
-        String(date.getHours()).padStart(2, "0") +
-        ":" +
-        String(date.getMinutes()).padStart(2, "0");
-
-      setEditScheduledAt(formatted);
-    } else {
-      setEditScheduledAt("");
-    }
-  };
-
-  // =====================================================
-  // CANCEL EDIT
-  // =====================================================
-
-  const cancelEdit = () => {
-    setEditingPost(null);
-    setEditContent("");
-    setEditScheduledAt("");
-  };
-
-  // =====================================================
-  // UPDATE POST
-  // =====================================================
-
-  const updatePost = async (postId) => {
-    if (!editContent.trim()) {
-      alert("Post content cannot be empty");
-      return;
-    }
-
-    try {
-      let url =
-        `http://127.0.0.1:8000/posts/${postId}` +
-        `?content=${encodeURIComponent(editContent)}`;
-
-      if (editScheduledAt) {
-        url +=
-          `&scheduled_at=${encodeURIComponent(editScheduledAt)}`;
+  const filteredPosts = posts.filter(
+    (post) => {
+      if (filter === "all") {
+        return true;
       }
 
-      const response = await fetch(url, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.status === 401) {
-        localStorage.removeItem("access_token");
-        navigate("/login");
-        return;
-      }
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        alert(data.detail || "Failed to update post");
-        return;
-      }
-
-      alert(data.message || "Post updated successfully!");
-
-      cancelEdit();
-      fetchPosts();
-    } catch (error) {
-      console.error("Update post error:", error);
-      alert("Cannot connect to backend");
-    }
-  };
-
-  // =====================================================
-  // PUBLISH POST
-  // =====================================================
-
-  const publishPost = async (postId) => {
-    try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/posts/${postId}/publish`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      return (
+        String(post.status || "").toLowerCase() ===
+        filter.toLowerCase()
       );
-
-      if (response.status === 401) {
-        localStorage.removeItem("access_token");
-        navigate("/login");
-        return;
-      }
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        alert(data.detail || "Failed to publish post");
-        return;
-      }
-
-      alert(
-        data.message || "Post published successfully!"
-      );
-
-      fetchPosts();
-    } catch (error) {
-      console.error("Publish error:", error);
-      alert("Cannot connect to backend");
     }
+  );
+
+
+  // ============================================================
+  // EDIT POST
+  // ============================================================
+
+  const editPost = (post) => {
+    navigate("/create-post", {
+      state: {
+        editMode: true,
+        post: post,
+      },
+    });
   };
 
-  // =====================================================
+
+  // ============================================================
+  // SCHEDULE DRAFT
+  // ============================================================
+
+  const schedulePost = (post) => {
+    navigate("/create-post", {
+      state: {
+        scheduleMode: true,
+        post: post,
+      },
+    });
+  };
+
+
+  // ============================================================
   // DELETE POST
-  // =====================================================
+  // ============================================================
 
   const deletePost = async (postId) => {
-    const confirmDelete = window.confirm(
+    const confirmed = window.confirm(
       "Are you sure you want to delete this post?"
     );
 
-    if (!confirmDelete) {
+    if (!confirmed) {
+      return;
+    }
+
+    const currentToken =
+      localStorage.getItem("access_token");
+
+    if (!currentToken) {
+      navigate("/login");
       return;
     }
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/posts/${postId}`,
+        `${API_URL}/posts/${postId}`,
         {
           method: "DELETE",
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${currentToken}`,
           },
         }
       );
 
+
+      // --------------------------------------------------------
+      // UNAUTHORIZED
+      // --------------------------------------------------------
+
       if (response.status === 401) {
         localStorage.removeItem("access_token");
+        localStorage.removeItem("role");
+
         navigate("/login");
         return;
       }
 
-      const data = await response.json();
+
+      let data = {};
+
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
+      }
+
+
+      // --------------------------------------------------------
+      // DELETE FAILED
+      // --------------------------------------------------------
 
       if (!response.ok) {
-        alert(data.detail || "Failed to delete post");
+        alert(
+          data.detail ||
+            "Failed to delete post."
+        );
+
         return;
       }
 
-      alert(
-        data.message || "Post deleted successfully!"
+
+      // --------------------------------------------------------
+      // DELETE SUCCESS
+      // --------------------------------------------------------
+
+      alert("Post deleted successfully!");
+
+      setPosts((previousPosts) =>
+        previousPosts.filter(
+          (post) =>
+            post.id !== postId
+        )
       );
 
-      fetchPosts();
-    } catch (error) {
-      console.error("Delete post error:", error);
-      alert("Cannot connect to backend");
+    } catch (err) {
+      console.error(
+        "Delete post error:",
+        err
+      );
+
+      alert(
+        "Cannot connect to backend."
+      );
     }
   };
 
-  // =====================================================
-  // FILTER POSTS
-  // =====================================================
 
-  const filteredPosts =
-    filter === "all"
-      ? posts
-      : posts.filter(
-          (post) => post.status === filter
+  // ============================================================
+  // PUBLISH POST
+  // ============================================================
+
+  const publishPost = async (postId) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to publish this post now?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const currentToken =
+      localStorage.getItem("access_token");
+
+    if (!currentToken) {
+      navigate("/login");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_URL}/posts/${postId}/publish`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${currentToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+
+      // --------------------------------------------------------
+      // UNAUTHORIZED
+      // --------------------------------------------------------
+
+      if (response.status === 401) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("role");
+
+        navigate("/login");
+        return;
+      }
+
+
+      const data = await response.json();
+
+      console.log(
+        "Publish response:",
+        data
+      );
+
+
+      // --------------------------------------------------------
+      // PUBLISH FAILED
+      // --------------------------------------------------------
+
+      if (!response.ok) {
+        alert(
+          data.detail ||
+            "Failed to publish post."
         );
 
-  // =====================================================
-  // STATUS CLASS
-  // =====================================================
+        return;
+      }
 
-  const getStatusClass = (status) => {
-    switch (status) {
-      case "published":
-        return "status-published";
 
-      case "scheduled":
-        return "status-scheduled";
+      // --------------------------------------------------------
+      // PUBLISH SUCCESS
+      // --------------------------------------------------------
 
-      case "draft":
-        return "status-draft";
+      alert(
+        data.message ||
+          "Post published successfully!"
+      );
 
-      case "failed":
-        return "status-failed";
+      await fetchPosts();
 
-      default:
-        return "status-default";
+    } catch (err) {
+      console.error(
+        "Publish error:",
+        err
+      );
+
+      alert(
+        "Cannot connect to backend."
+      );
     }
   };
 
-  // =====================================================
-  // UI
-  // =====================================================
+
+  // ============================================================
+  // COUNTS
+  // ============================================================
+
+  const allCount = posts.length;
+
+  const draftCount = posts.filter(
+    (post) =>
+      String(post.status || "")
+        .toLowerCase() === "draft"
+  ).length;
+
+  const scheduledCount = posts.filter(
+    (post) =>
+      String(post.status || "")
+        .toLowerCase() === "scheduled"
+  ).length;
+
+  const publishedCount = posts.filter(
+    (post) =>
+      String(post.status || "")
+        .toLowerCase() === "published"
+  ).length;
+
+  const failedCount = posts.filter(
+    (post) =>
+      String(post.status || "")
+        .toLowerCase() === "failed"
+  ).length;
+
+
+  // ============================================================
+  // LOADING
+  // ============================================================
+
+  if (loading) {
+    return (
+      <div className="posts-loading">
+        <div className="posts-loading-icon">
+          📝
+        </div>
+
+        <h2>
+          Loading Posts...
+        </h2>
+
+        <p>
+          Please wait while we load your posts.
+        </p>
+      </div>
+    );
+  }
+
+
+  // ============================================================
+  // ERROR
+  // ============================================================
+
+  if (error) {
+    return (
+      <div className="posts-error-page">
+        <div className="posts-error-card">
+
+          <div className="posts-error-icon">
+            ⚠️
+          </div>
+
+          <h2>
+            Unable to Load Posts
+          </h2>
+
+          <p>
+            {error}
+          </p>
+
+          <div className="posts-error-buttons">
+
+            <button
+              onClick={fetchPosts}
+              className="posts-retry-button"
+            >
+              Try Again
+            </button>
+
+            <button
+              onClick={() =>
+                navigate("/dashboard")
+              }
+              className="posts-dashboard-button"
+            >
+              ← Dashboard
+            </button>
+
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+
+  // ============================================================
+  // MAIN PAGE
+  // ============================================================
 
   return (
     <div className="posts-page">
 
       <div className="posts-container">
 
-        {/* =================================================
+        {/* =====================================================
             HEADER
-        ================================================= */}
+        ===================================================== */}
 
-        <div className="posts-header">
+        <header className="posts-header">
 
           <div>
 
-            <div className="posts-logo">
-              🚀 SocialPilot
-            </div>
+            <p className="posts-welcome">
+              Content Management
+            </p>
 
-            <h1>My Posts</h1>
+            <h1>
+              My Posts
+            </h1>
 
-            <p>
-              Create, manage and monitor your
-              social media posts.
+            <p className="posts-subtitle">
+              Create, schedule and manage your social media posts.
             </p>
 
           </div>
 
-          <button
-            className="dashboard-button"
-            onClick={() =>
-              navigate("/dashboard")
-            }
-          >
-            ← Dashboard
-          </button>
 
-        </div>
+          <div className="posts-header-actions">
 
+            <button
+              className="posts-calendar-button"
+              onClick={() =>
+                navigate("/calendar")
+              }
+            >
+              📅 Calendar
+            </button>
 
-        {/* =================================================
-            CREATE POST
-        ================================================= */}
+            <button
+              className="posts-create-button"
+              onClick={() =>
+                navigate("/create-post")
+              }
+            >
+              + Create Post
+            </button>
 
-        <div className="posts-top-actions">
+          </div>
 
-          <button
-            className="create-post-button"
-            onClick={() =>
-              navigate("/create-post")
-            }
-          >
-            + Create Post
-          </button>
-
-        </div>
+        </header>
 
 
-        {/* =================================================
-            FILTERS
-        ================================================= */}
+        {/* =====================================================
+            STATISTICS
+        ===================================================== */}
 
-        <div className="posts-filters">
+        <section className="posts-stats">
 
           <button
-            className={
+            className={`posts-stat-card ${
               filter === "all"
-                ? "filter-button active"
-                : "filter-button"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              setFilter("all")
             }
-            onClick={() => setFilter("all")}
           >
-            All
-            <span>{posts.length}</span>
+            <span className="posts-stat-icon">
+              📝
+            </span>
+
+            <span className="posts-stat-label">
+              All Posts
+            </span>
+
+            <strong className="posts-stat-number">
+              {allCount}
+            </strong>
           </button>
 
 
           <button
-            className={
+            className={`posts-stat-card ${
               filter === "draft"
-                ? "filter-button active"
-                : "filter-button"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              setFilter("draft")
             }
-            onClick={() => setFilter("draft")}
           >
-            Draft
-            <span>
-              {
-                posts.filter(
-                  (p) => p.status === "draft"
-                ).length
-              }
+            <span className="posts-stat-icon">
+              📄
             </span>
+
+            <span className="posts-stat-label">
+              Drafts
+            </span>
+
+            <strong className="posts-stat-number">
+              {draftCount}
+            </strong>
           </button>
 
 
           <button
-            className={
+            className={`posts-stat-card ${
               filter === "scheduled"
-                ? "filter-button active"
-                : "filter-button"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              setFilter("scheduled")
             }
-            onClick={() => setFilter("scheduled")}
           >
-            Scheduled
-            <span>
-              {
-                posts.filter(
-                  (p) => p.status === "scheduled"
-                ).length
-              }
+            <span className="posts-stat-icon">
+              📅
             </span>
+
+            <span className="posts-stat-label">
+              Scheduled
+            </span>
+
+            <strong className="posts-stat-number">
+              {scheduledCount}
+            </strong>
           </button>
 
 
           <button
-            className={
+            className={`posts-stat-card ${
               filter === "published"
-                ? "filter-button active"
-                : "filter-button"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              setFilter("published")
             }
-            onClick={() => setFilter("published")}
           >
-            Published
-            <span>
-              {
-                posts.filter(
-                  (p) => p.status === "published"
-                ).length
-              }
+            <span className="posts-stat-icon">
+              ✅
             </span>
+
+            <span className="posts-stat-label">
+              Published
+            </span>
+
+            <strong className="posts-stat-number">
+              {publishedCount}
+            </strong>
           </button>
 
 
           <button
-            className={
+            className={`posts-stat-card ${
               filter === "failed"
-                ? "filter-button active"
-                : "filter-button"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              setFilter("failed")
             }
-            onClick={() => setFilter("failed")}
           >
-            Failed
-            <span>
-              {
-                posts.filter(
-                  (p) => p.status === "failed"
-                ).length
-              }
+            <span className="posts-stat-icon">
+              ❌
             </span>
+
+            <span className="posts-stat-label">
+              Failed
+            </span>
+
+            <strong className="posts-stat-number">
+              {failedCount}
+            </strong>
           </button>
 
-        </div>
+        </section>
 
 
-        {/* =================================================
-            POSTS LIST
-        ================================================= */}
+        {/* =====================================================
+            FILTER BAR
+        ===================================================== */}
 
-        <div className="posts-list">
+        <section className="posts-filter-section">
 
-          {filteredPosts.length === 0 ? (
+          <div className="posts-filter-title">
+            <h2>
+              {filter === "all"
+                ? "All Posts"
+                : `${getStatusLabel(filter)} Posts`}
+            </h2>
 
-            <div className="empty-posts">
+            <span>
+              {filteredPosts.length} post
+              {filteredPosts.length !== 1
+                ? "s"
+                : ""}
+            </span>
+          </div>
 
-              <div className="empty-icon">
-                📝
-              </div>
 
-              <h2>
-                No posts available
-              </h2>
+          <div className="posts-filter-buttons">
 
-              <p>
-                You don't have any posts in
-                this category yet.
-              </p>
+            <button
+              className={
+                filter === "all"
+                  ? "active"
+                  : ""
+              }
+              onClick={() =>
+                setFilter("all")
+              }
+            >
+              All
+            </button>
 
-              <button
-                className="create-post-button"
-                onClick={() =>
-                  navigate("/create-post")
-                }
-              >
-                + Create Your First Post
-              </button>
+            <button
+              className={
+                filter === "draft"
+                  ? "active"
+                  : ""
+              }
+              onClick={() =>
+                setFilter("draft")
+              }
+            >
+              Draft
+            </button>
 
+            <button
+              className={
+                filter === "scheduled"
+                  ? "active"
+                  : ""
+              }
+              onClick={() =>
+                setFilter("scheduled")
+              }
+            >
+              Scheduled
+            </button>
+
+            <button
+              className={
+                filter === "published"
+                  ? "active"
+                  : ""
+              }
+              onClick={() =>
+                setFilter("published")
+              }
+            >
+              Published
+            </button>
+
+            <button
+              className={
+                filter === "failed"
+                  ? "active"
+                  : ""
+              }
+              onClick={() =>
+                setFilter("failed")
+              }
+            >
+              Failed
+            </button>
+
+          </div>
+
+        </section>
+
+
+        {/* =====================================================
+            EMPTY STATE
+        ===================================================== */}
+
+        {filteredPosts.length === 0 ? (
+
+          <div className="posts-empty">
+
+            <div className="posts-empty-icon">
+              📝
             </div>
 
-          ) : (
+            <h2>
+              No Posts Found
+            </h2>
 
-            filteredPosts.map(
-              (post, index) => (
+            <p>
+              {filter === "all"
+                ? "You have not created any posts yet."
+                : `You do not have any ${filter} posts.`}
+            </p>
 
-                <div
-                  className="post-card"
-                  key={post.id}
-                >
+            <button
+              className="posts-empty-button"
+              onClick={() =>
+                navigate("/create-post")
+              }
+            >
+              + Create Your First Post
+            </button>
 
-                  {/* =================================================
-                      EDIT MODE
-                  ================================================= */}
+          </div>
 
-                  {editingPost === post.id ? (
+        ) : (
 
-                    <div className="edit-post">
+          /* ===================================================
+             POSTS LIST
+          =================================================== */
 
-                      <div className="edit-header">
+          <section className="posts-list">
 
-                        <h2>
-                          Edit Post #{index + 1}
-                        </h2>
+            {filteredPosts.map(
+              (post) => {
 
-                      </div>
+                const status =
+                  String(
+                    post.status || ""
+                  ).toLowerCase();
 
+                return (
 
-                      {/* CONTENT */}
+                  <article
+                    className="post-card"
+                    key={post.id}
+                  >
 
-                      <div className="post-form-group">
+                    {/* =========================================
+                        CARD HEADER
+                    ========================================= */}
 
-                        <label>
-                          Post Content
-                        </label>
+                    <div className="post-card-header">
 
-                        <textarea
-                          value={editContent}
-                          onChange={(e) =>
-                            setEditContent(
-                              e.target.value
-                            )
-                          }
-                          rows="6"
-                        />
+                      <div className="post-card-platform">
 
-                        <div className="character-count">
-                          {editContent.length} characters
-                        </div>
-
-                      </div>
-
-
-                      {/* SCHEDULE */}
-
-                      <div className="post-form-group">
-
-                        <label>
-                          Schedule Date & Time
-                        </label>
-
-                        <input
-                          type="datetime-local"
-                          value={editScheduledAt}
-                          onChange={(e) =>
-                            setEditScheduledAt(
-                              e.target.value
-                            )
-                          }
-                        />
-
-                      </div>
-
-
-                      {/* EDIT ACTIONS */}
-
-                      <div className="edit-actions">
-
-                        <button
-                          className="save-button"
-                          onClick={() =>
-                            updatePost(post.id)
-                          }
-                        >
-                          Save Changes
-                        </button>
-
-                        <button
-                          className="cancel-button"
-                          onClick={cancelEdit}
-                        >
-                          Cancel
-                        </button>
-
-                      </div>
-
-                    </div>
-
-                  ) : (
-
-                    /* =================================================
-                       NORMAL POST
-                    ================================================= */
-
-                    <>
-
-                      <div className="post-card-header">
+                        <span className="post-platform-icon">
+                          {getPlatformIcon(
+                            post.platform
+                          )}
+                        </span>
 
                         <div>
 
-                          {/* IMPORTANT:
-                              Display user's post number,
-                              NOT database ID
-                          */}
+                          <strong>
+                            {post.platform ||
+                              post.social_account?.platform ||
+                              "Social Media"}
+                          </strong>
 
-                          <h2>
-                            Post #{index + 1}
-                          </h2>
-
-                          <p className="post-account">
-
-                            <strong>
-                              Social Account:
-                            </strong>{" "}
-
-                            {post.platform &&
-                            post.username
-                              ? `${post.platform} - ${post.username}`
-                              : post.social_account_id
-                              ? `Account ID: ${post.social_account_id}`
-                              : "Account disconnected"}
-
-                          </p>
+                          {post.username && (
+                            <small>
+                              @{post.username}
+                            </small>
+                          )}
 
                         </div>
 
+                      </div>
 
-                        <span
-                          className={
-                            `post-status ` +
-                            getStatusClass(
-                              post.status
-                            )
-                          }
-                        >
-                          {post.status}
+
+                      <span
+                        className={`post-status ${getStatusClass(
+                          status
+                        )}`}
+                      >
+                        {getStatusLabel(status)}
+                      </span>
+
+                    </div>
+
+
+                    {/* =========================================
+                        CONTENT
+                    ========================================= */}
+
+                    <div className="post-card-content">
+
+                      <p>
+                        {post.content}
+                      </p>
+
+                    </div>
+
+
+                    {/* =========================================
+                        POST INFORMATION
+                    ========================================= */}
+
+                    <div className="post-card-info">
+
+                      <div className="post-info-item">
+
+                        <span>
+                          🆔
                         </span>
 
-                      </div>
+                        <div>
+                          <small>
+                            Post ID
+                          </small>
 
-
-                      {/* =================================================
-                          CONTENT
-                      ================================================= */}
-
-                      <div className="post-content">
-
-                        <div className="content-label">
-                          Content
+                          <strong>
+                            #{post.id}
+                          </strong>
                         </div>
 
-                        <p>
-                          {post.content}
-                        </p>
-
                       </div>
 
-
-                      {/* =================================================
-                          SCHEDULED DATE
-                      ================================================= */}
 
                       {post.scheduled_at && (
 
-                        <div className="scheduled-info">
+                        <div className="post-info-item">
 
                           <span>
                             📅
                           </span>
 
                           <div>
+                            <small>
+                              Scheduled Time
+                            </small>
 
                             <strong>
-                              Scheduled At
-                            </strong>
-
-                            <p>
-                              {new Date(
+                              {formatIndianDateTime(
                                 post.scheduled_at
-                              ).toLocaleString()}
-                            </p>
-
+                              )}
+                            </strong>
                           </div>
 
                         </div>
@@ -661,81 +1094,161 @@ function Posts() {
                       )}
 
 
-                      {/* =================================================
-                          ACTIONS
-                      ================================================= */}
+                      {!post.scheduled_at &&
+                        post.created_at && (
 
-                      <div className="post-actions">
+                          <div className="post-info-item">
+
+                            <span>
+                              🕒
+                            </span>
+
+                            <div>
+                              <small>
+                                Created
+                              </small>
+
+                              <strong>
+                                {formatIndianDate(
+                                  post.created_at
+                                )}
+                              </strong>
+                            </div>
+
+                          </div>
+
+                        )}
+
+
+                      {post.is_recurring && (
+
+                        <div className="post-info-item">
+
+                          <span>
+                            🔄
+                          </span>
+
+                          <div>
+                            <small>
+                              Recurring
+                            </small>
+
+                            <strong>
+                              {post.recurrence_type
+                                ? getStatusLabel(
+                                    post.recurrence_type
+                                  )
+                                : "Recurring"}
+                            </strong>
+                          </div>
+
+                        </div>
+
+                      )}
+
+                    </div>
+
+
+                    {/* =========================================
+                        ACTIONS
+                    ========================================= */}
+
+                    <div className="post-card-actions">
+
+                      {/* EDIT */}
+
+                      {(status === "draft" ||
+                        status === "scheduled") && (
 
                         <button
-                          className="edit-button"
+                          className="post-edit-button"
                           onClick={() =>
-                            startEdit(post)
+                            editPost(post)
                           }
                         >
                           ✏️ Edit
                         </button>
 
+                      )}
 
-                        {post.status !==
-                          "published" && (
 
-                          <button
-                            className="publish-button"
-                            onClick={() =>
-                              publishPost(
-                                post.id
-                              )
-                            }
-                          >
-                            🚀 Publish
-                          </button>
+                      {/* SCHEDULE DRAFT */}
 
-                        )}
-
+                      {status === "draft" && (
 
                         <button
-                          className="delete-button"
+                          className="post-schedule-button"
                           onClick={() =>
-                            deletePost(
-                              post.id
-                            )
+                            schedulePost(post)
                           }
                         >
-                          🗑 Delete
+                          📅 Schedule
                         </button>
 
-                      </div>
-
-                    </>
-
-                  )}
-
-                </div>
-
-              )
-            )
-
-          )}
-
-        </div>
+                      )}
 
 
-        {/* =================================================
+                      {/* PUBLISH */}
+
+                      {(status === "draft" ||
+                        status === "scheduled") && (
+
+                        <button
+                          className="post-publish-button"
+                          onClick={() =>
+                            publishPost(post.id)
+                          }
+                        >
+                          🚀 Publish
+                        </button>
+
+                      )}
+
+
+                      {/* DELETE */}
+
+                      <button
+                        className="post-delete-button"
+                        onClick={() =>
+                          deletePost(post.id)
+                        }
+                      >
+                        🗑️ Delete
+                      </button>
+
+                    </div>
+
+                  </article>
+
+                );
+              }
+            )}
+
+          </section>
+
+        )}
+
+
+        {/* =====================================================
             FOOTER
-        ================================================= */}
+        ===================================================== */}
 
-        <div className="posts-footer">
+        <footer className="posts-footer">
 
           <button
             onClick={() =>
               navigate("/dashboard")
             }
           >
-            📊 Back to Dashboard
+            ← Back to Dashboard
           </button>
 
-        </div>
+          <span>
+            Showing {filteredPosts.length} of{" "}
+            {posts.length} posts
+          </span>
+
+        </footer>
 
       </div>
 
