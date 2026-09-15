@@ -62,3 +62,5 @@ tempCodeRunnerFile.py
 # Database
 *.sqlite
 *.sqlite3
+
+uploads/
