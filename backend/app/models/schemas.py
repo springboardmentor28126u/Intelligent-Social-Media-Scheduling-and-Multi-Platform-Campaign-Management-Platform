@@ -140,3 +140,82 @@ class SocialAccountPublic(BaseModel):
     platform_username: str
     is_mocked: bool
     connected_at: datetime
+
+    # ---------------------------------------------------------------------------
+# POST TEMPLATES
+# ---------------------------------------------------------------------------
+
+class PostStatus(str, Enum):
+    DRAFT = "draft"
+    SCHEDULED = "scheduled"
+    PUBLISHED = "published"
+    FAILED = "failed"
+    # New for Milestone 2 — matches the brief's original list
+    CANCELLED = "cancelled"
+    PENDING_APPROVAL = "pending_approval"
+
+class PostCreate(BaseModel):
+    post_type: str = Field(..., min_length=2, max_length=50)
+    platforms: list[SocialPlatform] = Field(default_factory=list)
+    content: str = Field(..., min_length=1, max_length=10000)
+    scheduled_at: Optional[datetime] = None
+    status: PostStatus
+    # New: link a post to a campaign (optional — not every post belongs to one)
+    campaign_id: Optional[str] = None
+    # New: recurring post support
+    is_recurring: bool = False
+    # e.g. "daily", "weekly" — kept as a plain string for now, simplest
+    # option until Milestone 3's campaign/recurrence logic is fleshed out
+    recurrence_rule: Optional[str] = None
+
+# New: used for the PATCH /posts/{post_id} edit endpoint (Step 4).
+# Every field is Optional because an edit might only change one thing —
+# e.g. just the content, or just the scheduled_at time.
+class PostUpdate(BaseModel):
+    post_type: Optional[str] = Field(None, min_length=2, max_length=50)
+    platforms: Optional[list[SocialPlatform]] = None
+    content: Optional[str] = Field(None, min_length=1, max_length=10000)
+    scheduled_at: Optional[datetime] = None
+    status: Optional[PostStatus] = None
+    campaign_id: Optional[str] = None
+    is_recurring: Optional[bool] = None
+    recurrence_rule: Optional[str] = None
+
+class PostInDB(BaseModel):
+    id: str = Field(default_factory=generate_uuid)
+    user_id: str
+    post_type: str
+    platforms: list[SocialPlatform] = Field(default_factory=list)
+    content: str
+    scheduled_at: Optional[datetime] = None
+    status: PostStatus
+    campaign_id: Optional[str] = None
+    is_recurring: bool = False
+    recurrence_rule: Optional[str] = None
+    retry_count: int = 0
+    published_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PostPublic(BaseModel):
+    id: str
+    post_type: str
+    platforms: list[SocialPlatform]
+    content: str
+    scheduled_at: Optional[datetime]
+    status: PostStatus
+    campaign_id: Optional[str]
+    is_recurring: bool
+    recurrence_rule: Optional[str]
+    retry_count: int
+    published_at: Optional[datetime]
+    created_at: datetime
+    updated_at: datetime
+
+# New: shape of a single publishing attempt log entry (Step 6)
+class PublishingLogPublic(BaseModel):
+    id: str
+    post_id: str
+    status: str
+    message: Optional[str]
+    timestamp: datetime

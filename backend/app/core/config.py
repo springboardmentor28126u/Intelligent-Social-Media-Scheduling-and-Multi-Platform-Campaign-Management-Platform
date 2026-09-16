@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
 
+    # New: the shared Supabase Postgres connection string. Posts and
+    # publishing data will live here instead of MongoDB. Auth (MONGODB_URL
+    # above) is untouched and keeps working exactly as before.
+    DATABASE_URL: str
+
 # We create ONE instance of Settings here, so the rest of the app can just
 # do: `from app.core.config import settings` and use `settings.MONGODB_URL`
 # — instead of every file re-reading the .env file separately.

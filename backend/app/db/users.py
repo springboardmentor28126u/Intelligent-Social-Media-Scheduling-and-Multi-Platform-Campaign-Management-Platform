@@ -49,11 +49,14 @@ async def create_user(user: UserInDB) -> dict:
 
 async def get_all_users() -> list[dict]:
     """
-    Fetches every user document in the 'users' collection.
-    Used by the Administrator-only 'list all users' route (team
-    management). find({}) with empty {} means "no filter — get everyone,"
-    and to_list(length=None) means "don't cap how many you return."
+    Fetch every user document from the users collection.
     """
+
     cursor = users_collection.find({})
-    all_users = await cursor.to_list(length=None)
+
+    all_users = []
+
+    async for user in cursor:
+        all_users.append(user)
+
     return all_users

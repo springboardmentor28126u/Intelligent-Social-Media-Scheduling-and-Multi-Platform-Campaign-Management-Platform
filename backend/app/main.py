@@ -7,11 +7,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.db.database import ping_database
 from app.api.auth import router as auth_router
+from app.api.posts import router as posts_router
+# Add this import near your other imports:
+import asyncio
+from app.services.publisher import run_publisher_loop
 
 # This creates the actual FastAPI application object — everything else
 # (routes, middleware, startup checks) attaches to this one object.
 app = FastAPI(title="SocialPilot API")
+# Add this near the top, after `app = FastAPI(...)`:
+publisher_task: asyncio.Task | None = None
 app.include_router(auth_router)
+app.include_router(posts_router)
 
 # --- CORS setup ---
 # By default, browsers block a webpage running on one address from talking
@@ -29,27 +36,24 @@ app.add_middleware(
 )
 
 
+# Replace your existing startup_check function with this (same Mongo
+# check as before, PLUS starting the background publisher):
 @app.on_event("startup")
 async def startup_check():
-    """
-    This runs ONCE, automatically, the moment the backend starts up.
-    It "knocks on the door" of MongoDB Atlas to confirm the connection
-    actually works — so if something's wrong (bad password, wrong IP
-    not whitelisted, etc.), we see an error immediately in the terminal
-    instead of the app silently pretending everything's fine.
-    """
     is_connected = await ping_database()
     if is_connected:
         print("✅ Successfully connected to MongoDB Atlas!")
     else:
         print("❌ Failed to connect to MongoDB Atlas — check your .env file.")
 
+    global publisher_task
+    publisher_task = asyncio.create_task(run_publisher_loop())
+    print("📤 Publisher background loop started.")
 
-@app.get("/")
-def read_root():
-    """
-    A basic 'health check' route. If you visit this in a browser and see
-    a response, it confirms the backend itself is alive and responding —
-    separate from whether the database connection worked.
-    """
-    return {"status": "SocialPilot backend is running"}
+
+# Add this new event, anywhere below startup_check:
+@app.on_event("shutdown")
+async def shutdown_publisher():
+    if publisher_task:
+        publisher_task.cancel()
+        print("🛑 Publisher background loop stopped.")
