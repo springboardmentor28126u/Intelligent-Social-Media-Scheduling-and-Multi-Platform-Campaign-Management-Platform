@@ -205,6 +205,8 @@ function App() {
     setLoading(true);
 
     try {
+      console.log("LOGIN EMAIL:", email);
+      console.log("LOGIN PASSWORD:", password);
       const response = await fetch(
         `${API_BASE}/users/login`,
         {
@@ -218,6 +220,7 @@ function App() {
           }),
         }
       );
+
 
       const data = await readResponse(response);
 
