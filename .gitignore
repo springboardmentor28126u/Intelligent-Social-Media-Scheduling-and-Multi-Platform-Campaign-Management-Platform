@@ -21,3 +21,44 @@ pnpm-debug.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.cache/
+.hypothesis/
+
+# Build / distribution
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+wheels/
+
+# Logs
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Type checking / linting
+.mypy_cache/
+.dmypy.json
+.ruff_cache/
+
+# Temporary files
+tempCodeRunnerFile.py
+
+# Database
+*.sqlite
+*.sqlite3
+
+uploads/
+# Python cache
+__pycache__/
+*.py[cod]

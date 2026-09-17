@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import DateTime, Enum as SQLEnum, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
 
@@ -18,41 +18,55 @@ class User(Base):
     id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
-        index=True
+        index=True,
     )
 
     name: Mapped[str] = mapped_column(
         String(100),
-        nullable=False
+        nullable=False,
     )
 
     email: Mapped[str] = mapped_column(
         String(255),
         unique=True,
         index=True,
-        nullable=False
+        nullable=False,
     )
 
     password_hash: Mapped[str] = mapped_column(
         String(255),
-        nullable=False
+        nullable=False,
     )
 
     system_role: Mapped[SystemRole] = mapped_column(
         SQLEnum(SystemRole, name="system_role"),
         nullable=False,
-        default=SystemRole.USER
+        default=SystemRole.USER,
     )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
-        nullable=False
+        nullable=False,
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
-        nullable=False
+        nullable=False,
+    )
+
+    # Relationship with Social Accounts
+    social_accounts: Mapped[list["SocialAccount"]] = relationship(
+        "SocialAccount",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    # Relationship with Posts
+    posts: Mapped[list["Post"]] = relationship(
+        "Post",
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
