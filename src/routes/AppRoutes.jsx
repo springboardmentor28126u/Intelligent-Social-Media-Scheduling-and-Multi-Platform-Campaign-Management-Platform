@@ -6,6 +6,11 @@ import LoginPage from "../pages/LoginPage";
 import ProfilePage from "../pages/ProfilePage";
 import UpdateProfilePage from "../pages/UpdateProfilePage";
 import DashboardPage from "../pages/DashboardPage";
+import AdminDashboardPage from "../pages/AdminDashboardPage";
+import AdminUsersPage from "../pages/AdminUsersPage";
+import CreatePostPage from "../pages/CreatePostPage";
+import CalendarPage from "../pages/CalendarPage";
+import SocialAccountsPage from "../pages/SocialAccountsPage";
 
 export default function AppRoutes() {
   return (
@@ -24,6 +29,21 @@ export default function AppRoutes() {
         path="/profile/update"
         element={<UpdateProfilePage />}
       />
+      <Route
+         path="/admin/dashboard"
+         element={<AdminDashboardPage />}
+       />
+      <Route
+         path="/admin/users"
+         element={<AdminUsersPage />}
+       />
+       <Route
+         path="/create-post"
+         element={<CreatePostPage />}
+       />
+       <Route path="/calendar" element={<CalendarPage />} />
+       <Route path="/social-accounts" element={<SocialAccountsPage />} />
     </Routes>
-  );
+             
+      );
 }

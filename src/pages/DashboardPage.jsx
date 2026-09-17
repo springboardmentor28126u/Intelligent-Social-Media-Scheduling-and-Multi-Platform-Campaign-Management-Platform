@@ -1,67 +1,156 @@
-
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../services/api";
 import "./DashboardPage.css";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
 
-  const recentPosts = [
-    {
-      title: "Weekly Tips: 5 Ways to Boost Engagement",
-      date: "Aug 26, 4:30 PM",
-      platforms: ["Instagram", "LinkedIn"],
-      status: "Scheduled",
-    },
-    {
-      title: "Product Feature Spotlight: Analytics Dashboard",
-      date: "Aug 27, 8:30 PM",
-      platforms: ["X (Twitter)", "LinkedIn"],
-      status: "Scheduled",
-    },
-    {
-      title: "Community Spotlight: Top Creators",
-      date: "Aug 28, 5:30 PM",
-      platforms: ["Instagram", "Facebook"],
-      status: "Scheduled",
-    },
-    {
-      title: "Draft: September Newsletter",
-      date: "Aug 25",
-      platforms: ["Facebook", "LinkedIn"],
-      status: "Draft",
-    },
-    {
-      title: "Webinar Announcement: Social Media Masterclass",
-      date: "Aug 15, 9:30 PM",
-      platforms: ["Instagram", "Facebook"],
-      status: "Failed",
-    },
-    {
-      title: "Partnership Announcement",
-      date: "Aug 29, 3:30 PM",
-      platforms: ["X (Twitter)", "LinkedIn"],
-      status: "Pending",
-    },
-  ];
+  const [posts, setPosts] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const activeCampaigns = [
-    {
-      name: "Summer Product Launch",
-      dates: "Aug 1 – Aug 31, 2026",
-      progress: "57%",
-    },
-    {
-      name: "Customer Stories Q3",
-      dates: "Jul 15 – Sep 15, 2026",
-      progress: "63%",
-    },
-  ];
+  useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+        const [postsResponse, accountsResponse] = await Promise.all([
+          api.get("/posts"),
+          api.get("/social-accounts/"),
+        ]);
+
+        setPosts(
+          Array.isArray(postsResponse.data)
+            ? postsResponse.data
+            : postsResponse.data.posts || []
+        );
+
+        setAccounts(
+          Array.isArray(accountsResponse.data)
+            ? accountsResponse.data
+            : []
+        );
+      } catch (error) {
+        console.error("Failed to load dashboard:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboard();
+  }, []);
+
+  const getPostStatus = (post) => {
+    return String(post.status || "draft").toLowerCase();
+  };
+
+  const scheduledCount = posts.filter(
+    (post) => getPostStatus(post) === "scheduled"
+  ).length;
+
+  const publishedCount = posts.filter(
+    (post) => getPostStatus(post) === "published"
+  ).length;
+
+  const failedCount = posts.filter(
+    (post) => getPostStatus(post) === "failed"
+  ).length;
+
+  const connectedAccounts = accounts.filter(
+    (account) =>
+      account.is_active === true &&
+      String(account.status || "").toLowerCase() === "connected"
+  ).length;
+
+  const formatDate = (dateValue) => {
+    if (!dateValue) return "No date";
+
+    const date = new Date(dateValue);
+
+    if (Number.isNaN(date.getTime())) {
+      return String(dateValue);
+    }
+
+    return date.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
+  const formatPlatform = (platform) => {
+    if (!platform) return "Unknown";
+
+    const value = String(platform).toLowerCase();
+
+    if (value === "twitter" || value === "x") {
+      return "X (Twitter)";
+    }
+
+    return (
+      String(platform).charAt(0).toUpperCase() +
+      String(platform).slice(1)
+    );
+  };
+
+  const getPlatforms = (post) => {
+    if (Array.isArray(post.social_accounts)) {
+      return post.social_accounts.map(
+        (account) => account.platform || account
+      );
+    }
+
+    if (Array.isArray(post.platforms)) {
+      return post.platforms;
+    }
+
+    if (post.platform) {
+      return [post.platform];
+    }
+
+    return [];
+  };
+
+  const recentPosts = [...posts]
+    .sort((a, b) => {
+      const dateA = new Date(
+        a.created_at || a.scheduled_at || 0
+      ).getTime();
+
+      const dateB = new Date(
+        b.created_at || b.scheduled_at || 0
+      ).getTime();
+
+      return dateB - dateA;
+    })
+    .slice(0, 6);
+
+  const upcomingPosts = [...posts]
+    .filter(
+      (post) => getPostStatus(post) === "scheduled"
+    )
+    .sort((a, b) => {
+      return (
+        new Date(a.scheduled_at || 0).getTime() -
+        new Date(b.scheduled_at || 0).getTime()
+      );
+    })
+    .slice(0, 5);
+
+  const getStatusLabel = (status) => {
+    if (!status) return "Draft";
+
+    return (
+      String(status).charAt(0).toUpperCase() +
+      String(status).slice(1)
+    );
+  };
 
   return (
     <div className="dashboard-container">
 
       {/* ================= SIDEBAR ================= */}
+
       <aside className="sidebar">
 
         <div className="brand">
@@ -81,15 +170,15 @@ const DashboardPage = () => {
 
           <button
             className="nav-item"
-            onClick={() => alert("Create Post page coming soon")}
+            onClick={() => navigate("/create-post")}
           >
-            <span>✏️</span>
+            <span>✍️</span>
             Create Post
           </button>
 
           <button
             className="nav-item"
-            onClick={() => alert("Calendar page coming soon")}
+            onClick={() => navigate("/calendar")}
           >
             <span>📅</span>
             Calendar
@@ -113,7 +202,7 @@ const DashboardPage = () => {
 
           <button
             className="nav-item"
-            onClick={() => alert("Accounts page coming soon")}
+            onClick={() => navigate("/social-accounts")}
           >
             <span>👥</span>
             Accounts
@@ -135,7 +224,6 @@ const DashboardPage = () => {
             Team
           </button>
 
-          {/* PROFILE */}
           <button
             className="nav-item"
             onClick={() => navigate("/profile")}
@@ -147,17 +235,26 @@ const DashboardPage = () => {
         </nav>
 
         {/* ================= SIDEBAR FOOTER ================= */}
+
         <div className="sidebar-footer">
 
           <div className="user-profile">
-            <div className="avatar">K</div>
+
+            <div className="avatar">
+              H
+            </div>
 
             <div className="user-info">
-              <span className="user-name">Himaja</span>
-              <span className="user-role">Admin</span>
+              <span className="user-name">
+                Himaja
+              </span>
+
+              <span className="user-role">
+                Admin
+              </span>
             </div>
+
           </div>
-          
 
           <button
             className="logout-btn"
@@ -174,22 +271,26 @@ const DashboardPage = () => {
       </aside>
 
       {/* ================= MAIN CONTENT ================= */}
+
       <main className="main-content">
 
-        {/* HEADER */}
+        {/* ================= HEADER ================= */}
+
         <header className="dash-header">
 
           <div>
-            <h1>Admin Dashboard</h1>
+            <h1>
+              Admin Dashboard
+            </h1>
 
             <p className="subtitle">
-              Full control over your workspace. Tuesday, August 25, 2026
+              Full control over your workspace.
             </p>
           </div>
 
           <button
             className="action-btn"
-            onClick={() => alert("Create Post page coming soon")}
+            onClick={() => navigate("/create-post")}
           >
             + Create Post
           </button>
@@ -197,67 +298,79 @@ const DashboardPage = () => {
         </header>
 
         {/* ================= WELCOME BANNER ================= */}
+
         <div className="welcome-banner">
 
-          <span className="sparkle-icon">✨</span>
+          <span className="sparkle-icon">
+            ✨
+          </span>
 
           <div>
-            <h3>Welcome back, Himaja!</h3>
-            <p>Your admin workspace is ready.</p>
+            <h3>
+              Welcome back, Himaja!
+            </h3>
+
+            <p>
+              Your admin workspace is ready.
+            </p>
           </div>
 
         </div>
 
         {/* ================= ACTION GRID ================= */}
+
         <div className="action-grid">
 
           <div
             className="action-card"
-            onClick={() => alert("Create Post page coming soon")}
+            onClick={() => navigate("/create-post")}
           >
-            <span>✏️</span>
+            <span>✍️</span>
             Create Post
           </div>
 
           <div
             className="action-card"
-            onClick={() => alert("Campaigns page coming soon")}
+            onClick={() => navigate("/calendar")}
           >
-            <span>📢</span>
-            Campaigns
+            <span>📅</span>
+            Calendar
           </div>
 
           <div
             className="action-card"
-            onClick={() => alert("Analytics page coming soon")}
+            onClick={() => navigate("/social-accounts")}
           >
-            <span>📈</span>
-            Analytics
+            <span>👥</span>
+            Social Accounts
           </div>
 
           <div
             className="action-card"
-            onClick={() => alert("Manage Team page coming soon")}
+            onClick={() => navigate("/profile")}
           >
-            <span>🛡️</span>
-            Manage Team
+            <span>👤</span>
+            Profile
           </div>
 
         </div>
 
         {/* ================= METRICS GRID ================= */}
+
         <div className="metrics-grid">
 
           <div className="metric-card">
 
             <div className="metric-info">
+
               <span className="metric-title">
                 SCHEDULED POSTS
               </span>
 
               <span className="metric-value">
-                3
+                {loading ? "..." : scheduledCount}
               </span>
+
             </div>
 
             <div className="metric-icon">
@@ -269,13 +382,15 @@ const DashboardPage = () => {
           <div className="metric-card">
 
             <div className="metric-info">
+
               <span className="metric-title">
                 PUBLISHED
               </span>
 
               <span className="metric-value">
-                3
+                {loading ? "..." : publishedCount}
               </span>
+
             </div>
 
             <div className="metric-icon">
@@ -287,17 +402,19 @@ const DashboardPage = () => {
           <div className="metric-card">
 
             <div className="metric-info">
+
               <span className="metric-title">
-                ACTIVE CAMPAIGNS
+                FAILED
               </span>
 
               <span className="metric-value">
-                2
+                {loading ? "..." : failedCount}
               </span>
+
             </div>
 
             <div className="metric-icon">
-              📢
+              ⚠
             </div>
 
           </div>
@@ -305,13 +422,15 @@ const DashboardPage = () => {
           <div className="metric-card">
 
             <div className="metric-info">
+
               <span className="metric-title">
                 CONNECTED ACCOUNTS
               </span>
 
               <span className="metric-value">
-                5
+                {loading ? "..." : connectedAccounts}
               </span>
+
             </div>
 
             <div className="metric-icon">
@@ -323,142 +442,204 @@ const DashboardPage = () => {
         </div>
 
         {/* ================= RECENT POSTS ================= */}
+
         <section className="section-block">
 
           <div className="section-header">
 
-            <h2>Recent Posts</h2>
+            <h2>
+              Recent Posts
+            </h2>
 
-            <a
-              href="#view-all"
+            <button
               className="link-btn"
+              onClick={() => navigate("/calendar")}
             >
-              View all ↗
-            </a>
+              View calendar →
+            </button>
 
           </div>
 
           <div className="posts-list">
 
-            {recentPosts.map((post, idx) => (
+            {loading ? (
 
-              <div
-                className="post-item"
-                key={idx}
-              >
-
-                <div className="post-details">
-
-                  <h4>
-                    {post.title}
-                  </h4>
-
-                  <span className="post-date">
-                    {post.date}
-                  </span>
-
-                </div>
-
-                <div className="post-meta">
-
-                  <div className="tags">
-
-                    {post.platforms.map((platform, index) => (
-
-                      <span
-                        className="tag-platform"
-                        key={index}
-                      >
-                        {platform}
-                      </span>
-
-                    ))}
-
-                  </div>
-
-                  <span
-                    className={`status-badge ${post.status.toLowerCase()}`}
-                  >
-                    {post.status}
-                  </span>
-
-                </div>
-
+              <div className="post-item">
+                Loading posts...
               </div>
 
-            ))}
+            ) : recentPosts.length === 0 ? (
+
+              <div className="post-item">
+                No posts found.
+              </div>
+
+            ) : (
+
+              recentPosts.map((post, idx) => {
+
+                const status = getPostStatus(post);
+                const platforms = getPlatforms(post);
+
+                return (
+                  <div
+                    className="post-item"
+                    key={post.id || idx}
+                  >
+
+                    <div className="post-details">
+
+                      <h4>
+                        {post.content
+                          ? post.content.length > 70
+                            ? `${post.content.slice(0, 70)}...`
+                            : post.content
+                          : "Untitled Post"}
+                      </h4>
+
+                      <span className="post-date">
+                        {formatDate(
+                          post.scheduled_at ||
+                          post.created_at
+                        )}
+                      </span>
+
+                    </div>
+
+                    <div className="post-meta">
+
+                      <div className="tags">
+
+                        {platforms.length > 0 ? (
+
+                          platforms.map(
+                            (platform, index) => (
+                              <span
+                                className="tag-platform"
+                                key={index}
+                              >
+                                {formatPlatform(platform)}
+                              </span>
+                            )
+                          )
+
+                        ) : (
+
+                          <span className="tag-platform">
+                            Social Media
+                          </span>
+
+                        )}
+
+                      </div>
+
+                      <span
+                        className={`status-badge ${status}`}
+                      >
+                        {getStatusLabel(status)}
+                      </span>
+
+                    </div>
+
+                  </div>
+                );
+              })
+
+            )}
 
           </div>
 
         </section>
 
-        {/* ================= ACTIVE CAMPAIGNS ================= */}
+        {/* ================= UPCOMING POSTS ================= */}
+
         <section className="section-block">
 
           <div className="section-header">
 
-            <h2>Active Campaigns</h2>
+            <h2>
+              Upcoming Scheduled Posts
+            </h2>
 
-            <a
-              href="#view-all"
+            <button
               className="link-btn"
+              onClick={() => navigate("/calendar")}
             >
-              View all ↗
-            </a>
+              Open calendar →
+            </button>
 
           </div>
 
-          <div className="campaigns-list">
+          <div className="posts-list">
 
-            {activeCampaigns.map((campaign, idx) => (
+            {loading ? (
 
-              <div
-                className="campaign-item"
-                key={idx}
-              >
-
-                <div className="campaign-info">
-
-                  <div>
-
-                    <h4>
-                      {campaign.name}
-                    </h4>
-
-                    <span className="campaign-dates">
-                      {campaign.dates}
-                    </span>
-
-                  </div>
-
-                  <div className="campaign-status">
-
-                    <span className="active-badge">
-                      Active
-                    </span>
-
-                    <span className="percentage">
-                      {campaign.progress}
-                    </span>
-
-                  </div>
-
-                </div>
-
-                <div className="progress-bar-bg">
-
-                  <div
-                    className="progress-bar-fill"
-                    style={{
-                      width: campaign.progress,
-                    }}
-                  ></div>
-
-                </div>
-
+              <div className="post-item">
+                Loading scheduled posts...
               </div>
 
-            ))}
+            ) : upcomingPosts.length === 0 ? (
+
+              <div className="post-item">
+                No upcoming scheduled posts.
+              </div>
+
+            ) : (
+
+              upcomingPosts.map((post, idx) => {
+
+                const platforms = getPlatforms(post);
+
+                return (
+                  <div
+                    className="post-item"
+                    key={post.id || idx}
+                  >
+
+                    <div className="post-details">
+
+                      <h4>
+                        {post.content
+                          ? post.content.length > 70
+                            ? `${post.content.slice(0, 70)}...`
+                            : post.content
+                          : "Scheduled Post"}
+                      </h4>
+
+                      <span className="post-date">
+                        {formatDate(post.scheduled_at)}
+                      </span>
+
+                    </div>
+
+                    <div className="post-meta">
+
+                      <div className="tags">
+
+                        {platforms.map(
+                          (platform, index) => (
+                            <span
+                              className="tag-platform"
+                              key={index}
+                            >
+                              {formatPlatform(platform)}
+                            </span>
+                          )
+                        )}
+
+                      </div>
+
+                      <span className="status-badge scheduled">
+                        Scheduled
+                      </span>
+
+                    </div>
+
+                  </div>
+                );
+              })
+
+            )}
 
           </div>
 
@@ -471,4 +652,3 @@ const DashboardPage = () => {
 };
 
 export default DashboardPage;
-
