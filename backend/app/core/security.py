@@ -22,7 +22,7 @@ ROLE_DEFAULT_PERMISSIONS: Dict[str, List[str]] = {
         "settings.manage", "audit.read", "system.monitor"
     ],
     "business_user": [
-        "teams.read", "teams.manage",
+        "users.read", "teams.read", "teams.manage",
         "posts.read", "posts.approve", "posts.publish",
         "campaigns.create", "campaigns.read", "campaigns.manage",
         "social_accounts.connect", "social_accounts.read", "social_accounts.manage",
@@ -30,7 +30,7 @@ ROLE_DEFAULT_PERMISSIONS: Dict[str, List[str]] = {
         "profile.manage"
     ],
     "marketing_team": [
-        "teams.read",
+        "users.read", "teams.read",
         "posts.create", "posts.read", "posts.update", "posts.delete", "posts.publish", "posts.schedule",
         "campaigns.create", "campaigns.read", "campaigns.manage",
         "social_accounts.read", "social_accounts.connect",
@@ -38,7 +38,7 @@ ROLE_DEFAULT_PERMISSIONS: Dict[str, List[str]] = {
         "media.upload", "queue.manage"
     ],
     "content_creator": [
-        "posts.create", "posts.read", "posts.update", "posts.submit_approval",
+        "users.read", "posts.create", "posts.read", "posts.update", "posts.submit_approval",
         "calendar.read", "media.upload", "social_accounts.read"
     ]
 }

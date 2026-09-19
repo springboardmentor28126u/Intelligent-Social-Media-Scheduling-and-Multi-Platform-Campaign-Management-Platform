@@ -3,11 +3,16 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.core.config import settings
 
+connect_args = {}
+if "ep-curly-sun-b3oq0tjg" in settings.DATABASE_URL:
+    connect_args["hostaddr"] = "52.76.246.190"
 
 engine = create_engine(
     settings.DATABASE_URL,
-    connect_args={"check_same_thread": False}
+    connect_args=connect_args,
+    pool_pre_ping=True
 )
+
 
 SessionLocal = sessionmaker(
     autocommit=False,

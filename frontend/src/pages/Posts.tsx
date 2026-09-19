@@ -115,11 +115,11 @@ export default function Posts() {
     if (!confirm("Are you sure you want to delete this post?")) return;
     try {
       await api.posts.delete(id);
-      showToast("Deleted", "Post removed from workspace.", "info");
+      showToast("Post Deleted", "Post deleted successfully.", "success");
       window.dispatchEvent(new Event("post_deleted"));
       loadPosts();
     } catch (err: any) {
-      showToast("Delete Error", err.message, "error");
+      showToast("Delete Error", err.message || "Failed to delete the post from Instagram.", "error");
     }
   };
 

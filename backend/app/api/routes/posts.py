@@ -5,7 +5,7 @@ import random
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, UploadFile, File, Form
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
 from app.db.database import get_db
@@ -39,6 +39,7 @@ from app.services.notifications import (
     notify_admins_post_deleted
 )
 from app.services.approvals import create_approval_request_for_post
+from starlette.concurrency import run_in_threadpool
 
 
 router = APIRouter(
@@ -171,7 +172,11 @@ def get_posts(
     if campaign_id:
         query = query.filter(Post.campaign_id == campaign_id)
 
-    posts = query.order_by(Post.created_at.desc()).offset(skip).limit(limit).all()
+    posts = query.options(
+        selectinload(Post.user),
+        selectinload(Post.media),
+        selectinload(Post.platform_targets)
+    ).order_by(Post.created_at.desc()).offset(skip).limit(limit).all()
     return [_format_post_response(p) for p in posts]
 
 
@@ -294,8 +299,7 @@ async def create_post(
     and application/json bodies.
     """
     content_type = request.headers.get("content-type", "")
-
-    if "multipart/form-data" in content_type:
+    if "multipart/form-data" in content_type or "form" in content_type:
         form = await request.form()
         content = str(form.get("content") or form.get("caption") or "")
         title = form.get("title") or form.get("campaign_title") or None
@@ -372,6 +376,8 @@ async def create_post(
             content=content,
             platform=platform,
             post_type=post_type,
+            content_type=post_type or "text",
+            platforms=[platform],
             media_url=media_url,
             media_type=media_type,
             status=initial_status,
@@ -427,7 +433,7 @@ async def create_post(
         creator_user = db.query(User).filter(User.id == current_user["user_id"]).first()
 
         if initial_status == "published":
-            publish_post_now(post.id, db=db)
+            await run_in_threadpool(publish_post_now, post.id)
             db.refresh(post)
             if creator_user:
                 notify_admins_post_published(db=db, post=post, actor_user=creator_user)
@@ -473,6 +479,8 @@ async def create_post(
             content=post_data.content,
             platform=post_data.platform.lower(),
             post_type=post_type,
+            content_type=post_type or "text",
+            platforms=[post_data.platform.lower()],
             media_url=media_url,
             media_type=media_type,
             status=initial_status,
@@ -527,7 +535,7 @@ async def create_post(
         creator_user = db.query(User).filter(User.id == current_user["user_id"]).first()
 
         if initial_status == "published":
-            publish_post_now(post.id, db=db)
+            await run_in_threadpool(publish_post_now, post.id)
             db.refresh(post)
             if creator_user:
                 notify_admins_post_published(db=db, post=post, actor_user=creator_user)
@@ -629,17 +637,61 @@ def update_post(
 
 
 @router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(
+async def delete_post(
     post_id: int,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Delete a post. Only the post owner (or admin) can delete."""
+    """Delete a post. If published to Instagram, deletes from Instagram first."""
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
     _check_post_ownership(post, current_user)
+
+    # Check if this post was published to Instagram
+    ig_target = None
+    if post.platform_targets:
+        for t in post.platform_targets:
+            if t.platform == "instagram" and t.status == "published" and t.external_post_id:
+                ig_target = t
+                break
+
+    is_ig_published = (
+        (ig_target is not None) or
+        (post.platform == "instagram" and post.status == "published" and bool(post.external_post_id))
+    )
+
+    if is_ig_published:
+        media_id = ig_target.external_post_id if ig_target else post.external_post_id
+        acc_id = ig_target.social_account_id if (ig_target and ig_target.social_account_id) else post.social_account_id
+
+        # Resolve social account & access token
+        account = None
+        if acc_id:
+            account = db.query(SocialAccount).filter(SocialAccount.id == acc_id).first()
+        if not account:
+            account = db.query(SocialAccount).filter(
+                SocialAccount.user_id == post.user_id,
+                SocialAccount.platform == "instagram",
+                SocialAccount.is_active == True
+            ).first()
+
+        if account and account.access_token and media_id:
+            from app.services.providers import get_social_provider
+            provider = get_social_provider("instagram", is_demo=getattr(account, "is_demo", False))
+            if hasattr(provider, "delete_post"):
+                del_res = await run_in_threadpool(
+                    provider.delete_post,
+                    access_token=account.access_token,
+                    media_id=media_id
+                )
+                if not del_res.get("success"):
+                    err_msg = del_res.get("error", "Instagram API rejection")
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Failed to delete the post from Instagram: {err_msg}"
+                    )
 
     user = db.query(User).filter(User.id == current_user["user_id"]).first()
     if user:
@@ -839,7 +891,7 @@ def cancel_post(
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.post("/{post_id}/publish", response_model=PostResponse)
-def publish_post_endpoint(
+async def publish_immediate(
     post_id: int,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -851,7 +903,21 @@ def publish_post_endpoint(
 
     _check_post_ownership(post, current_user)
 
-    result = publish_post_now(post.id, db=db)
+    # Re-link active account for non-published targets
+    for target in (post.platform_targets or []):
+        if target.status != "published":
+            active_acc = db.query(SocialAccount).filter(
+                SocialAccount.user_id == post.user_id,
+                SocialAccount.platform == target.platform,
+                SocialAccount.is_active == True
+            ).first()
+            if active_acc:
+                target.social_account_id = active_acc.id
+            target.status = "pending"
+            target.error_message = None
+    db.commit()
+
+    await run_in_threadpool(publish_post_now, post.id)
     db.refresh(post)
 
     user = db.query(User).filter(User.id == current_user["user_id"]).first()
@@ -870,7 +936,7 @@ def publish_post_endpoint(
 
 
 @router.post("/{post_id}/retry", response_model=PostResponse)
-def retry_failed_post(
+async def retry_failed_post(
     post_id: int,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -887,15 +953,22 @@ def retry_failed_post(
     post.status = "scheduled"
     db.commit()
 
-    # Reset non-published targets so they can be re-attempted
+    # Reset non-published targets and ensure active social account is linked
     for target in (post.platform_targets or []):
         if target.status != "published":
+            active_acc = db.query(SocialAccount).filter(
+                SocialAccount.user_id == post.user_id,
+                SocialAccount.platform == target.platform,
+                SocialAccount.is_active == True
+            ).first()
+            if active_acc:
+                target.social_account_id = active_acc.id
             target.status = "pending"
             target.attempt_count = 0
             target.error_message = None
     db.commit()
 
-    result = publish_post_now(post.id, db=db)
+    await run_in_threadpool(publish_post_now, post.id)
     db.refresh(post)
 
     log_audit_event(

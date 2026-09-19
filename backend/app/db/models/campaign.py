@@ -47,7 +47,7 @@ class Campaign(Base):
 
     # Relationships
     user = relationship("User", back_populates="campaigns")
-    posts = relationship("Post", back_populates="campaign")
+    posts = relationship("Post", secondary="campaign_posts", backref="campaigns")
 
 
 class CampaignPost(Base):

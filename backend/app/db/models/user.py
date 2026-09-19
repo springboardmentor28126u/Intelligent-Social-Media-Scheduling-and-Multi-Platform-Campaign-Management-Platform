@@ -13,6 +13,7 @@ class User(Base):
     name = Column(String(100), nullable=False)
     email = Column(String(255), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
+    system_role = Column(String(20), default="USER", nullable=True)  # USER, ADMIN
     
     role = Column(String(50), default="content_creator", nullable=False)  # administrator, business_user, marketing_team, content_creator
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=True)

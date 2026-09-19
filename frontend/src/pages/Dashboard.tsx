@@ -260,54 +260,33 @@ export default function Dashboard() {
     return "Good Evening";
   };
 
-  // Fallback upcoming posts matching the reference design if none are scheduled yet
-  const displayUpcomingPosts =
-    upcomingPosts.length > 0
-      ? upcomingPosts
-      : [
-          {
-            id: 101,
-            platform: "instagram",
-            title: "New blog post is live! ✨ Check out our latest updates...",
-            scheduled_at: new Date(Date.now() + 3600000).toISOString(),
-            thumbnail_url: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=150&auto=format&fit=crop&q=80",
-          },
-          {
-            id: 102,
-            platform: "linkedin",
-            title: "Building better social media strategies with SocialPilot...",
-            scheduled_at: new Date(Date.now() + 10800000).toISOString(),
-            thumbnail_url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80",
-          },
-          {
-            id: 103,
-            platform: "pinterest",
-            title: "Visual ideas for your next campaign. 🎨",
-            scheduled_at: new Date(Date.now() + 86400000).toISOString(),
-            thumbnail_url: "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=150&auto=format&fit=crop&q=80",
-          },
-          {
-            id: 104,
-            platform: "twitter",
-            title: "Small steps. Big growth. 🚀",
-            scheduled_at: new Date(Date.now() + 90000000).toISOString(),
-            thumbnail_url: "https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=150&auto=format&fit=crop&q=80",
-          },
-        ];
+  const formatStatCount = (val: number | undefined | null) => {
+    if (val === undefined || val === null || val === 0) return "0";
+    if (val >= 1000000) return `${(val / 1000000).toFixed(1)}M`;
+    if (val >= 1000) return `${(val / 1000).toFixed(1)}K`;
+    return val.toLocaleString();
+  };
 
-  // Highest engagement post for Top Performing Post card
-  const topPost =
-    recentPosts.length > 0
-      ? recentPosts[0]
-      : {
-          id: 99,
-          title: "5 Tips to Boost Your Social Media Engagement",
-          platform: "Instagram",
-          likes: stats?.total_likes || 1200,
-          comments: 48,
-          shares: 32,
-          thumbnail_url: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=300&auto=format&fit=crop&q=80",
-        };
+  const isPlatformConnected = (plat: string) => {
+    return Boolean((stats?.platforms?.[plat]?.account_count ?? 0) > 0);
+  };
+
+  const getPlatformAccountDisplay = (plat: string) => {
+    const count = stats?.platforms?.[plat]?.account_count ?? 0;
+    if (count === 0) return "Not Connected";
+    if (count === 1) return "1 Account";
+    return `${count} Accounts`;
+  };
+
+  const getPlatformAccountBadge = (plat: string) => {
+    const count = stats?.platforms?.[plat]?.account_count ?? 0;
+    if (count === 0) {
+      return <span className="text-slate-400 font-normal">Click to connect</span>;
+    }
+    return (
+      <span className="text-emerald-600">Active</span>
+    );
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -329,7 +308,7 @@ export default function Dashboard() {
         <div>
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-display flex items-center gap-2">
             <span>👋</span>
-            <span>{getGreeting()}, {user?.name ? user.name.split(" ")[0] : "Jenelia"}!</span>
+            <span>{getGreeting()}, {user?.name ? user.name.split(" ")[0] : "Creator"}!</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
             Here's what's happening with your social media today.
@@ -378,7 +357,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 2. TOP ROW: 6 PLATFORM CHANNEL / FOLLOWER CARDS (Pixel-aligned with reference) */}
+      {/* 2. TOP ROW: 6 PLATFORM CHANNEL / ACCOUNT CARDS */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4">
         {/* Instagram */}
         <div
@@ -389,16 +368,18 @@ export default function Dashboard() {
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 flex items-center justify-center text-white shadow-xs">
               <FaInstagram size={18} />
             </div>
+            {isPlatformConnected("instagram") && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            )}
           </div>
           <div className="space-y-0.5">
             <p className="text-xs font-semibold text-slate-600">Instagram</p>
             <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display">
-              {stats?.instagram_followers || "2.4K"}
+              {getPlatformAccountDisplay("instagram")}
             </h3>
           </div>
-          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold text-emerald-600">
-            <span>↑ 12%</span>
-            <span className="text-slate-400 font-normal">Followers</span>
+          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold">
+            {getPlatformAccountBadge("instagram")}
           </div>
         </div>
 
@@ -411,16 +392,18 @@ export default function Dashboard() {
             <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center text-white shadow-xs">
               <FaLinkedin size={18} />
             </div>
+            {isPlatformConnected("linkedin") && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            )}
           </div>
           <div className="space-y-0.5">
             <p className="text-xs font-semibold text-slate-600">LinkedIn</p>
             <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display">
-              {stats?.linkedin_followers || "1.8K"}
+              {getPlatformAccountDisplay("linkedin")}
             </h3>
           </div>
-          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold text-emerald-600">
-            <span>↑ 8%</span>
-            <span className="text-slate-400 font-normal">Followers</span>
+          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold">
+            {getPlatformAccountBadge("linkedin")}
           </div>
         </div>
 
@@ -433,16 +416,18 @@ export default function Dashboard() {
             <div className="w-9 h-9 rounded-xl bg-[#1877F2] flex items-center justify-center text-white shadow-xs">
               <FaFacebook size={18} />
             </div>
+            {isPlatformConnected("facebook") && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            )}
           </div>
           <div className="space-y-0.5">
             <p className="text-xs font-semibold text-slate-600">Facebook</p>
             <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display">
-              {stats?.facebook_followers || "1.2K"}
+              {getPlatformAccountDisplay("facebook")}
             </h3>
           </div>
-          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold text-emerald-600">
-            <span>↑ 5%</span>
-            <span className="text-slate-400 font-normal">Followers</span>
+          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold">
+            {getPlatformAccountBadge("facebook")}
           </div>
         </div>
 
@@ -455,16 +440,18 @@ export default function Dashboard() {
             <div className="w-9 h-9 rounded-xl bg-[#000000] flex items-center justify-center text-white shadow-xs">
               <FaTwitter size={18} />
             </div>
+            {isPlatformConnected("twitter") && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            )}
           </div>
           <div className="space-y-0.5">
             <p className="text-xs font-semibold text-slate-600">X (Twitter)</p>
             <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display">
-              {stats?.twitter_followers || "856"}
+              {getPlatformAccountDisplay("twitter")}
             </h3>
           </div>
-          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold text-emerald-600">
-            <span>↑ 3%</span>
-            <span className="text-slate-400 font-normal">Followers</span>
+          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold">
+            {getPlatformAccountBadge("twitter")}
           </div>
         </div>
 
@@ -477,16 +464,18 @@ export default function Dashboard() {
             <div className="w-9 h-9 rounded-xl bg-[#E60023] flex items-center justify-center text-white shadow-xs">
               <FaPinterest size={18} />
             </div>
+            {isPlatformConnected("pinterest") && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            )}
           </div>
           <div className="space-y-0.5">
             <p className="text-xs font-semibold text-slate-600">Pinterest</p>
             <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display">
-              {stats?.pinterest_followers || "642"}
+              {getPlatformAccountDisplay("pinterest")}
             </h3>
           </div>
-          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold text-emerald-600">
-            <span>↑ 10%</span>
-            <span className="text-slate-400 font-normal">Followers</span>
+          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold">
+            {getPlatformAccountBadge("pinterest")}
           </div>
         </div>
 
@@ -499,16 +488,18 @@ export default function Dashboard() {
             <div className="w-9 h-9 rounded-xl bg-[#FF0000] flex items-center justify-center text-white shadow-xs">
               <FaYoutube size={18} />
             </div>
+            {isPlatformConnected("youtube") && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            )}
           </div>
           <div className="space-y-0.5">
             <p className="text-xs font-semibold text-slate-600">YouTube</p>
             <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display">
-              {stats?.youtube_subscribers || "420"}
+              {getPlatformAccountDisplay("youtube")}
             </h3>
           </div>
-          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold text-emerald-600">
-            <span>↑ 6%</span>
-            <span className="text-slate-400 font-normal">Subscribers</span>
+          <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-slate-100 text-[11px] font-bold">
+            {getPlatformAccountBadge("youtube")}
           </div>
         </div>
       </div>
@@ -541,34 +532,50 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
               <SecondaryMetricCard
                 title="Total Posts"
-                value={stats?.total_posts ?? 48}
+                value={stats?.total_posts ?? 0}
                 icon={<MessageCircle size={15} className="text-blue-600" />}
                 iconBg="bg-blue-50/70 border-blue-100"
-                trend={{ value: 20, positive: true }}
+                trend={
+                  stats?.posts_trend?.is_available
+                    ? { value: stats.posts_trend.value, positive: stats.posts_trend.positive, label: stats.posts_trend.label }
+                    : undefined
+                }
                 onClick={() => navigate("/posts")}
               />
               <SecondaryMetricCard
                 title="Total Engagement"
-                value={stats?.total_engagement ? (stats.total_engagement >= 1000 ? `${(stats.total_engagement / 1000).toFixed(1)}K` : stats.total_engagement) : "12.6K"}
+                value={formatStatCount(stats?.total_engagement ?? 0)}
                 icon={<Heart size={15} className="text-blue-600" />}
                 iconBg="bg-blue-50/70 border-blue-100"
-                trend={{ value: 18, positive: true }}
+                trend={
+                  stats?.engagement_trend?.is_available
+                    ? { value: stats.engagement_trend.value, positive: stats.engagement_trend.positive, label: stats.engagement_trend.label }
+                    : undefined
+                }
                 onClick={() => navigate("/analytics")}
               />
               <SecondaryMetricCard
                 title="Reach"
-                value={stats?.total_reach ? (stats.total_reach >= 1000 ? `${(stats.total_reach / 1000).toFixed(1)}K` : stats.total_reach) : "245.8K"}
+                value={formatStatCount(stats?.total_reach ?? 0)}
                 icon={<Eye size={15} className="text-blue-600" />}
                 iconBg="bg-blue-50/70 border-blue-100"
-                trend={{ value: 32, positive: true }}
+                trend={
+                  stats?.reach_trend?.is_available
+                    ? { value: stats.reach_trend.value, positive: stats.reach_trend.positive, label: stats.reach_trend.label }
+                    : undefined
+                }
                 onClick={() => navigate("/analytics")}
               />
               <SecondaryMetricCard
                 title="Clicks"
-                value={stats?.total_clicks ? (stats.total_clicks >= 1000 ? `${(stats.total_clicks / 1000).toFixed(1)}K` : stats.total_clicks) : "8.4K"}
+                value={formatStatCount(stats?.total_clicks ?? 0)}
                 icon={<MousePointerClick size={15} className="text-blue-600" />}
                 iconBg="bg-blue-50/70 border-blue-100"
-                trend={{ value: 26, positive: true }}
+                trend={
+                  stats?.clicks_trend?.is_available
+                    ? { value: stats.clicks_trend.value, positive: stats.clicks_trend.positive, label: stats.clicks_trend.label }
+                    : undefined
+                }
                 onClick={() => navigate("/analytics")}
               />
             </div>
@@ -582,16 +589,35 @@ export default function Dashboard() {
           {/* BOTTOM SPLIT ROW: Top Performing Post (Left) + Recent Activity (Right) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Top Performing Post Card */}
-            <TopPerformingPost
-              title={topPost.title || topPost.content}
-              platform={topPost.platform || "Instagram"}
-              likes={topPost.likes || stats?.total_likes || 1200}
-              comments={topPost.comments || 48}
-              shares={topPost.shares || 32}
-              thumbnail_url={topPost.media_urls?.[0] || topPost.thumbnail_url}
-              onClick={() => navigate(`/posts?post_id=${topPost.id || ""}`)}
-              onViewAll={() => navigate("/posts")}
-            />
+            {recentPosts.length > 0 ? (
+              <TopPerformingPost
+                title={recentPosts[0].title || recentPosts[0].content}
+                platform={recentPosts[0].platform || "Instagram"}
+                likes={recentPosts[0].likes_count ?? recentPosts[0].likes ?? 0}
+                comments={recentPosts[0].comments_count ?? recentPosts[0].comments ?? 0}
+                shares={recentPosts[0].shares_count ?? recentPosts[0].shares ?? 0}
+                thumbnail_url={recentPosts[0].media_urls?.[0] || recentPosts[0].thumbnail_url}
+                onClick={() => navigate(`/posts?post_id=${recentPosts[0].id || ""}`)}
+                onViewAll={() => navigate("/posts")}
+              />
+            ) : (
+              <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-bold text-slate-900 font-display flex items-center gap-2">
+                    <span>Top Performing Post</span>
+                  </h4>
+                </div>
+                <div className="py-8 text-center text-xs text-slate-400 space-y-2">
+                  <p>No published posts yet</p>
+                  <button
+                    onClick={() => navigate("/posts?action=create")}
+                    className="text-xs text-blue-600 font-bold hover:underline cursor-pointer"
+                  >
+                    + Create and publish a post
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Recent Activity Card */}
             <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] space-y-3">
@@ -613,28 +639,9 @@ export default function Dashboard() {
                     />
                   ))
                 ) : (
-                  <>
-                    <ActivityItem
-                      icon={<FaInstagram className="text-pink-600" size={14} />}
-                      title="Post published on Instagram"
-                      time="2 hours ago"
-                    />
-                    <ActivityItem
-                      icon={<FaLinkedin className="text-sky-600" size={14} />}
-                      title="New follower on LinkedIn"
-                      time="4 hours ago"
-                    />
-                    <ActivityItem
-                      icon={<FaFacebook className="text-blue-600" size={14} />}
-                      title="Comment received on Facebook"
-                      time="6 hours ago"
-                    />
-                    <ActivityItem
-                      icon={<FaPinterest className="text-rose-600" size={14} />}
-                      title="Post scheduled on Pinterest"
-                      time="8 hours ago"
-                    />
-                  </>
+                  <div className="py-6 text-center text-xs text-slate-400">
+                    No recent activity recorded
+                  </div>
                 )}
               </div>
             </div>
@@ -707,20 +714,32 @@ export default function Dashboard() {
             </div>
 
             <div className="space-y-2.5">
-              {displayUpcomingPosts.slice(0, 4).map((post) => (
-                <UpcomingPost
-                  key={post.id}
-                  id={post.id}
-                  title={post.title}
-                  content={post.content}
-                  platform={post.platform}
-                  scheduled_at={post.scheduled_at}
-                  media_urls={post.media_urls}
-                  thumbnail_url={post.thumbnail_url}
-                  onClick={() => navigate(`/posts?post_id=${post.id}`)}
-                  onMenuClick={() => navigate(`/posts?post_id=${post.id}`)}
-                />
-              ))}
+              {upcomingPosts.length > 0 ? (
+                upcomingPosts.slice(0, 4).map((post) => (
+                  <UpcomingPost
+                    key={post.id}
+                    id={post.id}
+                    title={post.title}
+                    content={post.content}
+                    platform={post.platform}
+                    scheduled_at={post.scheduled_at}
+                    media_urls={post.media_urls}
+                    thumbnail_url={post.thumbnail_url}
+                    onClick={() => navigate(`/posts?post_id=${post.id}`)}
+                    onMenuClick={() => navigate(`/posts?post_id=${post.id}`)}
+                  />
+                ))
+              ) : (
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 text-center space-y-2">
+                  <p className="text-xs text-slate-500 font-medium">No scheduled posts yet</p>
+                  <button
+                    onClick={() => navigate("/posts?action=create")}
+                    className="text-xs text-blue-600 font-bold hover:underline cursor-pointer"
+                  >
+                    + Schedule your first post
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

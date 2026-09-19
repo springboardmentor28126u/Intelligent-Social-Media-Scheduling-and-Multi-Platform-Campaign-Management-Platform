@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func, String
 
 from app.db.database import get_db
 from app.db.models.user import User
@@ -35,10 +36,12 @@ def get_admin_dashboard(
     active_teams = db.query(Team).count()
     connected_accounts = db.query(SocialAccount).count()
     total_posts = db.query(Post).count()
-    published_posts = db.query(Post).filter(Post.status == "published").count()
-    scheduled_posts = db.query(Post).filter(Post.status == "scheduled").count()
-    failed_posts = db.query(Post).filter(Post.status == "failed").count()
-    pending_approvals = db.query(Post).filter((Post.status == "pending_approval") | (Post.approval_status == "pending")).count()
+    
+    status_str = func.lower(func.cast(Post.status, String))
+    published_posts = db.query(Post).filter(status_str == "published").count()
+    scheduled_posts = db.query(Post).filter(status_str == "scheduled").count()
+    failed_posts = db.query(Post).filter(status_str == "failed").count()
+    pending_approvals = db.query(Post).filter(status_str.in_(["pending_approval", "pending"])).count()
     total_campaigns = db.query(Campaign).count()
 
     recent_logs = (
@@ -78,14 +81,15 @@ def get_queue_stats(
     db: Session = Depends(get_db)
 ):
     """Real-time publishing queue statistics."""
-    scheduled_count = db.query(Post).filter(Post.status == "scheduled").count()
-    failed_count = db.query(Post).filter(Post.status == "failed").count()
+    status_str = func.lower(func.cast(Post.status, String))
+    scheduled_count = db.query(Post).filter(status_str == "scheduled").count()
+    failed_count = db.query(Post).filter(status_str == "failed").count()
     
     # Posts that are due for publishing (scheduled_at <= now)
     now = datetime.now(timezone.utc)
     queued_count = (
         db.query(Post)
-        .filter(Post.status == "scheduled", Post.scheduled_at <= now)
+        .filter(status_str == "scheduled", Post.scheduled_at <= now)
         .count()
     )
 
@@ -93,7 +97,7 @@ def get_queue_stats(
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     published_today = (
         db.query(Post)
-        .filter(Post.status == "published", Post.published_at >= today_start)
+        .filter(status_str == "published", Post.created_at >= today_start)
         .count()
     )
 
@@ -134,13 +138,14 @@ def retry_all_failed_jobs(
     db: Session = Depends(get_db)
 ):
     """Retry all failed publishing jobs (admin only)."""
-    failed_posts = db.query(Post).filter(Post.status == "failed").all()
+    status_str = func.lower(func.cast(Post.status, String))
+    failed_posts = db.query(Post).filter(status_str == "failed").all()
     retried_count = 0
     for p in failed_posts:
         if p.retry_count < p.max_retries:
             p.retry_count = 0
             p.failure_reason = None
-            p.status = "scheduled"
+            p.status = "SCHEDULED"
             db.commit()
             publish_post_now(p.id, db=db)
             retried_count += 1
@@ -158,4 +163,3 @@ def get_admin_pending_approvals(
     from app.db.models.approval import ApprovalRequest
     requests = db.query(ApprovalRequest).filter(ApprovalRequest.status == "pending").order_by(ApprovalRequest.created_at.desc()).all()
     return [_format_approval_response(r) for r in requests]
-

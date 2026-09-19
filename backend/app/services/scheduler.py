@@ -100,8 +100,11 @@ def _publish_to_platform_target(
             target.error_message = None
 
             # Log success
+            acc_id = account.id if account else (target.social_account_id or 1)
             pub_log = PublishingLog(
                 post_id=post.id,
+                social_account_id=acc_id,
+                status="SUCCESS",
                 level="success",
                 event_name="platform.published",
                 message=f"Published to {target.platform.title()} successfully (demo={is_demo})",
@@ -122,8 +125,11 @@ def _publish_to_platform_target(
             target.error_message = result.error_message
             target.status = "failed"
 
+            acc_id = account.id if account else (target.social_account_id or 1)
             pub_log = PublishingLog(
                 post_id=post.id,
+                social_account_id=acc_id,
+                status="FAILED",
                 level="error",
                 event_name="platform.failed",
                 message=f"Failed to publish to {target.platform.title()}: {result.error_message}",
@@ -143,8 +149,11 @@ def _publish_to_platform_target(
         target.error_message = str(e)
         db.commit()
 
+        acc_id = account.id if account else (target.social_account_id or 1)
         pub_log = PublishingLog(
             post_id=post.id,
+            social_account_id=acc_id,
+            status="FAILED",
             level="error",
             event_name="platform.error",
             message=f"Exception publishing to {target.platform.title()}: {str(e)}",
@@ -280,8 +289,11 @@ def publish_post_now(post_id: int, db: Session = None) -> dict:
                 post.reach_count = payload.get("reach", 0)
                 post.impressions_count = payload.get("impressions", 0)
 
+                acc_id = account.id if account else (post.social_account_id or 1)
                 pub_log = PublishingLog(
                     post_id=post.id,
+                    social_account_id=acc_id,
+                    status="SUCCESS",
                     level="success",
                     event_name="post.published",
                     message=f"Post published successfully to {post.platform.title()} (demo={is_demo})",
@@ -303,8 +315,11 @@ def publish_post_now(post_id: int, db: Session = None) -> dict:
                     post.status = "scheduled"
                     post.failure_reason = f"Attempt {post.retry_count} failed: {result.error_message}"
 
+                acc_id = account.id if account else (post.social_account_id or 1)
                 pub_log = PublishingLog(
                     post_id=post.id,
+                    social_account_id=acc_id,
+                    status="FAILED",
                     level="error",
                     event_name="post.failed",
                     message=f"Failed to publish to {post.platform}: {result.error_message}",

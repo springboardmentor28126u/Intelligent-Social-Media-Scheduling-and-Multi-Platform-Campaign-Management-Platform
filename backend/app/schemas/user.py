@@ -5,7 +5,7 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 class UserBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
-    email: EmailStr
+    email: str
     role: str = "content_creator"
     job_title: Optional[str] = None
     company: Optional[str] = None
@@ -16,14 +16,14 @@ class UserBase(BaseModel):
 
 class UserRegister(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
-    email: EmailStr
+    email: str
     password: str = Field(..., min_length=6)
     role: Optional[str] = "content_creator"
     company: Optional[str] = None
 
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
@@ -32,7 +32,7 @@ class RefreshTokenRequest(BaseModel):
 
 
 class ForgotPasswordRequest(BaseModel):
-    email: EmailStr
+    email: str
 
 
 class ResetPasswordRequest(BaseModel):
@@ -66,18 +66,18 @@ class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    uuid: str
-    name: str
-    email: EmailStr
-    role: str
+    uuid: Optional[str] = None
+    name: Optional[str] = "User"
+    email: str
+    role: Optional[str] = "content_creator"
     avatar_url: Optional[str] = None
     job_title: Optional[str] = None
     company: Optional[str] = None
     bio: Optional[str] = None
     timezone: Optional[str] = "UTC"
-    is_active: bool
-    is_verified: bool
-    created_at: datetime
+    is_active: Optional[bool] = True
+    is_verified: Optional[bool] = True
+    created_at: Optional[datetime] = None
     permissions: List[str] = []
 
 

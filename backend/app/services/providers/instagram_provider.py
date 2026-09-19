@@ -364,12 +364,26 @@ class InstagramProvider(SocialProvider):
         try:
             # 1. Try graph.instagram.com first (for Instagram Graph API tokens)
             fields = "id,username,name,account_type,profile_picture_url,followers_count,follows_count,media_count"
-            ig_endpoint = f"https://graph.instagram.com/{ig_user_id}" if ig_user_id else "https://graph.instagram.com/me"
+            clean_id = str(ig_user_id or "").strip()
+            # If user_id is missing, username handle, or non-numeric, use /me directly
+            if not clean_id or clean_id.startswith("@") or not clean_id.isdigit():
+                ig_endpoint = "https://graph.instagram.com/me"
+            else:
+                ig_endpoint = f"https://graph.instagram.com/{clean_id}"
+
             resp = _requests.get(
                 ig_endpoint,
                 params={"fields": fields, "access_token": token},
                 timeout=15
             )
+            # If endpoint with clean_id returned 400, fallback to /me
+            if not resp.ok and ig_endpoint != "https://graph.instagram.com/me":
+                resp = _requests.get(
+                    "https://graph.instagram.com/me",
+                    params={"fields": fields, "access_token": token},
+                    timeout=15
+                )
+
             data = resp.json()
 
             if resp.status_code == 200 and "error" not in data:
@@ -384,12 +398,13 @@ class InstagramProvider(SocialProvider):
                         "profile_picture_url": data.get("profile_picture_url"),
                         "followers_count": data.get("followers_count", 0),
                         "follows_count": data.get("follows_count", 0),
-                        "media_count": data.get("media_count", 0)
+                        "media_count": data.get("media_count", 0),
+                        "account_type": data.get("account_type", "BUSINESS")
                     }
                 }
 
             # 2. Try graph.facebook.com for Facebook Page linked Instagram accounts
-            target_endpoint = f"{GRAPH_API_BASE}/{ig_user_id}" if ig_user_id else f"{GRAPH_API_BASE}/me"
+            target_endpoint = f"{GRAPH_API_BASE}/{ig_user_id}" if (ig_user_id and str(ig_user_id).isdigit()) else f"{GRAPH_API_BASE}/me"
             fb_fields = "id,username,name,profile_picture_url,followers_count,follows_count,media_count,instagram_business_account{id,name,username,profile_picture_url,followers_count,media_count}"
             fb_resp = _requests.get(
                 target_endpoint,
@@ -411,7 +426,8 @@ class InstagramProvider(SocialProvider):
                         "profile_picture_url": res_acc.get("profile_picture_url"),
                         "followers_count": res_acc.get("followers_count", 0),
                         "follows_count": res_acc.get("follows_count", 0),
-                        "media_count": res_acc.get("media_count", 0)
+                        "media_count": res_acc.get("media_count", 0),
+                        "account_type": res_acc.get("account_type", "BUSINESS")
                     }
                 }
 
@@ -463,15 +479,40 @@ class InstagramProvider(SocialProvider):
 
     def get_account_metrics(self, access_token: str, account_id: str) -> Dict[str, Any]:
         """Fetch live account metrics from Meta Graph API."""
-        if access_token.startswith("ig_mock") or access_token.startswith("demo"):
-            return {"followers": 28400, "following": 412, "posts_count": 348, "engagement_rate": 6.2}
+        if not access_token:
+            return {
+                "platform": "instagram",
+                "account_id": account_id,
+                "status": "disconnected",
+                "followers": None,
+                "followers_available": False,
+                "reason": "No access token"
+            }
 
-        info = self.get_account_info(access_token=access_token, user_id=account_id)
+        verif = self.verify_token(access_token=access_token, user_id=account_id)
+        if verif.get("valid") and verif.get("account"):
+            info = verif["account"]
+            return {
+                "platform": "instagram",
+                "account_id": str(info.get("id", account_id)),
+                "account_name": info.get("name", ""),
+                "username": info.get("username", ""),
+                "status": "active",
+                "followers": info.get("followers_count", 0),
+                "followers_available": True,
+                "following": info.get("follows_count", 0),
+                "media_count": info.get("media_count", 0),
+                "account_type": info.get("account_type", "BUSINESS"),
+                "engagement_rate": None
+            }
+
         return {
-            "followers": info.get("followers_count", 0),
-            "following": info.get("follows_count", 0),
-            "posts_count": info.get("media_count", 0),
-            "engagement_rate": 5.4
+            "platform": "instagram",
+            "account_id": account_id,
+            "status": "error",
+            "followers": None,
+            "followers_available": False,
+            "reason": verif.get("error") or "Unable to fetch live metrics from Meta"
         }
 
     def _get_public_media_url(self, media_url: str) -> str:
@@ -526,10 +567,26 @@ class InstagramProvider(SocialProvider):
             return self._demo_publish(content, media_urls)
 
         ig_account_id = (options or {}).get("ig_account_id")
+
+        # Ensure ig_account_id is the real numeric Instagram account ID (never a handle or username)
+        if not ig_account_id or not str(ig_account_id).strip().lstrip("-").isdigit() or str(ig_account_id).startswith("@"):
+            try:
+                me_resp = _requests.get(
+                    "https://graph.instagram.com/v21.0/me",
+                    params={"fields": "id,username", "access_token": access_token},
+                    timeout=15
+                )
+                if me_resp.ok and "id" in me_resp.json():
+                    resolved_id = str(me_resp.json()["id"])
+                    print(f"[Instagram Publish] Resolved numeric Instagram ID from Meta: {resolved_id} (passed ID was: {ig_account_id})")
+                    ig_account_id = resolved_id
+            except Exception as e:
+                print(f"[Instagram Publish] Resolution error from Meta /me: {e}")
+
         if not ig_account_id:
             return PublishResult(
                 success=False,
-                error_message="Instagram error: Instagram User/Account ID not provided. Connect your Instagram Professional account first."
+                error_message="Instagram error: Instagram User/Account ID not provided or could not be resolved from Meta. Connect your Instagram Professional account first."
             )
 
         if not media_urls or len(media_urls) == 0:
@@ -543,9 +600,9 @@ class InstagramProvider(SocialProvider):
 
         is_video = post_type == "video" or any(raw_media.lower().endswith(ext) for ext in [".mp4", ".mov", ".m4v"])
 
-        print(f"[Instagram Publish] account_id={ig_account_id} is_video={is_video}")
+        print(f"[Instagram Publish] Target numeric account_id={ig_account_id} is_video={is_video}")
         print(f"[Instagram Publish] Media URL (public): {public_media}")
-        print(f"[Instagram Publish] Creating media container...")
+        print(f"[Instagram Publish] Creating media container via graph.instagram.com/v21.0...")
 
         try:
             # ── Step 1: Create media container ───────────────────────────────
@@ -560,20 +617,12 @@ class InstagramProvider(SocialProvider):
             else:
                 container_params["image_url"] = public_media
 
-            container_url = f"https://graph.instagram.com/{ig_account_id}/media"
+            container_url = f"https://graph.instagram.com/v21.0/{ig_account_id}/media"
             container_resp = _requests.post(
                 container_url,
                 params=container_params,
-                timeout=30
+                timeout=45
             )
-
-            if container_resp.status_code != 200 or "id" not in container_resp.json():
-                fb_container_url = f"{GRAPH_API_BASE}/{ig_account_id}/media"
-                container_resp = _requests.post(
-                    fb_container_url,
-                    params=container_params,
-                    timeout=30
-                )
 
             container_data = container_resp.json() if container_resp.ok else {}
             try:
@@ -600,10 +649,11 @@ class InstagramProvider(SocialProvider):
             print(f"[Instagram Publish] Checking container status...")
             for attempt in range(6):
                 status_resp = _requests.get(
-                    f"{GRAPH_API_BASE}/{creation_id}",
+                    f"https://graph.instagram.com/v21.0/{creation_id}",
                     params={"fields": "status_code,status", "access_token": access_token},
                     timeout=15
                 )
+
                 if status_resp.ok:
                     status_data = status_resp.json()
                     status_code_val = status_data.get("status_code")
@@ -630,26 +680,15 @@ class InstagramProvider(SocialProvider):
 
             # ── Step 3: Publish container ────────────────────────────────────
             print(f"[Instagram Publish] Publishing media container {creation_id}...")
-            publish_url = f"https://graph.instagram.com/{ig_account_id}/media_publish"
+            publish_url = f"https://graph.instagram.com/v21.0/{ig_account_id}/media_publish"
             publish_resp = _requests.post(
                 publish_url,
                 params={
                     "creation_id": creation_id,
                     "access_token": access_token
                 },
-                timeout=30
+                timeout=45
             )
-
-            if publish_resp.status_code != 200 or "id" not in publish_resp.json():
-                fb_publish_url = f"{GRAPH_API_BASE}/{ig_account_id}/media_publish"
-                publish_resp = _requests.post(
-                    fb_publish_url,
-                    params={
-                        "creation_id": creation_id,
-                        "access_token": access_token
-                    },
-                    timeout=30
-                )
 
             publish_data = publish_resp.json() if publish_resp.ok else {}
             try:
@@ -668,6 +707,10 @@ class InstagramProvider(SocialProvider):
                     error_message=f"Instagram media publish failed ({err_code}): {err_msg}",
                     response_payload=publish_data
                 )
+
+            media_id = publish_data["id"]
+            post_url = f"https://www.instagram.com/p/{media_id}"
+            print(f"[Instagram Publish] Publish successful! media_id={media_id} url={post_url}")
 
             media_id = publish_data["id"]
             post_url = f"https://www.instagram.com/p/{media_id}"
@@ -713,3 +756,80 @@ class InstagramProvider(SocialProvider):
                 "comments": random.randint(24, 180)
             }
         )
+
+    def delete_post(
+        self,
+        access_token: str,
+        media_id: str,
+        options: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Delete a published post/media from Instagram via Meta Graph API.
+        Attempts DELETE https://graph.instagram.com/v21.0/{media_id}
+        Returns {"success": True} on success, or {"success": False, "error": ...} on failure.
+        """
+        if not media_id:
+            return {"success": False, "error": "No Instagram Media ID provided."}
+
+        if access_token.startswith("ig_mock") or access_token.startswith("demo"):
+            return {"success": True, "demo": True}
+
+        if not _requests_available:
+            return {"success": False, "error": "HTTP client library 'requests' not installed"}
+
+        clean_media_id = str(media_id).strip()
+        print(f"[Instagram Delete] Attempting to delete Instagram media_id={clean_media_id}...")
+
+        try:
+            del_url = f"https://graph.instagram.com/v21.0/{clean_media_id}"
+            resp = _requests.delete(
+                del_url,
+                params={"access_token": access_token},
+                timeout=30
+            )
+
+            data = resp.json() if resp.ok else {}
+            try:
+                if not data and resp.text:
+                    data = resp.json()
+            except Exception:
+                pass
+
+            if resp.status_code == 200 and data.get("success") is True:
+                print(f"[Instagram Delete] Successfully deleted Instagram media {clean_media_id}!")
+                return {"success": True, "response_payload": data}
+
+            if resp.status_code == 200 and ("success" in data or "id" in data):
+                return {"success": True, "response_payload": data}
+
+            # Try unversioned graph.instagram.com
+            alt_url = f"https://graph.instagram.com/{clean_media_id}"
+            alt_resp = _requests.delete(
+                alt_url,
+                params={"access_token": access_token},
+                timeout=30
+            )
+            alt_data = alt_resp.json() if alt_resp.ok else {}
+            try:
+                if not alt_data and alt_resp.text:
+                    alt_data = alt_resp.json()
+            except Exception:
+                pass
+
+            if alt_resp.status_code == 200 and (alt_data.get("success") is True or "id" in alt_data):
+                return {"success": True, "response_payload": alt_data}
+
+            err_obj = data.get("error", {}) or alt_data.get("error", {})
+            err_msg = err_obj.get("message") or data.get("error_message") or resp.text
+            err_code = err_obj.get("code") or resp.status_code
+            print(f"[Instagram Delete] FAILED deleting media {clean_media_id}: status={resp.status_code} code={err_code} msg={err_msg}")
+            return {
+                "success": False,
+                "error": f"{err_msg}",
+                "error_code": err_code,
+                "response_payload": data or alt_data
+            }
+
+        except Exception as e:
+            print(f"[Instagram Delete] Exception during delete: {str(e)}")
+            return {"success": False, "error": str(e)}

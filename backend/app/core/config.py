@@ -73,7 +73,7 @@ class Settings(BaseSettings):
     LINKEDIN_CLIENT_ID: str = ""
     LINKEDIN_CLIENT_SECRET: str = ""
     LINKEDIN_REDIRECT_URI: str = "http://localhost:8000/api/linkedin/callback"
-    LINKEDIN_SCOPES: str = "w_member_social openid profile email"
+    LINKEDIN_SCOPES: str = "w_member_social openid profile email r_member_profileAnalytics"
 
     # Twitter / X (OAuth 2.0 PKCE)
     TWITTER_CLIENT_ID: str = ""

@@ -29,7 +29,7 @@ except ImportError:
 LINKEDIN_API_BASE = "https://api.linkedin.com/v2"
 LINKEDIN_REST_BASE = "https://api.linkedin.com/rest"
 LINKEDIN_AUTH_BASE = "https://www.linkedin.com/oauth/v2"
-LINKEDIN_VERSION = "202401"
+LINKEDIN_VERSION = "202601"
 
 
 def _decode_jwt_payload(jwt_token: str) -> Dict[str, Any]:
@@ -78,7 +78,7 @@ class LinkedInProvider(SocialProvider):
             or cfg.LINKEDIN_REDIRECT_URI
             or "http://localhost:8000/api/linkedin/callback"
         )
-        raw_scopes = getattr(cfg, "LINKEDIN_SCOPES", "") or "w_member_social openid profile email"
+        raw_scopes = getattr(cfg, "LINKEDIN_SCOPES", "") or "w_member_social openid profile email r_member_profileAnalytics"
         # Normalize whitespace in scopes
         scopes = " ".join(raw_scopes.split())
 
@@ -266,14 +266,23 @@ class LinkedInProvider(SocialProvider):
             raise ValueError(f"LinkedIn token refresh error: {str(e)}")
 
     def _resolve_author_urn(self, access_token: str, options: Optional[Dict[str, Any]] = None) -> Optional[str]:
-        """Resolves the author URN string e.g. urn:li:person:abcdef"""
-        author_urn = (options or {}).get("author_urn", "")
-        if author_urn and author_urn.startswith("urn:li:"):
-            return author_urn
-        if author_urn:
-            return f"urn:li:person:{author_urn}"
+        """
+        Resolves the author URN string e.g. urn:li:person:abcdef or urn:li:organization:123456.
+        Validates that the URN is not an email, username, or dummy fallback, resolving from /v2/userinfo if needed.
+        """
+        raw_author = (options or {}).get("author_urn", "")
+        if isinstance(raw_author, str) and raw_author.strip():
+            cleaned = raw_author.strip()
+            # If it's a valid organization URN
+            if cleaned.startswith("urn:li:organization:") and len(cleaned) > len("urn:li:organization:"):
+                return cleaned
+            # If it's a valid person URN (not containing @ email and not dummy member_ prefix)
+            if cleaned.startswith("urn:li:person:") and "@" not in cleaned and not cleaned.startswith("urn:li:person:member_"):
+                val = cleaned[len("urn:li:person:"):]
+                if val:
+                    return cleaned
 
-        # Fetch from /userinfo if not provided in options
+        # Fetch from OpenID Connect /v2/userinfo using existing LinkedIn access token
         if _requests_available and access_token:
             try:
                 profile_resp = _requests.get(
@@ -417,16 +426,95 @@ class LinkedInProvider(SocialProvider):
 
     def get_account_metrics(self, access_token: str, account_id: str) -> Dict[str, Any]:
         """
-        Fetch account metrics for LinkedIn account.
-        Note: LinkedIn Member API under w_member_social and OpenID Connect does not expose member follower counts
-        (follower counts are only exposed for Organization / Company Pages via Community Management API).
+        Fetch live account metrics for LinkedIn account.
+        1. Queries OpenID Connect /v2/userinfo for member identity.
+        2. Queries LinkedIn Member Follower Statistics API (GET /rest/memberFollowersCount?q=me)
+           with LinkedIn-Version 202601 and X-Restli-Protocol-Version 2.0.0.
+        3. Returns real follower count when permitted, or clear reauthorization reason on 401/403.
         """
+        if not access_token:
+            return {
+                "platform": "linkedin",
+                "account_id": account_id,
+                "status": "disconnected",
+                "followers": None,
+                "followers_available": False,
+                "reason": "No access token"
+            }
+
+        member_name = "LinkedIn Member"
+        sub = account_id
+
+        # 1. Fetch identity from OpenID Connect /v2/userinfo
+        if _requests_available:
+            try:
+                profile_resp = _requests.get(
+                    f"{LINKEDIN_API_BASE}/userinfo",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    timeout=5
+                )
+                if profile_resp.ok:
+                    data = profile_resp.json()
+                    member_name = data.get("name", member_name)
+                    sub = data.get("sub", sub)
+            except Exception:
+                pass
+
+        # 2. Query member follower count via /rest/memberFollowersCount?q=me
+        if _requests_available:
+            try:
+                foll_resp = _requests.get(
+                    f"{LINKEDIN_REST_BASE}/memberFollowersCount?q=me",
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "LinkedIn-Version": LINKEDIN_VERSION,
+                        "X-Restli-Protocol-Version": "2.0.0"
+                    },
+                    timeout=5
+                )
+                if foll_resp.ok:
+                    foll_data = foll_resp.json()
+                    followers_count = None
+                    if "count" in foll_data:
+                        followers_count = int(foll_data["count"])
+                    elif "elements" in foll_data and isinstance(foll_data["elements"], list) and len(foll_data["elements"]) > 0:
+                        first_el = foll_data["elements"][0]
+                        followers_count = int(first_el.get("followerCounts", {}).get("organicFollowerCount", first_el.get("count", 0)))
+                    elif "followerCount" in foll_data:
+                        followers_count = int(foll_data["followerCount"])
+                    elif "firstDegreeSize" in foll_data:
+                        followers_count = int(foll_data["firstDegreeSize"])
+
+                    if followers_count is not None:
+                        return {
+                            "platform": "linkedin",
+                            "account_id": sub,
+                            "account_name": member_name,
+                            "status": "active",
+                            "followers": followers_count,
+                            "followers_available": True,
+                            "source": "linkedin_memberFollowersCount"
+                        }
+                elif foll_resp.status_code in (401, 403):
+                    return {
+                        "platform": "linkedin",
+                        "account_id": sub,
+                        "account_name": member_name,
+                        "status": "active",
+                        "followers": None,
+                        "followers_available": False,
+                        "reason": "LinkedIn member profile analytics permission required. Please reconnect LinkedIn."
+                    }
+            except Exception:
+                pass
+
         return {
             "platform": "linkedin",
-            "account_id": account_id,
+            "account_id": sub,
+            "account_name": member_name,
             "status": "active",
             "followers": None,
             "followers_available": False,
-            "note": "Follower count is not available for personal Member profiles under LinkedIn Member API permissions."
+            "reason": "LinkedIn member profile analytics permission required. Please reconnect LinkedIn."
         }
 

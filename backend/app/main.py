@@ -35,6 +35,8 @@ scheduler = BackgroundScheduler()
 
 
 def check_and_migrate_db():
+    if engine.dialect.name != "sqlite":
+        return
     try:
         from sqlalchemy import text
         with engine.connect() as conn:
@@ -69,10 +71,14 @@ def check_and_migrate_db():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Create tables and seed demo data
-    Base.metadata.create_all(bind=engine)
-    check_and_migrate_db()
-    seed_database()
+    # Startup: Create tables and seed demo data only for SQLite
+    try:
+        if engine.dialect.name == "sqlite":
+            Base.metadata.create_all(bind=engine)
+            check_and_migrate_db()
+            seed_database()
+    except Exception as e:
+        print(f"Lifespan startup warning: {e}")
 
     # Start recurring scheduler
     if not scheduler.running:
@@ -99,7 +105,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS configuration supporting any localhost/127.0.0.1 port (5173, 5174, 3000, etc.)
+# CORS configuration supporting any localhost/127.0.0.1 port (5173, 5174, 3000, etc.) and tunnels
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -112,7 +118,7 @@ app.add_middleware(
         "http://127.0.0.1:5175",
         "http://127.0.0.1:3000",
     ],
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$",
+    allow_origin_regex=r"^https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

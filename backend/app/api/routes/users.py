@@ -15,20 +15,35 @@ router = APIRouter(
 )
 
 
+def _format_user(u: User) -> UserResponse:
+    role_val = u.role or "content_creator"
+    return UserResponse(
+        id=u.id,
+        uuid=u.uuid or f"user-{u.id}",
+        name=u.name or (u.email.split("@")[0] if u.email else "User"),
+        email=u.email,
+        role=role_val,
+        avatar_url=u.avatar_url,
+        job_title=u.job_title,
+        company=u.company,
+        bio=u.bio,
+        timezone=u.timezone or "UTC",
+        is_active=bool(u.is_active) if u.is_active is not None else True,
+        is_verified=bool(u.is_verified) if u.is_verified is not None else True,
+        created_at=u.created_at,
+        permissions=ROLE_DEFAULT_PERMISSIONS.get(role_val, [])
+    )
+
+
 @router.get("", response_model=List[UserResponse])
 def list_users(
     skip: int = 0,
     limit: int = 100,
-    current_user: dict = Depends(require_permission("users.read")),
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     users = db.query(User).offset(skip).limit(limit).all()
-    results = []
-    for u in users:
-        res = UserResponse.model_validate(u)
-        res.permissions = ROLE_DEFAULT_PERMISSIONS.get(u.role, [])
-        results.append(res)
-    return results
+    return [_format_user(u) for u in users]
 
 
 @router.get("/me", response_model=UserResponse)
@@ -40,9 +55,7 @@ def get_current_user_profile(
     user = db.query(User).filter(User.id == current_user["user_id"]).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    res = UserResponse.model_validate(user)
-    res.permissions = ROLE_DEFAULT_PERMISSIONS.get(user.role, [])
-    return res
+    return _format_user(user)
 
 
 @router.put("/me", response_model=UserResponse)
