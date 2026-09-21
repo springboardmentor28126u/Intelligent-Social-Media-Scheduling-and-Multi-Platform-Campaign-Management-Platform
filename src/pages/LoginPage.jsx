@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import api from "../services/api";
 import "./ProfilePage.css";
 import "./LoginPage.css";
 
-export default function Loginpage() {
+export default function LoginPage() {
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
@@ -18,36 +19,28 @@ export default function Loginpage() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email,
-          password: password,
-        }),
+      const response = await api.post("/auth/login", {
+        email,
+        password,
       });
 
-      const data = await response.json();
+    localStorage.setItem("access_token", response.data.access_token);
 
-      if (!response.ok) {
-        setError(data.detail || "Invalid email or password");
-        setLoading(false);
-        return;
-      }
+    const meResponse = await api.get("/auth/me");
 
-      // Save JWT token
-      localStorage.setItem("access_token", data.access_token);
-
-      // Go to dashboard after login
-      navigate("/dashboard");
-
+    if (meResponse.data.system_role === "ADMIN") {
+          navigate("/admin/dashboard");
+    } else {  
+  navigate("/dashboard");
+}
     } catch (error) {
-      setError("Unable to connect to the server.");
+      setError(
+        error.response?.data?.detail ||
+          "Invalid email or password"
+      );
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
@@ -55,64 +48,61 @@ export default function Loginpage() {
       <div className="login-card">
 
         <Link to="/" className="back-home">
-          ← Back to home
+          ← Back to Home
         </Link>
 
-        <div className="login-logo">S</div>
-
-        <h1>Welcome back</h1>
-
-        <p className="login-subtitle">
-          Sign in to your SocialPilot account
-        </p>
-
-        {error && (
-          <div className="login-error">
-            {error}
-          </div>
-        )}
+        <div className="login-header">
+          <h1>Welcome back</h1>
+          <p>Login to your SocialPilot account</p>
+        </div>
 
         <form onSubmit={handleSubmit}>
 
           <div className="form-group">
-            <label>Email address</label>
+            <label htmlFor="email">Email</label>
 
             <input
+              id="email"
               type="email"
-              placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your email"
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Password</label>
+            <label htmlFor="password">Password</label>
 
             <input
+              id="password"
               type="password"
-              placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
               required
             />
           </div>
 
+          {error && (
+            <div className="error-message">
+              {error}
+            </div>
+          )}
+
           <button
             type="submit"
-            className="login-button"
+            className="login-btn"
             disabled={loading}
           >
-            {loading ? "Signing in..." : "Sign in"}
+            {loading ? "Logging in..." : "Login"}
           </button>
 
         </form>
 
         <p className="register-link">
           Don't have an account?{" "}
-          <Link to="/register">
-            Create account
-          </Link>
+          <Link to="/register">Create an account</Link>
         </p>
 
       </div>
