@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum as PyEnum
 
 from sqlalchemy import (
     Column,
@@ -9,15 +10,34 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Boolean,
+    JSON,
 )
 
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import ENUM as PGEnum
 
 from database import Base
 
 
 # ============================================================
-# USER MODEL
+# ENUMS
+# ============================================================
+
+class SystemRole(PyEnum):
+    USER = "USER"
+    ADMIN = "ADMIN"
+
+
+class PostStatus(PyEnum):
+    DRAFT = "DRAFT"
+    SCHEDULED = "SCHEDULED"
+    PUBLISHED = "PUBLISHED"
+    FAILED = "FAILED"
+    PUBLISHING = "PUBLISHING"
+
+
+# ============================================================
+# USER
 # ============================================================
 
 class User(Base):
@@ -52,6 +72,16 @@ class User(Base):
         default="content_creator"
     )
 
+    system_role = Column(
+        PGEnum(
+            SystemRole,
+            name="system_role",
+            create_type=False
+        ),
+        nullable=False,
+        default=SystemRole.USER
+    )
+
     reset_token = Column(
         String(255),
         nullable=True
@@ -64,8 +94,22 @@ class User(Base):
 
     created_at = Column(
         DateTime,
+        nullable=False,
         default=datetime.utcnow
     )
+
+    # IMPORTANT:
+    # Your PostgreSQL users table has this column as NOT NULL.
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    # --------------------------------------------------------
+    # Relationships
+    # --------------------------------------------------------
 
     datasets = relationship(
         "Dataset",
@@ -91,9 +135,15 @@ class User(Base):
         cascade="all, delete-orphan"
     )
 
+    posts = relationship(
+        "Post",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+
 
 # ============================================================
-# DATASET MODEL
+# DATASET
 # ============================================================
 
 class Dataset(Base):
@@ -149,7 +199,7 @@ class Dataset(Base):
 
 
 # ============================================================
-# SCENARIO MODEL
+# SCENARIO
 # ============================================================
 
 class Scenario(Base):
@@ -246,7 +296,7 @@ class Scenario(Base):
 
 
 # ============================================================
-# SIMULATION RESULT MODEL
+# SIMULATION RESULT
 # ============================================================
 
 class SimulationResult(Base):
@@ -301,7 +351,7 @@ class SimulationResult(Base):
 
 
 # ============================================================
-# CHAT MESSAGE MODEL
+# CHAT MESSAGE
 # ============================================================
 
 class ChatMessage(Base):
@@ -352,7 +402,7 @@ class ChatMessage(Base):
 
 
 # ============================================================
-# SOCIAL ACCOUNT MODEL
+# SOCIAL ACCOUNT
 # ============================================================
 
 class SocialAccount(Base):
@@ -360,8 +410,7 @@ class SocialAccount(Base):
 
     id = Column(
         Integer,
-        primary_key=True,
-        index=True
+        primary_key=True
     )
 
     user_id = Column(
@@ -376,12 +425,32 @@ class SocialAccount(Base):
     )
 
     account_name = Column(
-        String(150),
+        String(255),
         nullable=False
     )
 
+    platform_user_id = Column(
+        String(255),
+        nullable=True
+    )
+
     access_token = Column(
-        String(500),
+        Text,
+        nullable=True
+    )
+
+    refresh_token = Column(
+        Text,
+        nullable=True
+    )
+
+    token_expires_at = Column(
+        DateTime,
+        nullable=True
+    )
+
+    status = Column(
+        String(50),
         nullable=True
     )
 
@@ -390,12 +459,90 @@ class SocialAccount(Base):
         default=True
     )
 
-    connected_at = Column(
+    last_synced_at = Column(
+        DateTime,
+        nullable=True
+    )
+
+    created_at = Column(
         DateTime,
         default=datetime.utcnow
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
     )
 
     user = relationship(
         "User",
         back_populates="social_accounts"
+    )
+
+
+# ============================================================
+# POST
+# ============================================================
+
+class Post(Base):
+    __tablename__ = "posts"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    content = Column(
+        Text,
+        nullable=False
+    )
+
+    platforms = Column(
+        JSON,
+        nullable=False
+    )
+
+    content_type = Column(
+        String(50),
+        nullable=False,
+        default="text"
+    )
+
+    status = Column(
+        PGEnum(
+            PostStatus,
+            name="post_status",
+            create_type=False
+        ),
+        nullable=False,
+        default=PostStatus.DRAFT
+    )
+
+    scheduled_at = Column(
+        DateTime,
+        nullable=True
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    user = relationship(
+        "User",
+        back_populates="posts"
     )

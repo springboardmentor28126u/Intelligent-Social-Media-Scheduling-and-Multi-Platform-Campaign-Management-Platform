@@ -2,40 +2,58 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+
 import {
   getMe,
   getSocialAccounts,
   connectSocialAccount,
+  getLinkedInAuthorizeUrl,
 } from "@/lib/api";
 
-type UserProfile = {
-  user_id: number;
+
+/* =========================================================
+   TYPES
+========================================================= */
+
+interface User {
+  id?: number;
+  user_id?: number;
   name: string;
   email: string;
   role: string;
-};
+}
 
-type SocialAccount = {
+interface SocialAccount {
   id: number;
   platform: string;
-  account_name: string;
-};
+  username?: string;
+  account_name?: string;
+  is_connected?: boolean;
+}
+
+
+/* =========================================================
+   PLATFORM DATA
+========================================================= */
 
 const PLATFORM_DATA: Record<
   string,
-  { icon: string; label: string }
+  {
+    icon: string;
+    label: string;
+  }
 > = {
-  facebook: {
-    icon: "f",
-    label: "Facebook",
+  linkedin: {
+    icon: "in",
+    label: "LinkedIn",
   },
   instagram: {
     icon: "◎",
     label: "Instagram",
   },
-  linkedin: {
-    icon: "in",
-    label: "LinkedIn",
+  facebook: {
+    icon: "f",
+    label: "Facebook",
   },
   twitter: {
     icon: "𝕏",
@@ -51,53 +69,80 @@ const PLATFORM_DATA: Record<
   },
 };
 
+
+/* =========================================================
+   DASHBOARD
+========================================================= */
+
 export default function DashboardPage() {
   const router = useRouter();
 
-  const [profile, setProfile] =
-    useState<UserProfile | null>(null);
+  const [user, setUser] = useState<User | null>(null);
 
-  const [accounts, setAccounts] =
-    useState<SocialAccount[]>([]);
+  const [socialAccounts, setSocialAccounts] = useState<
+    SocialAccount[]
+  >([]);
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  const [platform, setPlatform] =
-    useState("linkedin");
+  const [connecting, setConnecting] = useState(false);
 
-  const [accountName, setAccountName] =
-    useState("");
-
-  const [connecting, setConnecting] =
+  const [linkedinLoading, setLinkedinLoading] =
     useState(false);
 
-  /* =====================================================
-     LOAD DATA
-  ===================================================== */
+  const [selectedPlatform, setSelectedPlatform] =
+    useState("LinkedIn");
 
-  const loadData = useCallback(async () => {
+  const [accountName, setAccountName] = useState("");
+
+  const [message, setMessage] = useState("");
+
+  const [error, setError] = useState("");
+
+
+  /* =========================================================
+     LOAD DASHBOARD DATA
+  ========================================================= */
+
+  const loadDashboard = useCallback(async () => {
     try {
-      const [profileData, accountsData] =
+      setError("");
+
+      const [userData, accountsData] =
         await Promise.all([
           getMe(),
           getSocialAccounts(),
         ]);
 
-      setProfile(profileData);
-      setAccounts(accountsData);
+      setUser(userData);
+      setSocialAccounts(accountsData);
     } catch (err: unknown) {
-      setError(
+      console.error(
+        "Dashboard loading error:",
+        err
+      );
+
+      const errorMessage =
         err instanceof Error
           ? err.message
-          : "Unable to load SocialPilot"
-      );
+          : "Unable to load SocialPilot";
+
+      setError(errorMessage);
 
       if (
         err instanceof Error &&
-        err.message.includes("Invalid or expired")
+        err.message
+          .toLowerCase()
+          .includes("invalid or expired")
       ) {
-        localStorage.removeItem("access_token");
+        localStorage.removeItem(
+          "access_token"
+        );
+
+        localStorage.removeItem("user_id");
+        localStorage.removeItem("user_name");
+        localStorage.removeItem("user_role");
+
         router.push("/login");
       }
     } finally {
@@ -105,9 +150,10 @@ export default function DashboardPage() {
     }
   }, [router]);
 
-  /* =====================================================
-     AUTH CHECK
-  ===================================================== */
+
+  /* =========================================================
+     INITIALIZE DASHBOARD
+  ========================================================= */
 
   useEffect(() => {
     const token =
@@ -118,202 +164,262 @@ export default function DashboardPage() {
       return;
     }
 
+    /*
+      Defer the API call so React's
+      set-state-in-effect rule is satisfied.
+    */
     const timer = window.setTimeout(() => {
-      loadData();
+      void loadDashboard();
     }, 0);
 
-    return () =>
+    return () => {
       window.clearTimeout(timer);
-  }, [router, loadData]);
+    };
+  }, [router, loadDashboard]);
 
-  /* =====================================================
-     CONNECT ACCOUNT
-  ===================================================== */
 
-  async function handleConnect(
-    e: React.FormEvent<HTMLFormElement>
-  ) {
-    e.preventDefault();
+  /* =========================================================
+     REFRESH SOCIAL ACCOUNTS
+  ========================================================= */
 
-    if (!accountName.trim()) return;
+  async function refreshSocialAccounts() {
+    try {
+      const accountsData =
+        await getSocialAccounts();
 
-    setConnecting(true);
+      setSocialAccounts(accountsData);
+    } catch (err) {
+      console.error(
+        "Failed to refresh accounts:",
+        err
+      );
+    }
+  }
+
+
+  /* =========================================================
+     CONNECT PLATFORM
+  ========================================================= */
+
+  async function handleConnect() {
+    setMessage("");
     setError("");
 
+    /* -------------------------------------------------------
+       LINKEDIN = REAL OAUTH
+    ------------------------------------------------------- */
+
+    if (
+      selectedPlatform.toLowerCase() ===
+      "linkedin"
+    ) {
+      try {
+        setLinkedinLoading(true);
+
+        const authorizationUrl =
+          await getLinkedInAuthorizeUrl();
+
+        /*
+          LinkedIn is an external website,
+          so direct browser navigation is intentional.
+        */
+        window.location.href =
+          authorizationUrl;
+
+        return;
+      } catch (err: unknown) {
+        console.error(
+          "LinkedIn OAuth error:",
+          err
+        );
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to start LinkedIn authorization"
+        );
+
+        setLinkedinLoading(false);
+
+        return;
+      }
+    }
+
+
+    /* -------------------------------------------------------
+       OTHER PLATFORMS = EXISTING MANUAL CONNECTION
+    ------------------------------------------------------- */
+
+    if (!accountName.trim()) {
+      setMessage(
+        "Please enter an account name."
+      );
+
+      return;
+    }
+
     try {
+      setConnecting(true);
+
       await connectSocialAccount(
-        platform,
+        selectedPlatform.toLowerCase(),
         accountName.trim()
+      );
+
+      setMessage(
+        `${selectedPlatform} connected successfully.`
       );
 
       setAccountName("");
 
-      const updated =
-        await getSocialAccounts();
-
-      setAccounts(updated);
+      await refreshSocialAccounts();
     } catch (err: unknown) {
-      setError(
+      console.error(
+        "Platform connection error:",
+        err
+      );
+
+      setMessage(
         err instanceof Error
           ? err.message
-          : "Failed to connect account"
+          : "Failed to connect platform."
       );
     } finally {
       setConnecting(false);
     }
   }
 
-  /* =====================================================
+
+  /* =========================================================
      LOGOUT
-  ===================================================== */
+  ========================================================= */
 
   function handleLogout() {
-    localStorage.removeItem("access_token");
+    localStorage.removeItem(
+      "access_token"
+    );
+
     localStorage.removeItem("user_id");
     localStorage.removeItem("user_name");
     localStorage.removeItem("user_role");
 
-    router.push("/");
+    router.push("/login");
   }
 
-  /* =====================================================
-     LOADING
-  ===================================================== */
+
+  /* =========================================================
+     LINKEDIN OAUTH RESULT
+  ========================================================= */
+
+  function getLinkedInStatus() {
+    if (
+      typeof window === "undefined"
+    ) {
+      return null;
+    }
+
+    const params =
+      new URLSearchParams(
+        window.location.search
+      );
+
+    return params.get("linkedin");
+  }
+
+  const linkedinStatus =
+    getLinkedInStatus();
+
+
+  /* =========================================================
+     LOADING SCREEN
+  ========================================================= */
 
   if (loading) {
     return (
-      <main
-        className="flex min-h-screen items-center justify-center"
-        style={{
-          background: "var(--sp-bg)",
-          color: "var(--sp-text)",
-        }}
-      >
-        <div className="text-center">
-          <div
-            className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-transparent"
-            style={{
-              borderTopColor:
-                "var(--sp-cyan)",
-              borderRightColor:
-                "var(--sp-purple)",
-            }}
-          />
+      <main className="min-h-screen bg-[#f7fbff] flex items-center justify-center">
 
-          <p
-            className="text-sm"
-            style={{
-              color: "var(--sp-muted)",
-            }}
-          >
-            Initializing command center...
+        <div className="text-center">
+
+          <div className="w-10 h-10 border-4 border-sky-100 border-t-sky-400 rounded-full animate-spin mx-auto mb-4" />
+
+          <p className="text-base text-slate-500">
+            Loading dashboard...
           </p>
+
         </div>
+
       </main>
     );
   }
 
-  /* =====================================================
+
+  /* =========================================================
      DASHBOARD
-  ===================================================== */
+  ========================================================= */
 
   return (
-    <main
-      className="min-h-screen"
-      style={{
-        background: "var(--sp-bg)",
-        color: "var(--sp-text)",
-        fontFamily:
-          "var(--font-plex-mono), monospace",
-      }}
-    >
+    <main className="min-h-screen bg-[#f7fbff] text-slate-800">
+
       <div className="flex min-h-screen">
+
 
         {/* =================================================
             SIDEBAR
         ================================================= */}
 
-        <aside
-          className="hidden w-64 shrink-0 border-r p-5 md:flex md:flex-col"
-          style={{
-            borderColor:
-              "var(--sp-border)",
-            background:
-              "var(--sp-surface)",
-          }}
-        >
+        <aside className="w-72 bg-white border-r border-sky-100 flex flex-col shadow-sm">
 
-          {/* BRAND */}
 
-          <div className="mb-10 flex items-center gap-3">
+          {/* -------------------------------------------------
+             LOGO
+          ------------------------------------------------- */}
 
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-xl font-bold"
-              style={{
-                background:
-                  "linear-gradient(135deg,#00C8E8,#635BDB)",
-                color: "#ffffff",
-              }}
-            >
-              S
-            </div>
-
-            <div>
-              <div
-                className="font-semibold"
-                style={{
-                  fontFamily:
-                    "var(--font-fraunces), serif",
-                }}
-              >
-                SocialPilot
-              </div>
-
-              <div
-                className="text-[9px] uppercase tracking-[0.2em]"
-                style={{
-                  color:
-                    "var(--sp-subtle)",
-                }}
-              >
-                Command Center
-              </div>
-            </div>
-
-          </div>
-
-          {/* WORKSPACE */}
-
-          <p
-            className="mb-3 px-2 text-[10px] uppercase tracking-[0.2em]"
-            style={{
-              color:
-                "var(--sp-subtle)",
-            }}
-          >
-            Workspace
-          </p>
-
-          <div className="space-y-1">
-
-            {/* DASHBOARD */}
+          <div className="px-6 py-7 border-b border-sky-50">
 
             <button
               type="button"
               onClick={() =>
                 router.push("/dashboard")
               }
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm"
-              style={{
-                background:
-                  "rgba(0,160,210,0.10)",
-                color:
-                  "var(--sp-cyan)",
-              }}
+              className="text-2xl font-bold text-sky-500 tracking-tight"
             >
-              <span>◉</span>
+              SocialPilot
+            </button>
+
+            <p className="text-sm text-slate-400 mt-1">
+              Social Media Command Center
+            </p>
+
+          </div>
+
+
+          {/* -------------------------------------------------
+             NAVIGATION
+          ------------------------------------------------- */}
+
+          <nav className="flex-1 p-4">
+
+            <p className="px-3 mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+              Workspace
+            </p>
+
+
+            {/* COMMAND CENTER */}
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push("/dashboard")
+              }
+              className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left text-base font-semibold bg-sky-50 text-sky-600 mb-1"
+            >
+              <span className="text-xl">
+                ⌂
+              </span>
+
               Command Center
             </button>
+
 
             {/* CREATE */}
 
@@ -322,15 +428,15 @@ export default function DashboardPage() {
               onClick={() =>
                 router.push("/create-post")
               }
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-all"
-              style={{
-                color:
-                  "var(--sp-text-secondary)",
-              }}
+              className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left text-base font-medium text-slate-600 hover:bg-sky-50 hover:text-sky-600 transition mb-1"
             >
-              <span>✦</span>
+              <span className="text-xl">
+                ＋
+              </span>
+
               Create
             </button>
+
 
             {/* CONTENT LAB */}
 
@@ -339,15 +445,15 @@ export default function DashboardPage() {
               onClick={() =>
                 router.push("/content-lab")
               }
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-all"
-              style={{
-                color:
-                  "var(--sp-text-secondary)",
-              }}
+              className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left text-base font-medium text-slate-600 hover:bg-sky-50 hover:text-sky-600 transition mb-1"
             >
-              <span>◇</span>
+              <span className="text-xl">
+                ✦
+              </span>
+
               Content Lab
             </button>
+
 
             {/* INSIGHTS */}
 
@@ -356,15 +462,15 @@ export default function DashboardPage() {
               onClick={() =>
                 router.push("/insights")
               }
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-all"
-              style={{
-                color:
-                  "var(--sp-text-secondary)",
-              }}
+              className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left text-base font-medium text-slate-600 hover:bg-sky-50 hover:text-sky-600 transition mb-1"
             >
-              <span>◌</span>
+              <span className="text-xl">
+                ◔
+              </span>
+
               Insights
             </button>
+
 
             {/* AUDIENCE */}
 
@@ -373,126 +479,44 @@ export default function DashboardPage() {
               onClick={() =>
                 router.push("/audience")
               }
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-all"
-              style={{
-                color:
-                  "var(--sp-text-secondary)",
-              }}
+              className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left text-base font-medium text-slate-600 hover:bg-sky-50 hover:text-sky-600 transition mb-1"
             >
-              <span>◎</span>
+              <span className="text-xl">
+                ◎
+              </span>
+
               Audience
             </button>
 
-          </div>
 
-          {/* =================================================
-              CONNECTED PLATFORMS
-          ================================================= */}
+            {/* PUBLISHING CALENDAR */}
 
-          <p
-            className="mb-3 mt-10 px-2 text-[10px] uppercase tracking-[0.2em]"
-            style={{
-              color:
-                "var(--sp-subtle)",
-            }}
-          >
-            Connected
-          </p>
-
-          <div className="space-y-2">
-
-            {accounts.length === 0 ? (
-              <p
-                className="px-2 text-xs"
-                style={{
-                  color:
-                    "var(--sp-subtle)",
-                }}
-              >
-                No platforms connected
-              </p>
-            ) : (
-              accounts
-                .slice(0, 5)
-                .map((account) => {
-
-                  const platformInfo =
-                    PLATFORM_DATA[
-                      account.platform
-                    ];
-
-                  return (
-                    <div
-                      key={account.id}
-                      className="flex items-center gap-3 px-2 py-2"
-                    >
-                      <span
-                        className="flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold"
-                        style={{
-                          background:
-                            "var(--sp-hover)",
-                          color:
-                            "var(--sp-text-secondary)",
-                          border:
-                            "1px solid var(--sp-border)",
-                        }}
-                      >
-                        {platformInfo?.icon ||
-                          "●"}
-                      </span>
-
-                      <div className="min-w-0">
-                        <p className="truncate text-xs">
-                          {account.account_name}
-                        </p>
-
-                        <p
-                          className="text-[10px]"
-                          style={{
-                            color:
-                              "var(--sp-muted)",
-                          }}
-                        >
-                          {platformInfo?.label ||
-                            account.platform}
-                        </p>
-                      </div>
-
-                      <span
-                        className="ml-auto h-1.5 w-1.5 rounded-full"
-                        style={{
-                          background:
-                            "var(--sp-green)",
-                        }}
-                      />
-                    </div>
-                  );
-                })
-            )}
-
-          </div>
-
-          {/* =================================================
-              ACCOUNT
-          ================================================= */}
-
-          <div
-            className="mt-auto border-t pt-4"
-            style={{
-              borderColor:
-                "var(--sp-border)",
-            }}
-          >
-
-            <p
-              className="mb-2 px-2 text-[10px] uppercase tracking-[0.2em]"
-              style={{
-                color:
-                  "var(--sp-subtle)",
-              }}
+            <button
+              type="button"
+              onClick={() =>
+                router.push("/calender")
+              }
+              className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left text-base font-medium text-slate-600 hover:bg-sky-50 hover:text-sky-600 transition mb-1"
             >
+              <span className="text-xl">
+                ▣
+              </span>
+
+              Publishing Calendar
+            </button>
+
+
+            {/* DIVIDER */}
+
+            <div className="my-6 border-t border-sky-50" />
+
+
+            {/* ACCOUNT */}
+
+            <p className="px-3 mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
               Account
             </p>
+
 
             {/* SETTINGS */}
 
@@ -501,90 +525,54 @@ export default function DashboardPage() {
               onClick={() =>
                 router.push("/settings")
               }
-              className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-all"
-              style={{
-                color:
-                  "var(--sp-text-secondary)",
-              }}
+              className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left text-base font-medium text-slate-600 hover:bg-sky-50 hover:text-sky-600 transition"
             >
-              <span
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-sm"
-                style={{
-                  background:
-                    "var(--sp-hover)",
-                  border:
-                    "1px solid var(--sp-border)",
-                }}
-              >
+              <span className="text-xl">
                 ⚙
               </span>
 
-              <span>
-                Settings
-              </span>
-
-              <span
-                className="ml-auto"
-                style={{
-                  color:
-                    "var(--sp-cyan)",
-                }}
-              >
-                →
-              </span>
+              Settings
             </button>
 
-            {/* PREFERENCES */}
+          </nav>
 
-            <button
-              type="button"
-              onClick={() =>
-                router.push("/preferences")
-              }
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm"
-              style={{
-                color:
-                  "var(--sp-text-secondary)",
-              }}
-            >
-              <span
-                className="flex h-7 w-7 items-center justify-center rounded-lg"
-                style={{
-                  background:
-                    "var(--sp-hover)",
-                  border:
-                    "1px solid var(--sp-border)",
-                }}
-              >
-                ◐
-              </span>
 
-              Preferences
-            </button>
+          {/* -------------------------------------------------
+             USER
+          ------------------------------------------------- */}
 
-            {/* SIGN OUT */}
+          <div className="border-t border-sky-50 p-5">
+
+            <div className="flex items-center gap-3 px-2 mb-4">
+
+              <div className="w-11 h-11 rounded-full bg-sky-400 text-white flex items-center justify-center text-base font-bold">
+                {user?.name
+                  ? user.name
+                      .charAt(0)
+                      .toUpperCase()
+                  : "U"}
+              </div>
+
+              <div className="min-w-0">
+
+                <p className="text-sm font-bold text-slate-800 truncate">
+                  {user?.name || "User"}
+                </p>
+
+                <p className="text-xs text-slate-400 truncate">
+                  {user?.email || ""}
+                </p>
+
+              </div>
+
+            </div>
+
 
             <button
               type="button"
               onClick={handleLogout}
-              className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm"
-              style={{
-                color:
-                  "var(--sp-text-secondary)",
-              }}
+              className="w-full rounded-xl px-4 py-3 text-left text-base font-medium text-red-500 hover:bg-red-50 transition"
             >
-              <span
-                className="flex h-7 w-7 items-center justify-center rounded-lg"
-                style={{
-                  background:
-                    "var(--sp-hover)",
-                  border:
-                    "1px solid var(--sp-border)",
-                }}
-              >
-                ↪
-              </span>
-
               Sign out
             </button>
 
@@ -592,689 +580,698 @@ export default function DashboardPage() {
 
         </aside>
 
+
         {/* =================================================
-            MAIN
+            MAIN CONTENT
         ================================================= */}
 
-        <section className="flex-1">
+        <section className="flex-1 min-w-0">
 
-          {/* TOP BAR */}
 
-          <header
-            className="flex items-center justify-between border-b px-6 py-5 md:px-10"
-            style={{
-              borderColor:
-                "var(--sp-border)",
-              background:
-                "var(--sp-bg)",
-            }}
-          >
+          {/* =================================================
+              HEADER
+          ================================================= */}
 
-            <div>
-              <p
-                className="text-[10px] uppercase tracking-[0.25em]"
-                style={{
-                  color:
-                    "var(--sp-cyan)",
-                }}
-              >
-                Command Center
-              </p>
+          <header className="bg-white border-b border-sky-100 px-8 py-7">
 
-              <p
-                className="mt-1 text-xs"
-                style={{
-                  color:
-                    "var(--sp-muted)",
-                }}
-              >
-                Your social system at a glance
-              </p>
-            </div>
+            <div className="flex items-center justify-between">
 
-            <div className="flex items-center gap-4">
+              <div>
+
+                <p className="text-sm uppercase tracking-wider text-sky-500 font-bold">
+                  Command Center
+                </p>
+
+                <h1 className="text-3xl font-bold text-slate-900 mt-1">
+                  Welcome back
+                  {user?.name
+                    ? `, ${user.name}`
+                    : ""}
+                </h1>
+
+                <p className="text-base text-slate-500 mt-2">
+                  Manage your social media
+                  content and campaigns.
+                </p>
+
+              </div>
+
 
               <button
                 type="button"
                 onClick={() =>
                   router.push("/create-post")
                 }
-                className="rounded-xl px-4 py-2.5 text-xs font-semibold"
-                style={{
-                  background:
-                    "linear-gradient(135deg,#00C8E8,#635BDB)",
-                  color: "#ffffff",
-                }}
+                className="px-6 py-3 rounded-xl bg-sky-400 text-white text-sm font-bold hover:bg-sky-500 shadow-sm transition"
               >
-                + Create
+                + Create Post
               </button>
-
-              <div className="hidden text-right sm:block">
-                <p className="text-xs">
-                  {profile?.name || "User"}
-                </p>
-
-                <p
-                  className="text-[10px]"
-                  style={{
-                    color:
-                      "var(--sp-muted)",
-                  }}
-                >
-                  {profile?.role ||
-                    "Creator"}
-                </p>
-              </div>
-
-              <div
-                className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold"
-                style={{
-                  background:
-                    "rgba(99,91,219,0.12)",
-                  color:
-                    "var(--sp-purple)",
-                  border:
-                    "1px solid rgba(99,91,219,0.22)",
-                }}
-              >
-                {profile?.name
-                  ?.charAt(0)
-                  .toUpperCase() || "U"}
-              </div>
 
             </div>
 
           </header>
 
-          {/* CONTENT */}
 
-          <div className="mx-auto max-w-7xl p-6 md:p-10">
+          {/* =================================================
+              PAGE CONTENT
+          ================================================= */}
 
-            {/* GREETING */}
+          <div className="p-8">
 
-            <div className="mb-10">
 
-              <h1
-                className="text-3xl md:text-4xl"
-                style={{
-                  fontFamily:
-                    "var(--font-fraunces), serif",
-                  fontWeight: 600,
-                }}
-              >
-                Good to see you
-                {profile?.name
-                  ? `, ${
-                      profile.name.split(
-                        " "
-                      )[0]
-                    }`
-                  : ""}
-                .
-              </h1>
-
-              <p
-                className="mt-2 max-w-xl text-sm"
-                style={{
-                  color:
-                    "var(--sp-muted)",
-                }}
-              >
-                Everything happening across
-                your social presence, distilled
-                into one intelligent workspace.
-              </p>
-
-            </div>
-
-            {/* ERROR */}
+            {/* =================================================
+                ERROR
+            ================================================= */}
 
             {error && (
-              <div
-                className="mb-6 rounded-xl p-4 text-sm"
-                style={{
-                  background:
-                    "rgba(220,49,89,0.08)",
-                  border:
-                    "1px solid rgba(220,49,89,0.20)",
-                  color:
-                    "var(--sp-danger)",
-                }}
-              >
-                {error}
+              <div className="mb-6 rounded-xl bg-red-50 border border-red-100 px-4 py-3">
+
+                <p className="text-sm text-red-600 font-medium">
+                  {error}
+                </p>
+
               </div>
             )}
+
+
+            {/* =================================================
+                LINKEDIN SUCCESS
+            ================================================= */}
+
+            {linkedinStatus === "connected" && (
+              <div className="mb-6 rounded-xl bg-green-50 border border-green-100 px-4 py-3">
+
+                <p className="text-sm text-green-600 font-medium">
+                  LinkedIn connected successfully.
+                </p>
+
+              </div>
+            )}
+
+
+            {/* =================================================
+                LINKEDIN DENIED
+            ================================================= */}
+
+            {linkedinStatus === "denied" && (
+              <div className="mb-6 rounded-xl bg-yellow-50 border border-yellow-100 px-4 py-3">
+
+                <p className="text-sm text-yellow-700 font-medium">
+                  LinkedIn authorization was cancelled.
+                </p>
+
+              </div>
+            )}
+
+
+            {/* =================================================
+                LINKEDIN ERROR
+            ================================================= */}
+
+            {linkedinStatus === "error" && (
+              <div className="mb-6 rounded-xl bg-red-50 border border-red-100 px-4 py-3">
+
+                <p className="text-sm text-red-600 font-medium">
+                  LinkedIn connection failed. Please try again.
+                </p>
+
+              </div>
+            )}
+
 
             {/* =================================================
                 METRICS
             ================================================= */}
 
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
 
-              {[
-                {
-                  label: "Total Reach",
-                  value: "24.8K",
-                  change: "+18.4%",
-                  icon: "↗",
-                },
-                {
-                  label: "Engagement",
-                  value: "8.4%",
-                  change: "+2.1%",
-                  icon: "◎",
-                },
-                {
-                  label: "Published",
-                  value: "18",
-                  change: "+6 this week",
-                  icon: "✦",
-                },
-                {
-                  label: "Platforms",
-                  value: String(
-                    accounts.length
-                  ),
-                  change: "connected",
-                  icon: "◈",
-                },
-              ].map((item) => (
 
-                <div
-                  key={item.label}
-                  className="rounded-2xl p-5"
-                  style={{
-                    background:
-                      "var(--sp-card)",
-                    border:
-                      "1px solid var(--sp-border)",
-                  }}
-                >
+              {/* TOTAL POSTS */}
 
-                  <div className="flex justify-between">
+              <div className="bg-white border border-sky-100 rounded-2xl p-6 shadow-sm">
 
-                    <span
-                      className="text-xs"
-                      style={{
-                        color:
-                          "var(--sp-muted)",
-                      }}
-                    >
-                      {item.label}
-                    </span>
-
-                    <span
-                      style={{
-                        color:
-                          "var(--sp-cyan)",
-                      }}
-                    >
-                      {item.icon}
-                    </span>
-
-                  </div>
-
-                  <div
-                    className="mt-5 text-2xl font-semibold"
-                    style={{
-                      color:
-                        "var(--sp-text)",
-                    }}
-                  >
-                    {item.value}
-                  </div>
-
-                  <p
-                    className="mt-1 text-[10px]"
-                    style={{
-                      color:
-                        "var(--sp-green)",
-                    }}
-                  >
-                    {item.change}
-                  </p>
-
+                <div className="w-11 h-11 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center text-xl">
+                  ◫
                 </div>
 
-              ))}
+                <p className="text-sm font-semibold text-slate-500 mt-4">
+                  Total Posts
+                </p>
+
+                <p className="text-3xl font-bold text-slate-900 mt-2">
+                  0
+                </p>
+
+                <p className="text-sm text-slate-400 mt-1">
+                  Content created
+                </p>
+
+              </div>
+
+
+              {/* SCHEDULED */}
+
+              <div className="bg-white border border-sky-100 rounded-2xl p-6 shadow-sm">
+
+                <div className="w-11 h-11 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center text-xl">
+                  ▣
+                </div>
+
+                <p className="text-sm font-semibold text-slate-500 mt-4">
+                  Scheduled
+                </p>
+
+                <p className="text-3xl font-bold text-slate-900 mt-2">
+                  0
+                </p>
+
+                <p className="text-sm text-slate-400 mt-1">
+                  Upcoming posts
+                </p>
+
+              </div>
+
+
+              {/* CONNECTED PLATFORMS */}
+
+              <div className="bg-white border border-sky-100 rounded-2xl p-6 shadow-sm">
+
+                <div className="w-11 h-11 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center text-xl">
+                  ◎
+                </div>
+
+                <p className="text-sm font-semibold text-slate-500 mt-4">
+                  Connected Platforms
+                </p>
+
+                <p className="text-3xl font-bold text-slate-900 mt-2">
+                  {socialAccounts.length}
+                </p>
+
+                <p className="text-sm text-slate-400 mt-1">
+                  Social accounts
+                </p>
+
+              </div>
+
+
+              {/* ENGAGEMENT */}
+
+              <div className="bg-white border border-sky-100 rounded-2xl p-6 shadow-sm">
+
+                <div className="w-11 h-11 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center text-xl">
+                  ↗
+                </div>
+
+                <p className="text-sm font-semibold text-slate-500 mt-4">
+                  Engagement
+                </p>
+
+                <p className="text-3xl font-bold text-slate-900 mt-2">
+                  0%
+                </p>
+
+                <p className="text-sm text-slate-400 mt-1">
+                  Overall engagement
+                </p>
+
+              </div>
 
             </div>
 
+
             {/* =================================================
-                PERFORMANCE + AI
+                PERFORMANCE + AI INSIGHT
             ================================================= */}
 
-            <div className="mt-6 grid gap-6 lg:grid-cols-3">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
 
               {/* PERFORMANCE */}
 
-              <div
-                className="rounded-2xl p-6 lg:col-span-2"
-                style={{
-                  background:
-                    "var(--sp-card)",
-                  border:
-                    "1px solid var(--sp-border)",
-                }}
-              >
+              <div className="xl:col-span-2 bg-white border border-sky-100 rounded-2xl p-6 shadow-sm">
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-6">
 
                   <div>
-                    <p
-                      className="text-xs uppercase tracking-widest"
-                      style={{
-                        color:
-                          "var(--sp-subtle)",
-                      }}
-                    >
-                      Social pulse
+
+                    <h2 className="text-xl font-bold text-slate-900">
+                      Performance Overview
+                    </h2>
+
+                    <p className="text-sm text-slate-500 mt-1">
+                      Track your social media
+                      performance.
                     </p>
 
-                    <h2
-                      className="mt-2 text-xl"
-                      style={{
-                        fontFamily:
-                          "var(--font-fraunces), serif",
-                      }}
-                    >
-                      Performance momentum
-                    </h2>
                   </div>
 
-                  <span
-                    className="rounded-full px-3 py-1 text-[10px]"
-                    style={{
-                      background:
-                        "rgba(21,149,112,0.08)",
-                      color:
-                        "var(--sp-green)",
-                    }}
-                  >
-                    Growing
+                  <span className="text-xs px-3 py-1.5 rounded-full bg-sky-50 text-sky-500 font-semibold">
+                    Coming Soon
                   </span>
 
                 </div>
 
-                <div className="mt-8 flex h-48 items-end gap-3">
 
-                  {[
-                    38,
-                    52,
-                    45,
-                    68,
-                    58,
-                    76,
-                    82,
-                    70,
-                    91,
-                    84,
-                    96,
-                    100,
-                  ].map(
-                    (height, index) => (
+                <div className="h-64 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center">
 
-                      <div
-                        key={index}
-                        className="group relative flex-1"
-                      >
-                        <div
-                          className="absolute bottom-0 w-full rounded-t-lg transition-all group-hover:opacity-70"
-                          style={{
-                            height:
-                              `${height}%`,
-                            background:
-                              "linear-gradient(to top,rgba(0,200,232,0.12),rgba(99,91,219,0.65))",
-                          }}
-                        />
-                      </div>
+                  <div className="text-center">
 
-                    )
-                  )}
+                    <div className="w-14 h-14 rounded-full bg-white text-sky-400 flex items-center justify-center text-2xl mx-auto mb-4 shadow-sm">
+                      ◔
+                    </div>
 
-                </div>
+                    <p className="text-base font-semibold text-slate-700">
+                      Analytics will appear here
+                    </p>
 
-                <div
-                  className="mt-4 flex justify-between text-[9px]"
-                  style={{
-                    color:
-                      "var(--sp-subtle)",
-                  }}
-                >
-                  <span>
-                    12 weeks ago
-                  </span>
+                    <p className="text-sm text-slate-400 mt-1">
+                      Connect your social platforms
+                      to track performance.
+                    </p>
 
-                  <span>
-                    Today
-                  </span>
+                  </div>
+
                 </div>
 
               </div>
 
+
               {/* AI INSIGHT */}
 
-              <div
-                className="rounded-2xl p-6"
-                style={{
-                  background:
-                    "linear-gradient(145deg,rgba(0,200,232,0.07),rgba(99,91,219,0.08))",
-                  border:
-                    "1px solid rgba(99,91,219,0.15)",
-                }}
-              >
+              <div className="bg-sky-400 rounded-2xl p-6 text-white shadow-sm">
 
-                <div
-                  className="flex h-10 w-10 items-center justify-center rounded-xl"
-                  style={{
-                    background:
-                      "rgba(99,91,219,0.12)",
-                    color:
-                      "var(--sp-purple)",
-                  }}
-                >
-                  ✦
-                </div>
+                <div className="flex items-center gap-3 mb-5">
 
-                <p
-                  className="mt-6 text-[10px] uppercase tracking-widest"
-                  style={{
-                    color:
-                      "var(--sp-muted)",
-                  }}
-                >
-                  AI Pilot
-                </p>
+                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">
+                    ✦
+                  </div>
 
-                <h2
-                  className="mt-2 text-xl"
-                  style={{
-                    fontFamily:
-                      "var(--font-fraunces), serif",
-                  }}
-                >
-                  A signal worth noticing.
-                </h2>
+                  <div>
 
-                <p
-                  className="mt-4 text-sm leading-6"
-                  style={{
-                    color:
-                      "var(--sp-text-secondary)",
-                  }}
-                >
-                  Your audience is responding
-                  strongly to educational and
-                  technology-focused content.
-                </p>
+                    <h2 className="font-bold text-lg">
+                      AI Insight
+                    </h2>
 
-                <div
-                  className="mt-6 rounded-xl p-4"
-                  style={{
-                    background:
-                      "var(--sp-hover)",
-                    border:
-                      "1px solid var(--sp-border)",
-                  }}
-                >
+                    <p className="text-xs text-sky-50">
+                      Smart recommendations
+                    </p>
 
-                  <p
-                    className="text-xs leading-5"
-                    style={{
-                      color:
-                        "var(--sp-text-secondary)",
-                    }}
-                  >
-                    Recommendation
-                  </p>
-
-                  <p
-                    className="mt-1 text-xs leading-5"
-                    style={{
-                      color:
-                        "var(--sp-text)",
-                    }}
-                  >
-                    Experiment with more
-                    educational posts this
-                    week.
-                  </p>
+                  </div>
 
                 </div>
+
+
+                <p className="text-sm leading-6 text-white/90">
+                  Your SocialPilot AI assistant
+                  will analyze your content
+                  performance and provide
+                  recommendations here.
+                </p>
+
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      "/content-lab"
+                    )
+                  }
+                  className="mt-6 w-full rounded-xl bg-white text-sky-600 py-3 text-sm font-bold hover:bg-sky-50 transition"
+                >
+                  Open Content Lab
+                </button>
 
               </div>
 
             </div>
 
+
             {/* =================================================
-                CONTENT LAB + CONNECT
+                CONTENT LAB
             ================================================= */}
 
-            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <div className="mt-6 bg-white border border-sky-100 rounded-2xl p-6 shadow-sm">
 
-              {/* CONTENT LAB */}
+              <div className="flex items-center justify-between mb-5">
 
-              <div
-                className="rounded-2xl p-6"
-                style={{
-                  background:
-                    "var(--sp-card)",
-                  border:
-                    "1px solid var(--sp-border)",
-                }}
-              >
+                <div>
 
-                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-slate-900">
+                    Content Lab
+                  </h2>
 
-                  <div>
-                    <p
-                      className="text-[10px] uppercase tracking-widest"
-                      style={{
-                        color:
-                          "var(--sp-subtle)",
-                      }}
-                    >
-                      Content Lab
-                    </p>
-
-                    <h2
-                      className="mt-1 text-lg"
-                      style={{
-                        fontFamily:
-                          "var(--font-fraunces), serif",
-                      }}
-                    >
-                      Your content pipeline
-                    </h2>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      router.push(
-                        "/content-lab"
-                      )
-                    }
-                    className="text-xs"
-                    style={{
-                      color:
-                        "var(--sp-cyan)",
-                    }}
-                  >
-                    Open →
-                  </button>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Create and manage your social
+                    media content.
+                  </p>
 
                 </div>
 
-                <div className="mt-6 grid grid-cols-3 gap-3">
 
-                  {[
-                    ["Ideas", "07"],
-                    ["Drafts", "04"],
-                    ["Ready", "03"],
-                  ].map(
-                    ([label, number]) => (
-
-                      <div
-                        key={label}
-                        className="rounded-xl p-4"
-                        style={{
-                          background:
-                            "var(--sp-hover)",
-                          border:
-                            "1px solid var(--sp-border)",
-                        }}
-                      >
-
-                        <p
-                          className="text-[10px]"
-                          style={{
-                            color:
-                              "var(--sp-muted)",
-                          }}
-                        >
-                          {label}
-                        </p>
-
-                        <p
-                          className="mt-3 text-2xl"
-                          style={{
-                            color:
-                              "var(--sp-text)",
-                          }}
-                        >
-                          {number}
-                        </p>
-
-                      </div>
-
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      "/create-post"
                     )
+                  }
+                  className="px-5 py-2.5 rounded-lg bg-sky-400 text-white text-sm font-semibold hover:bg-sky-500"
+                >
+                  Create
+                </button>
+
+              </div>
+
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+
+                {/* CREATE POST */}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      "/create-post"
+                    )
+                  }
+                  className="text-left p-5 rounded-xl border border-sky-100 bg-sky-50/50 hover:bg-sky-50 hover:border-sky-200 transition"
+                >
+
+                  <div className="w-10 h-10 rounded-lg bg-white text-sky-500 flex items-center justify-center text-xl mb-3 shadow-sm">
+                    ＋
+                  </div>
+
+                  <h3 className="font-bold text-slate-800">
+                    Create Post
+                  </h3>
+
+                  <p className="text-sm text-slate-500 mt-1">
+                    Create content for multiple
+                    social platforms.
+                  </p>
+
+                </button>
+
+
+                {/* CALENDAR */}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      "/calender"
+                    )
+                  }
+                  className="text-left p-5 rounded-xl border border-sky-100 bg-sky-50/50 hover:bg-sky-50 hover:border-sky-200 transition"
+                >
+
+                  <div className="w-10 h-10 rounded-lg bg-white text-sky-500 flex items-center justify-center text-xl mb-3 shadow-sm">
+                    ▣
+                  </div>
+
+                  <h3 className="font-bold text-slate-800">
+                    Publishing Calendar
+                  </h3>
+
+                  <p className="text-sm text-slate-500 mt-1">
+                    Plan and track scheduled
+                    content.
+                  </p>
+
+                </button>
+
+
+                {/* AI CONTENT LAB */}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      "/content-lab"
+                    )
+                  }
+                  className="text-left p-5 rounded-xl border border-sky-100 bg-sky-50/50 hover:bg-sky-50 hover:border-sky-200 transition"
+                >
+
+                  <div className="w-10 h-10 rounded-lg bg-white text-sky-500 flex items-center justify-center text-xl mb-3 shadow-sm">
+                    ✦
+                  </div>
+
+                  <h3 className="font-bold text-slate-800">
+                    AI Content Lab
+                  </h3>
+
+                  <p className="text-sm text-slate-500 mt-1">
+                    Generate and improve social
+                    media content.
+                  </p>
+
+                </button>
+
+              </div>
+
+            </div>
+
+
+            {/* =================================================
+                CONNECT PLATFORM
+            ================================================= */}
+
+            <div className="mt-6 bg-white border border-sky-100 rounded-2xl p-6 shadow-sm">
+
+              <div className="mb-5">
+
+                <h2 className="text-xl font-bold text-slate-900">
+                  Connect Platform
+                </h2>
+
+                <p className="text-sm text-slate-500 mt-1">
+                  Connect your social media
+                  accounts to enable publishing.
+                </p>
+
+              </div>
+
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+
+
+                {/* PLATFORM SELECT */}
+
+                <select
+                  value={selectedPlatform}
+                  onChange={(event) =>
+                    setSelectedPlatform(
+                      event.target.value
+                    )
+                  }
+                  className="border border-sky-100 rounded-xl px-4 py-3 text-sm bg-white text-slate-800 outline-none focus:ring-2 focus:ring-sky-100 focus:border-sky-400"
+                >
+
+                  <option value="LinkedIn">
+                    LinkedIn
+                  </option>
+
+                  <option value="Instagram">
+                    Instagram
+                  </option>
+
+                  <option value="Facebook">
+                    Facebook
+                  </option>
+
+                  <option value="X">
+                    X
+                  </option>
+
+                  <option value="YouTube">
+                    YouTube
+                  </option>
+
+                  <option value="Pinterest">
+                    Pinterest
+                  </option>
+
+                </select>
+
+
+                {/* ACCOUNT NAME */}
+
+                <input
+                  type="text"
+                  value={accountName}
+                  onChange={(event) =>
+                    setAccountName(
+                      event.target.value
+                    )
+                  }
+                  placeholder={
+                    selectedPlatform.toLowerCase() ===
+                    "linkedin"
+                      ? "Not needed for LinkedIn"
+                      : "Account name"
+                  }
+                  disabled={
+                    selectedPlatform.toLowerCase() ===
+                    "linkedin"
+                  }
+                  className="border border-sky-100 rounded-xl px-4 py-3 text-sm bg-white text-slate-800 outline-none focus:ring-2 focus:ring-sky-100 focus:border-sky-400 disabled:bg-slate-50 disabled:text-slate-400"
+                />
+
+
+                {/* CONNECT BUTTON */}
+
+                <button
+                  type="button"
+                  onClick={handleConnect}
+                  disabled={
+                    connecting ||
+                    linkedinLoading
+                  }
+                  className="px-6 py-3 rounded-xl bg-sky-400 text-white text-sm font-bold disabled:opacity-50 hover:bg-sky-500 transition"
+                >
+
+                  {linkedinLoading
+                    ? "Connecting LinkedIn..."
+                    : connecting
+                      ? "Connecting..."
+                      : "Connect"}
+
+                </button>
+
+              </div>
+
+
+              {/* MESSAGE */}
+
+              {message && (
+                <div className="mt-4 rounded-xl bg-sky-50 border border-sky-100 px-4 py-3">
+
+                  <p className="text-sm text-sky-600 font-medium">
+                    {message}
+                  </p>
+
+                </div>
+              )}
+
+            </div>
+
+
+            {/* =================================================
+                CONNECTED PLATFORMS
+            ================================================= */}
+
+            <div className="mt-6 bg-white border border-sky-100 rounded-2xl p-6 shadow-sm">
+
+              <div className="flex items-center justify-between mb-5">
+
+                <div>
+
+                  <h2 className="text-xl font-bold text-slate-900">
+                    Connected Platforms
+                  </h2>
+
+                  <p className="text-sm text-slate-500 mt-1">
+                    Your connected social media
+                    accounts.
+                  </p>
+
+                </div>
+
+                <span className="text-sm font-semibold text-sky-500">
+                  {socialAccounts.length} connected
+                </span>
+
+              </div>
+
+
+              {socialAccounts.length === 0 ? (
+
+                <div className="rounded-xl bg-sky-50 border border-dashed border-sky-200 p-8 text-center">
+
+                  <div className="w-14 h-14 rounded-full bg-white text-sky-400 flex items-center justify-center text-2xl mx-auto mb-3 shadow-sm">
+                    ◎
+                  </div>
+
+                  <p className="text-base font-semibold text-slate-700">
+                    No platforms connected
+                  </p>
+
+                  <p className="text-sm text-slate-400 mt-1">
+                    Connect a social account
+                    above to get started.
+                  </p>
+
+                </div>
+
+              ) : (
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+                  {socialAccounts.map(
+                    (account) => {
+
+                      const platformKey =
+                        account.platform
+                          .toLowerCase();
+
+                      const platformData =
+                        PLATFORM_DATA[
+                          platformKey
+                        ];
+
+                      return (
+                        <div
+                          key={account.id}
+                          className="border border-sky-100 rounded-xl p-4 hover:bg-sky-50/50 transition"
+                        >
+
+                          <div className="flex items-center justify-between">
+
+                            <div className="flex items-center gap-3">
+
+                              <div className="w-10 h-10 rounded-lg bg-sky-50 text-sky-500 flex items-center justify-center text-sm font-bold">
+
+                                {platformData?.icon ||
+                                  account.platform
+                                    .charAt(0)
+                                    .toUpperCase()}
+
+                              </div>
+
+
+                              <div>
+
+                                <p className="text-sm font-bold text-slate-800">
+                                  {platformData?.label ||
+                                    account.platform}
+                                </p>
+
+                                <p className="text-xs text-slate-400">
+                                  {account.username ||
+                                    account.account_name ||
+                                    "Connected"}
+                                </p>
+
+                              </div>
+
+                            </div>
+
+
+                            <span className="w-3 h-3 rounded-full bg-green-400" />
+
+                          </div>
+
+                        </div>
+                      );
+                    }
                   )}
 
                 </div>
 
-              </div>
-
-              {/* CONNECT */}
-
-              <div
-                className="rounded-2xl p-6"
-                style={{
-                  background:
-                    "var(--sp-card)",
-                  border:
-                    "1px solid var(--sp-border)",
-                }}
-              >
-
-                <p
-                  className="text-[10px] uppercase tracking-widest"
-                  style={{
-                    color:
-                      "var(--sp-subtle)",
-                  }}
-                >
-                  Expand your network
-                </p>
-
-                <h2
-                  className="mt-1 text-lg"
-                  style={{
-                    fontFamily:
-                      "var(--font-fraunces), serif",
-                  }}
-                >
-                  Connect another platform
-                </h2>
-
-                <form
-                  onSubmit={handleConnect}
-                  className="mt-5 flex flex-wrap gap-2"
-                >
-
-                  <select
-                    value={platform}
-                    onChange={(e) =>
-                      setPlatform(
-                        e.target.value
-                      )
-                    }
-                    className="rounded-xl px-3 py-3 text-xs outline-none"
-                    style={{
-                      background:
-                        "var(--sp-input)",
-                      border:
-                        "1px solid var(--sp-border)",
-                      color:
-                        "var(--sp-input-text)",
-                    }}
-                  >
-                    <option value="linkedin">
-                      LinkedIn
-                    </option>
-
-                    <option value="instagram">
-                      Instagram
-                    </option>
-
-                    <option value="facebook">
-                      Facebook
-                    </option>
-
-                    <option value="twitter">
-                      X
-                    </option>
-
-                    <option value="youtube">
-                      YouTube
-                    </option>
-
-                    <option value="pinterest">
-                      Pinterest
-                    </option>
-                  </select>
-
-                  <input
-                    value={accountName}
-                    onChange={(e) =>
-                      setAccountName(
-                        e.target.value
-                      )
-                    }
-                    placeholder="@account"
-                    required
-                    className="min-w-0 flex-1 rounded-xl px-3 py-3 text-xs outline-none"
-                    style={{
-                      background:
-                        "var(--sp-input)",
-                      border:
-                        "1px solid var(--sp-border)",
-                      color:
-                        "var(--sp-input-text)",
-                    }}
-                  />
-
-                  <button
-                    type="submit"
-                    disabled={connecting}
-                    className="rounded-xl px-4 py-3 text-xs font-semibold disabled:opacity-50"
-                    style={{
-                      background:
-                        "rgba(0,160,210,0.10)",
-                      color:
-                        "var(--sp-cyan)",
-                      border:
-                        "1px solid rgba(0,160,210,0.18)",
-                    }}
-                  >
-                    {connecting
-                      ? "..."
-                      : "Connect"}
-                  </button>
-
-                </form>
-
-              </div>
+              )}
 
             </div>
 

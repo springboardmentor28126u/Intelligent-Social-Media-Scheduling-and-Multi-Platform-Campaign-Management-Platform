@@ -1,40 +1,65 @@
-from urllib.parse import quote_plus
+import os
 
-from sqlalchemy import create_engine
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 
 # ============================================================
-# DATABASE SETTINGS
+# LOAD .ENV
 # ============================================================
 
-DB_USER = "postgres"
-DB_PASSWORD = "YourNewPassword"
-
-DB_HOST = "127.0.0.1"
-DB_PORT = "5432"
-DB_NAME = "socialpilot"
+load_dotenv()
 
 
 # ============================================================
 # DATABASE URL
 # ============================================================
 
-DATABASE_URL = (
-    f"postgresql+psycopg2://"
-    f"{DB_USER}:{quote_plus(DB_PASSWORD)}@"
-    f"{DB_HOST}:{DB_PORT}/{DB_NAME}"
-)
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError(
+        "DATABASE_URL is missing from your .env file"
+    )
 
 
 # ============================================================
-# ENGINE
+# DATABASE ENGINE
 # ============================================================
 
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True
 )
+
+
+# ============================================================
+# CHECK WHICH DATABASE WE ARE CONNECTED TO
+# ============================================================
+
+with engine.connect() as connection:
+
+    result = connection.execute(
+        text("""
+            SELECT
+                current_database(),
+                current_user,
+                current_schema(),
+                inet_server_addr()
+        """)
+    )
+
+    row = result.fetchone()
+
+    print("====================================")
+    print("DATABASE CONNECTION DETAILS")
+    print("====================================")
+    print("Database:", row[0])
+    print("User:", row[1])
+    print("Schema:", row[2])
+    print("Server:", row[3])
+    print("====================================")
 
 
 # ============================================================
@@ -60,63 +85,11 @@ Base = declarative_base()
 # ============================================================
 
 def get_db():
+
     db = SessionLocal()
 
     try:
         yield db
+
     finally:
         db.close()
-
-
-# ============================================================
-# TEST CONNECTION
-# ============================================================
-
-def test_database_connection():
-    try:
-        with engine.connect():
-            print("====================================")
-            print("✅ PostgreSQL CONNECTED")
-            print("✅ Database: socialpilot")
-            print("====================================")
-
-        return True
-
-    except Exception as error:
-        print("====================================")
-        print("❌ PostgreSQL CONNECTION FAILED")
-        print(error)
-        print("====================================")
-
-        return False
-
-
-# ============================================================
-# CREATE TABLES
-# ============================================================
-
-def create_tables():
-    try:
-        import models
-
-        Base.metadata.create_all(bind=engine)
-
-        print("====================================")
-        print("✅ DATABASE TABLES CREATED")
-        print("====================================")
-
-    except Exception as error:
-        print("====================================")
-        print("❌ TABLE CREATION FAILED")
-        print(error)
-        print("====================================")
-
-
-# ============================================================
-# RUN
-# ============================================================
-
-if __name__ == "__main__":
-
-    if test_database_connection():
-        create_tables()
