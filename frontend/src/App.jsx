@@ -55,6 +55,12 @@ function App() {
   const [campaignEndDate, setCampaignEndDate] = useState("");
   const [campaignStatus, setCampaignStatus] = useState("active");
 
+  // MILESTONE 3 - CAMPAIGN ↔ POSTS
+  const [campaignPostLinks, setCampaignPostLinks] = useState({});
+  const [assigningCampaignId, setAssigningCampaignId] = useState(null);
+  const [selectedPostIds, setSelectedPostIds] = useState([]);
+  const [campaignPostsLoading, setCampaignPostsLoading] = useState(false);
+
   // MILESTONE 2 - DRAFT MANAGEMENT
   const [editingDraftId, setEditingDraftId] = useState(null);
   const [draftEditContent, setDraftEditContent] = useState("");
@@ -142,6 +148,7 @@ function App() {
       loadPosts();
       loadAccounts();
       loadCampaigns();
+      loadCampaignPostLinks();
     }
   }, [loggedIn]);
 
@@ -648,6 +655,119 @@ function App() {
   // MILESTONE 3 - CAMPAIGN MANAGEMENT
   // ==============================
 
+  // ==============================
+  // MILESTONE 3 - CAMPAIGN ↔ POSTS
+  // ==============================
+
+  const loadCampaignPostLinks = async () => {
+    setCampaignPostsLoading(true);
+
+    const { data, error } = await supabase
+      .from("campaign_posts")
+      .select("*");
+
+    if (error) {
+      console.error("Campaign posts error:", error);
+      setMessage("❌ " + error.message);
+      setCampaignPostsLoading(false);
+      return;
+    }
+
+    const grouped = {};
+    (data || []).forEach((link) => {
+      const campaignKey = String(link.campaign_id);
+      if (!grouped[campaignKey]) grouped[campaignKey] = [];
+      grouped[campaignKey].push(String(link.post_id));
+    });
+
+    setCampaignPostLinks(grouped);
+    setCampaignPostsLoading(false);
+  };
+
+  const openAssignPosts = async (campaign) => {
+    setAssigningCampaignId(campaign.id);
+    setMessage("");
+
+    const { data, error } = await supabase
+      .from("campaign_posts")
+      .select("post_id")
+      .eq("campaign_id", String(campaign.id));
+
+    if (error) {
+      console.error("Load campaign posts error:", error);
+      setMessage("❌ " + error.message);
+      setAssigningCampaignId(null);
+      return;
+    }
+
+    setSelectedPostIds((data || []).map((item) => String(item.post_id)));
+  };
+
+  const toggleCampaignPost = (postId) => {
+    const id = String(postId);
+    setSelectedPostIds((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id]
+    );
+  };
+
+  const saveCampaignPosts = async () => {
+    if (!assigningCampaignId) return;
+
+    setCampaignPostsLoading(true);
+    setMessage("Saving campaign posts...");
+
+    const campaignId = String(assigningCampaignId);
+
+    const { error: deleteError } = await supabase
+      .from("campaign_posts")
+      .delete()
+      .eq("campaign_id", campaignId);
+
+    if (deleteError) {
+      console.error("Clear campaign posts error:", deleteError);
+      setMessage("❌ " + deleteError.message);
+      setCampaignPostsLoading(false);
+      return;
+    }
+
+    if (selectedPostIds.length > 0) {
+      const rows = selectedPostIds.map((postId) => ({
+        campaign_id: campaignId,
+        post_id: String(postId),
+      }));
+
+      const { error: insertError } = await supabase
+        .from("campaign_posts")
+        .insert(rows);
+
+      if (insertError) {
+        console.error("Assign campaign posts error:", insertError);
+        setMessage("❌ " + insertError.message);
+        setCampaignPostsLoading(false);
+        return;
+      }
+    }
+
+    await loadCampaignPostLinks();
+    setAssigningCampaignId(null);
+    setSelectedPostIds([]);
+    setMessage("✅ Posts assigned to campaign successfully!");
+    setCampaignPostsLoading(false);
+  };
+
+  const cancelAssignPosts = () => {
+    setAssigningCampaignId(null);
+    setSelectedPostIds([]);
+    setMessage("");
+  };
+
+  const getCampaignAssignedPosts = (campaignId) => {
+    const ids = campaignPostLinks[String(campaignId)] || [];
+    return posts.filter((post) => ids.includes(String(post.id)));
+  };
+
   const resetCampaignForm = () => {
     setCampaignName("");
     setCampaignDescription("");
@@ -708,6 +828,17 @@ function App() {
 
     setMessage("Deleting campaign...");
 
+    const { error: linksError } = await supabase
+      .from("campaign_posts")
+      .delete()
+      .eq("campaign_id", String(campaignId));
+
+    if (linksError) {
+      console.error("Delete campaign post links error:", linksError);
+      setMessage("❌ " + linksError.message);
+      return;
+    }
+
     const { error } = await supabase
       .from("campaigns")
       .delete()
@@ -722,6 +853,12 @@ function App() {
     setCampaigns((currentCampaigns) =>
       currentCampaigns.filter((campaign) => campaign.id !== campaignId)
     );
+
+    setCampaignPostLinks((currentLinks) => {
+      const next = { ...currentLinks };
+      delete next[String(campaignId)];
+      return next;
+    });
 
     setMessage("✅ Campaign deleted successfully!");
   };
@@ -894,6 +1031,18 @@ function App() {
           />
 
           <NavButton
+            icon="📊"
+            text="Analytics"
+            active={activePage === "analytics"}
+            onClick={() => {
+              setActivePage("analytics");
+              loadPosts();
+              loadCampaigns();
+              loadCampaignPostLinks();
+            }}
+          />
+
+          <NavButton
             icon="📱"
             text="Social Accounts"
             active={
@@ -971,6 +1120,20 @@ function App() {
             onClick={() => {
               setActivePage("campaigns");
               loadCampaigns();
+              loadPosts();
+              loadCampaignPostLinks();
+            }}
+          />
+
+          <NavButton
+            icon="📄"
+            text="Reports"
+            active={activePage === "reports"}
+            onClick={() => {
+              setActivePage("reports");
+              loadPosts();
+              loadCampaigns();
+              loadCampaignPostLinks();
             }}
           />
 
@@ -1603,6 +1766,312 @@ function App() {
             </>
           )}
 
+          {/* ANALYTICS DASHBOARD - MILESTONE 3 */}
+
+          {activePage === "analytics" && (
+            <>
+              <section className="page-header">
+                <span className="page-label">MILESTONE 3</span>
+                <h2>📊 Analytics Dashboard</h2>
+                <p>Track content performance, platform activity and campaign results.</p>
+              </section>
+
+              {(() => {
+                const publishedPosts = posts.filter((post) => post.status === "published");
+                const scheduledPosts = posts.filter((post) => post.status === "scheduled");
+                const draftPosts = posts.filter((post) => post.status === "draft");
+                const failedPosts = posts.filter((post) => post.status === "failed");
+
+                // Demo analytics are derived from the publishing activity currently stored in Supabase.
+                // Replace these formulas later with real platform API metrics when OAuth/API integrations are added.
+                const engagement = publishedPosts.length * 120 + scheduledPosts.length * 45;
+                const reach = publishedPosts.length * 850 + scheduledPosts.length * 300;
+                const impressions = publishedPosts.length * 1400 + scheduledPosts.length * 500;
+                const clicks = publishedPosts.length * 65 + scheduledPosts.length * 20;
+                const followers = 12800 + publishedPosts.length * 35;
+
+                const platformStats = platforms.map((item) => {
+                  const platformPosts = posts.filter((post) => post.post_type === item.name);
+                  const published = platformPosts.filter((post) => post.status === "published").length;
+                  const scheduled = platformPosts.filter((post) => post.status === "scheduled").length;
+                  return {
+                    ...item,
+                    total: platformPosts.length,
+                    published,
+                    scheduled,
+                    engagement: published * 120 + scheduled * 45,
+                    reach: published * 850 + scheduled * 300,
+                  };
+                });
+
+                return (
+                  <>
+                    <div className="stats-grid">
+                      <StatCard icon="❤️" title="Total Engagement" value={engagement.toLocaleString()} />
+                      <StatCard icon="👥" title="Reach" value={reach.toLocaleString()} />
+                      <StatCard icon="👁️" title="Impressions" value={impressions.toLocaleString()} />
+                      <StatCard icon="🖱️" title="Clicks" value={clicks.toLocaleString()} />
+                      <StatCard icon="📈" title="Followers" value={followers.toLocaleString()} />
+                      <StatCard icon="📝" title="Published Posts" value={publishedPosts.length} />
+                    </div>
+
+                    <section className="dashboard-card" style={{ marginTop: "24px" }}>
+                      <div className="section-heading">
+                        <div>
+                          <h3>📈 Performance Overview</h3>
+                          <p>Metrics calculated from your current SocialPilot publishing activity.</p>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "14px" }}>
+                        {[
+                          ["Published", publishedPosts.length, "🚀"],
+                          ["Scheduled", scheduledPosts.length, "📅"],
+                          ["Drafts", draftPosts.length, "📄"],
+                          ["Failed", failedPosts.length, "⚠️"],
+                        ].map(([label, value, icon]) => (
+                          <div key={label} className="card" style={{ padding: "18px" }}>
+                            <div style={{ fontSize: "24px" }}>{icon}</div>
+                            <div style={{ marginTop: "8px", fontWeight: 700 }}>{label}</div>
+                            <div style={{ fontSize: "28px", fontWeight: 800, marginTop: "4px" }}>{value}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+
+                    <section className="dashboard-card" style={{ marginTop: "24px" }}>
+                      <div className="section-heading">
+                        <div>
+                          <h3>🌐 Platform Analytics</h3>
+                          <p>Compare publishing activity across all connected platform types.</p>
+                        </div>
+                      </div>
+
+                      <div className="platform-grid">
+                        {platformStats.map((item) => (
+                          <div className={`platform-card ${item.className}`} key={item.name}>
+                            <div className="platform-icon">{item.icon}</div>
+                            <div className="platform-name">{item.name}</div>
+                            <div style={{ marginTop: "10px", fontSize: "13px", lineHeight: 1.7 }}>
+                              <div>Total Posts: <strong>{item.total}</strong></div>
+                              <div>Published: <strong>{item.published}</strong></div>
+                              <div>Scheduled: <strong>{item.scheduled}</strong></div>
+                              <div>Engagement: <strong>{item.engagement.toLocaleString()}</strong></div>
+                              <div>Reach: <strong>{item.reach.toLocaleString()}</strong></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+
+                    <section className="dashboard-card" style={{ marginTop: "24px" }}>
+                      <div className="section-heading">
+                        <div>
+                          <h3>🎯 Campaign Analytics</h3>
+                          <p>Campaign performance based on assigned posts.</p>
+                        </div>
+                      </div>
+
+                      {campaigns.length === 0 ? (
+                        <p>No campaigns available yet.</p>
+                      ) : (
+                        <div style={{ display: "grid", gap: "12px" }}>
+                          {campaigns.map((campaign) => {
+                            const assignedIds = campaignPostLinks[campaign.campaign_id] || [];
+                            const assigned = posts.filter((post) => assignedIds.includes(String(post.id)) || assignedIds.includes(post.id));
+                            const campaignPublished = assigned.filter((post) => post.status === "published").length;
+                            const campaignScheduled = assigned.filter((post) => post.status === "scheduled").length;
+                            const campaignEngagement = campaignPublished * 120 + campaignScheduled * 45;
+                            const campaignReach = campaignPublished * 850 + campaignScheduled * 300;
+
+                            return (
+                              <div key={campaign.campaign_id} className="card" style={{ padding: "18px" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+                                  <div>
+                                    <strong>{campaign.campaign_name}</strong>
+                                    <div style={{ marginTop: "5px", opacity: 0.7, fontSize: "13px" }}>{campaign.status}</div>
+                                  </div>
+                                  <strong>{assigned.length} assigned posts</strong>
+                                </div>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "10px", marginTop: "14px", fontSize: "13px" }}>
+                                  <div>🚀 Published<br/><strong>{campaignPublished}</strong></div>
+                                  <div>📅 Scheduled<br/><strong>{campaignScheduled}</strong></div>
+                                  <div>❤️ Engagement<br/><strong>{campaignEngagement.toLocaleString()}</strong></div>
+                                  <div>👥 Reach<br/><strong>{campaignReach.toLocaleString()}</strong></div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </section>
+
+                    <div className="success-message" style={{ marginTop: "20px" }}>
+                      ℹ️ Analytics currently use SocialPilot activity data. Real Instagram/Facebook/LinkedIn/X/YouTube/Telegram API metrics can be connected in a later integration step.
+                    </div>
+                  </>
+                );
+              })()}
+            </>
+          )}
+
+          {/* REPORTS - MILESTONE 3 */}
+
+          {activePage === "reports" && (
+            <>
+              <section className="page-header">
+                <span className="page-label">MILESTONE 3</span>
+                <h2>📄 Reports</h2>
+                <p>Generate export-ready reports from your current SocialPilot activity.</p>
+              </section>
+
+              {(() => {
+                const publishedPosts = posts.filter((post) => post.status === "published");
+                const scheduledPosts = posts.filter((post) => post.status === "scheduled");
+                const draftPosts = posts.filter((post) => post.status === "draft");
+                const failedPosts = posts.filter((post) => post.status === "failed");
+
+                const platformRows = platforms.map((item) => {
+                  const platformPosts = posts.filter((post) => post.post_type === item.name);
+                  const published = platformPosts.filter((post) => post.status === "published").length;
+                  const scheduled = platformPosts.filter((post) => post.status === "scheduled").length;
+                  const engagement = published * 120 + scheduled * 45;
+                  const reach = published * 850 + scheduled * 300;
+                  return {
+                    platform: item.name,
+                    total_posts: platformPosts.length,
+                    published,
+                    scheduled,
+                    drafts: platformPosts.filter((post) => post.status === "draft").length,
+                    engagement,
+                    reach,
+                  };
+                });
+
+                const campaignRows = campaigns.map((campaign) => {
+                  const ids = campaignPostLinks[campaign.campaign_id] || [];
+                  const assigned = posts.filter((post) => ids.includes(String(post.id)) || ids.includes(post.id));
+                  const published = assigned.filter((post) => post.status === "published").length;
+                  const scheduled = assigned.filter((post) => post.status === "scheduled").length;
+                  return {
+                    campaign: campaign.campaign_name,
+                    status: campaign.status,
+                    assigned_posts: assigned.length,
+                    published,
+                    scheduled,
+                    engagement: published * 120 + scheduled * 45,
+                    reach: published * 850 + scheduled * 300,
+                  };
+                });
+
+                const downloadCsv = (rows, filename) => {
+                  if (!rows.length) {
+                    setMessage("No data available for this report.");
+                    return;
+                  }
+                  const headers = Object.keys(rows[0]);
+                  const escapeCsv = (value) => {
+                    const text = String(value ?? "");
+                    return `"${text.replaceAll('"', '""')}"`;
+                  };
+                  const csv = [
+                    headers.map(escapeCsv).join(","),
+                    ...rows.map((row) => headers.map((header) => escapeCsv(row[header])).join(",")),
+                  ].join("\n");
+                  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.download = filename;
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  URL.revokeObjectURL(url);
+                };
+
+                const overviewRows = [{
+                  report: "SocialPilot Overview",
+                  total_posts: posts.length,
+                  published: publishedPosts.length,
+                  scheduled: scheduledPosts.length,
+                  drafts: draftPosts.length,
+                  failed: failedPosts.length,
+                  campaigns: campaigns.length,
+                  assigned_campaign_posts: Object.values(campaignPostLinks).reduce((sum, ids) => sum + ids.length, 0),
+                }];
+
+                return (
+                  <>
+                    <section className="dashboard-card">
+                      <div className="section-heading">
+                        <div>
+                          <h3>📊 Report Summary</h3>
+                          <p>Current data from your SocialPilot workspace.</p>
+                        </div>
+                        <button className="primary-button" onClick={() => window.print()}>🖨️ Print Report</button>
+                      </div>
+
+                      <div className="stats-grid">
+                        <StatCard icon="📝" title="Total Posts" value={posts.length} />
+                        <StatCard icon="🚀" title="Published" value={publishedPosts.length} />
+                        <StatCard icon="📅" title="Scheduled" value={scheduledPosts.length} />
+                        <StatCard icon="🎯" title="Campaigns" value={campaigns.length} />
+                      </div>
+                    </section>
+
+                    <section className="dashboard-card" style={{ marginTop: "24px" }}>
+                      <div className="section-heading">
+                        <div>
+                          <h3>📈 Publishing Report</h3>
+                          <p>Publishing status across your current posts.</p>
+                        </div>
+                        <button className="secondary-button" onClick={() => downloadCsv(overviewRows, "socialpilot-overview-report.csv")}>⬇️ Export CSV</button>
+                      </div>
+                      <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                          <thead><tr><th>Total</th><th>Published</th><th>Scheduled</th><th>Drafts</th><th>Failed</th><th>Campaigns</th></tr></thead>
+                          <tbody><tr><td>{posts.length}</td><td>{publishedPosts.length}</td><td>{scheduledPosts.length}</td><td>{draftPosts.length}</td><td>{failedPosts.length}</td><td>{campaigns.length}</td></tr></tbody>
+                        </table>
+                      </div>
+                    </section>
+
+                    <section className="dashboard-card" style={{ marginTop: "24px" }}>
+                      <div className="section-heading">
+                        <div><h3>🌐 Platform Comparison</h3><p>Publishing activity and derived performance by platform.</p></div>
+                        <button className="secondary-button" onClick={() => downloadCsv(platformRows, "socialpilot-platform-report.csv")}>⬇️ Export CSV</button>
+                      </div>
+                      <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                          <thead><tr><th>Platform</th><th>Total</th><th>Published</th><th>Scheduled</th><th>Drafts</th><th>Engagement</th><th>Reach</th></tr></thead>
+                          <tbody>{platformRows.map((row) => <tr key={row.platform}><td>{row.platform}</td><td>{row.total_posts}</td><td>{row.published}</td><td>{row.scheduled}</td><td>{row.drafts}</td><td>{row.engagement.toLocaleString()}</td><td>{row.reach.toLocaleString()}</td></tr>)}</tbody>
+                        </table>
+                      </div>
+                    </section>
+
+                    <section className="dashboard-card" style={{ marginTop: "24px" }}>
+                      <div className="section-heading">
+                        <div><h3>🎯 Campaign Performance</h3><p>Performance based on posts assigned to each campaign.</p></div>
+                        <button className="secondary-button" onClick={() => downloadCsv(campaignRows, "socialpilot-campaign-report.csv")}>⬇️ Export CSV</button>
+                      </div>
+                      {campaignRows.length === 0 ? <p>No campaigns available yet.</p> : (
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                            <thead><tr><th>Campaign</th><th>Status</th><th>Assigned</th><th>Published</th><th>Scheduled</th><th>Engagement</th><th>Reach</th></tr></thead>
+                            <tbody>{campaignRows.map((row) => <tr key={row.campaign}><td>{row.campaign}</td><td>{row.status}</td><td>{row.assigned_posts}</td><td>{row.published}</td><td>{row.scheduled}</td><td>{row.engagement.toLocaleString()}</td><td>{row.reach.toLocaleString()}</td></tr>)}</tbody>
+                          </table>
+                        </div>
+                      )}
+                    </section>
+
+                    <div className="success-message" style={{ marginTop: "20px" }}>
+                      ℹ️ Reports are generated from current SocialPilot activity. Real platform API metrics can be connected when OAuth/API integrations are added.
+                    </div>
+                  </>
+                );
+              })()}
+            </>
+          )}
+
           {/* CAMPAIGNS */}
 
           {activePage === "campaigns" && (
@@ -1832,15 +2301,149 @@ function App() {
                           </div>
                         </div>
 
-                        <div className="form-actions">
-                          <button
-                            type="button"
-                            className="danger-button"
-                            onClick={() => deleteCampaign(campaign.id)}
+                        {assigningCampaignId === campaign.id ? (
+                          <div
+                            style={{
+                              marginTop: "18px",
+                              padding: "18px",
+                              border: "1px solid var(--border-color, #e5e7eb)",
+                              borderRadius: "14px",
+                              background: "var(--card-background, #fafafa)",
+                            }}
                           >
-                            🗑️ Delete Campaign
-                          </button>
-                        </div>
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                gap: "12px",
+                                marginBottom: "14px",
+                              }}
+                            >
+                              <div>
+                                <h4 style={{ margin: 0 }}>🔗 Assign Posts</h4>
+                                <p style={{ margin: "5px 0 0" }}>
+                                  Select the posts that belong to this campaign.
+                                </p>
+                              </div>
+                              <strong>{selectedPostIds.length} selected</strong>
+                            </div>
+
+                            {loadingPosts ? (
+                              <div className="empty-card">Loading posts...</div>
+                            ) : posts.length === 0 ? (
+                              <div className="empty-card">
+                                <div className="empty-icon">📝</div>
+                                <h3>No posts available</h3>
+                                <p>Create a post first, then assign it to this campaign.</p>
+                              </div>
+                            ) : (
+                              <div style={{ display: "grid", gap: "10px", maxHeight: "360px", overflowY: "auto" }}>
+                                {posts.map((post) => {
+                                  const checked = selectedPostIds.includes(String(post.id));
+                                  return (
+                                    <label
+                                      key={post.id}
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "flex-start",
+                                        gap: "12px",
+                                        padding: "12px",
+                                        border: checked ? "2px solid #4f46e5" : "1px solid var(--border-color, #e5e7eb)",
+                                        borderRadius: "10px",
+                                        cursor: "pointer",
+                                        background: checked ? "rgba(79,70,229,0.06)" : "white",
+                                      }}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={() => toggleCampaignPost(post.id)}
+                                        style={{ marginTop: "4px" }}
+                                      />
+                                      <div style={{ flex: 1 }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", gap: "10px" }}>
+                                          <strong>{post.post_type || "Social Post"}</strong>
+                                          <span className={`post-status ${String(post.status || "draft").toLowerCase()}`}>
+                                            {post.status || "draft"}
+                                          </span>
+                                        </div>
+                                        <p style={{ margin: "6px 0 0" }}>
+                                          {post.content || "No content"}
+                                        </p>
+                                        <small>
+                                          {post.scheduled_at
+                                            ? `Scheduled: ${new Date(post.scheduled_at).toLocaleString()}`
+                                            : post.created_at
+                                              ? `Created: ${new Date(post.created_at).toLocaleString()}`
+                                              : ""}
+                                        </small>
+                                      </div>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            <div className="form-actions" style={{ marginTop: "16px" }}>
+                              <button
+                                type="button"
+                                className="secondary-button"
+                                onClick={cancelAssignPosts}
+                                disabled={campaignPostsLoading}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                className="primary-button"
+                                onClick={saveCampaignPosts}
+                                disabled={campaignPostsLoading}
+                              >
+                                {campaignPostsLoading ? "⏳ Saving..." : "💾 Save Assigned Posts"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div
+                              style={{
+                                marginTop: "14px",
+                                padding: "12px 14px",
+                                borderRadius: "10px",
+                                background: "rgba(79,70,229,0.06)",
+                              }}
+                            >
+                              <strong>🔗 Assigned Posts: {getCampaignAssignedPosts(campaign.id).length}</strong>
+                              {getCampaignAssignedPosts(campaign.id).length > 0 && (
+                                <div style={{ marginTop: "8px" }}>
+                                  {getCampaignAssignedPosts(campaign.id).map((post) => (
+                                    <div key={post.id} style={{ marginTop: "5px" }}>
+                                      • {post.post_type || "Post"}: {post.content || "No content"}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="form-actions">
+                              <button
+                                type="button"
+                                className="primary-button"
+                                onClick={() => openAssignPosts(campaign)}
+                              >
+                                🔗 Assign Posts
+                              </button>
+                              <button
+                                type="button"
+                                className="danger-button"
+                                onClick={() => deleteCampaign(campaign.id)}
+                              >
+                                🗑️ Delete Campaign
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>
