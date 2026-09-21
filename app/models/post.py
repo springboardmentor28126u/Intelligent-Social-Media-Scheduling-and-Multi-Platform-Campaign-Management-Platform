@@ -1,5 +1,9 @@
 from datetime import datetime
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.campaign import Campaign
 
 from sqlalchemy import (
     Boolean,
@@ -55,6 +59,19 @@ class Post(Base):
     )
 
     # =====================================
+    # Campaign
+    # =====================================
+
+    campaign_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "campaigns.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    # =====================================
     # Post Content
     # =====================================
 
@@ -100,6 +117,7 @@ class Post(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+
     # =====================================
     # Recurring Post
     # =====================================
@@ -119,9 +137,6 @@ class Post(Base):
         DateTime(timezone=True),
         nullable=True,
     )
-
-
-
 
     # =====================================
     # Timestamps
@@ -146,6 +161,11 @@ class Post(Base):
 
     user: Mapped["User"] = relationship(
         "User",
+        back_populates="posts",
+    )
+
+    campaign: Mapped["Campaign | None"] = relationship(
+        "Campaign",
         back_populates="posts",
     )
 

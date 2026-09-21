@@ -30,7 +30,7 @@ class LinkedInIntegration(BaseSocialIntegration):
         "https://api.linkedin.com/rest/images"
     )
 
-    LINKEDIN_VERSION = "202509"
+    LINKEDIN_VERSION = "202609"
 
     def __init__(self, social_account=None):
         super().__init__(social_account)

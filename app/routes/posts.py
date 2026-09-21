@@ -49,6 +49,7 @@ class PostCreate(BaseModel):
     is_recurring: bool = False
     recurrence_type: str | None = None
     recurrence_end_at: datetime | None = None
+    campaign_id: int | None = None
 
 
 class PostUpdate(BaseModel):
@@ -58,7 +59,8 @@ class PostUpdate(BaseModel):
     is_recurring: bool | None = None
     recurrence_type: str | None = None
     recurrence_end_at: datetime | None = None
-
+    campaign_id: int | None = None
+    
 
 # =====================================
 # Create Post
@@ -95,10 +97,11 @@ def create_post(
         content_type="text",
         status=post_data.status,
         scheduled_at=post_data.scheduled_at,
-        is_recurring=post_data.is_recurring,
-        recurrence_type=post_data.recurrence_type,
-        recurrence_end_at=post_data.recurrence_end_at,
-        platforms=[],
+       is_recurring=post_data.is_recurring,
+       recurrence_type=post_data.recurrence_type,
+       recurrence_end_at=post_data.recurrence_end_at,
+       campaign_id=post_data.campaign_id,
+       platforms=[],
     )
 
     db.add(new_post)
@@ -165,6 +168,58 @@ def get_publishing_queue(
 
 
 
+# =====================================
+# Publishing Calendar
+# GET /posts/calendar
+# =====================================
+
+
+@router.get("/calendar")
+def get_publishing_calendar(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = (
+        db.query(Post)
+        .filter(
+            Post.user_id == current_user.id,
+        )
+    )
+
+    if start_date is not None:
+        if start_date.tzinfo is None:
+            start_date = start_date.replace(
+                tzinfo=timezone.utc
+            )
+
+        query = query.filter(
+            Post.scheduled_at >= start_date
+        )
+
+    if end_date is not None:
+        if end_date.tzinfo is None:
+            end_date = end_date.replace(
+                tzinfo=timezone.utc
+            )
+
+        query = query.filter(
+            Post.scheduled_at <= end_date
+        )
+
+    posts = (
+        query
+        .order_by(Post.scheduled_at.asc())
+        .all()
+    )
+
+    return {
+        "start_date": start_date,
+        "end_date": end_date,
+        "total": len(posts),
+        "posts": posts,
+    }
 
 # =====================================
 # Get Single Post
@@ -256,6 +311,8 @@ def update_post(
 
     if post_data.recurrence_end_at is not None:
         post.recurrence_end_at = post_data.recurrence_end_at
+    if post_data.campaign_id is not None:
+        post.campaign_id = post_data.campaign_id
     db.commit()
     db.refresh(post)
 
@@ -295,27 +352,18 @@ def schedule_post(
             status_code=400,
             detail="Published posts cannot be scheduled again",
         )
-
     current_time = datetime.now(timezone.utc)
-
-    
-    
-    if scheduled_at <= current_time:
-        raise HTTPException(
-            status_code=400,
-            detail="Scheduled time must be in the future",
-        )
 
     if scheduled_at.tzinfo is None:
         scheduled_at = scheduled_at.replace(
-            tzinfo=timezone.utc
-        )
+        tzinfo=timezone.utc
+    )
 
     if scheduled_at <= current_time:
         raise HTTPException(
-            status_code=400,
-            detail="Scheduled time must be in the future",
-        )
+        status_code=400,
+        detail="Scheduled time must be in the future",
+    )
 
     if post.is_recurring:
         allowed_recurrence_types = {
@@ -343,58 +391,6 @@ def schedule_post(
         "post": post,
     }
 
-# =====================================
-# Publishing Calendar
-# GET /posts/calendar
-# =====================================
-
-
-@router.get("/calendar")
-def get_publishing_calendar(
-    start_date: datetime | None = None,
-    end_date: datetime | None = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    query = (
-        db.query(Post)
-        .filter(
-            Post.user_id == current_user.id,
-        )
-    )
-
-    if start_date is not None:
-        if start_date.tzinfo is None:
-            start_date = start_date.replace(
-                tzinfo=timezone.utc
-            )
-
-        query = query.filter(
-            Post.scheduled_at >= start_date
-        )
-
-    if end_date is not None:
-        if end_date.tzinfo is None:
-            end_date = end_date.replace(
-                tzinfo=timezone.utc
-            )
-
-        query = query.filter(
-            Post.scheduled_at <= end_date
-        )
-
-    posts = (
-        query
-        .order_by(Post.scheduled_at.asc())
-        .all()
-    )
-
-    return {
-        "start_date": start_date,
-        "end_date": end_date,
-        "total": len(posts),
-        "posts": posts,
-    }
 # =====================================
 # Connect Social Accounts
 # POST /posts/{post_id}/social-accounts

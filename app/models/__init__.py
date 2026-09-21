@@ -8,6 +8,7 @@ from app.models.post_media import (
     PostMedia,
     MediaType,
 )
+from app.models.campaign import Campaign
 
 
 __all__ = [
@@ -19,4 +20,5 @@ __all__ = [
     "PublishingLog",
     "PostMedia",
     "MediaType",
+    "Campaign",
 ]

@@ -359,7 +359,7 @@ def delete_post(self, linkedin_post_id: str):
         "Authorization": (
             f"Bearer {self.social_account.access_token}"
         ),
-        "LinkedIn-Version": "202509",
+        "LinkedIn-Version": "202609",
         "X-Restli-Protocol-Version": "2.0.0",
     }
 
