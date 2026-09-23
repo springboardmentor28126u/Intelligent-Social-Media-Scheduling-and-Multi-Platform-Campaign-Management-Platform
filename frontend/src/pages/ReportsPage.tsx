@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -8,11 +9,15 @@ import {
   FileSpreadsheet,
   X,
   FileCheck,
+  Target,
+  Layers,
 } from "lucide-react";
 
 export default function ReportsPage() {
   const { showToast } = useAuth();
+  const [searchParams] = useSearchParams();
   const [reports, setReports] = useState<any[]>([]);
+  const [campaignsList, setCampaignsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -20,6 +25,7 @@ export default function ReportsPage() {
   const [reportType, setReportType] = useState("engagement");
   const [format, setFormat] = useState("pdf");
   const [platform, setPlatform] = useState("all");
+  const [campaignId, setCampaignId] = useState<string>("all");
 
   const loadReports = async () => {
     setLoading(true);
@@ -35,16 +41,31 @@ export default function ReportsPage() {
 
   useEffect(() => {
     loadReports();
+    api.campaigns.list().then((camps) => setCampaignsList(camps || [])).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get("action") === "create") {
+      setIsModalOpen(true);
+      const campParam = searchParams.get("campaign_id");
+      if (campParam) {
+        setCampaignId(campParam);
+        setReportType("campaign");
+        setTitle("Campaign Performance Report");
+      }
+    }
+  }, [searchParams]);
 
   const handleGenerateReport = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const campIdNum = campaignId !== "all" && !isNaN(Number(campaignId)) ? Number(campaignId) : undefined;
       await api.reports.generate({
         title: title || `Social Performance ${format.toUpperCase()} Report`,
         report_type: reportType,
         format,
         platform,
+        campaign_id: campIdNum,
       });
       showToast("Report Generated! 📄", `Your ${format.toUpperCase()} report is ready for download.`, "success");
       setIsModalOpen(false);
@@ -59,7 +80,7 @@ export default function ReportsPage() {
     const url = fmt === "pdf" ? api.reports.getPdfUrl(id) : api.reports.getExcelUrl(id);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${reportTitle.replace(" ", "_")}.${fmt === "pdf" ? "pdf" : "xlsx"}`;
+    link.download = `${reportTitle.replace(/\s+/g, "_")}.${fmt === "pdf" ? "pdf" : "xlsx"}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -75,12 +96,15 @@ export default function ReportsPage() {
             Executive Reports & Exports
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Generate and export styled PDF client summaries and formatted Excel analytics workbooks.
+            Generate and export styled PDF client summaries and formatted Excel analytics workbooks from real database records.
           </p>
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setCampaignId("all");
+            setIsModalOpen(true);
+          }}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold shadow-md shadow-blue-600/25 transition cursor-pointer self-start sm:self-auto"
         >
           <Plus size={18} />
@@ -97,15 +121,17 @@ export default function ReportsPage() {
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">Instant PDF Executive Summary</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Includes KPI cards, platform comparison & top posts</p>
+              <p className="text-xs text-slate-500 mt-0.5">Includes KPI cards, campaign actuals & top posts</p>
             </div>
           </div>
           <button
             onClick={() => {
               setFormat("pdf");
+              setReportType("engagement");
+              setTitle("Social Executive PDF Summary");
               setIsModalOpen(true);
             }}
-            className="px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs sm:text-sm font-bold transition cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition cursor-pointer shrink-0"
           >
             Create PDF
           </button>
@@ -117,85 +143,104 @@ export default function ReportsPage() {
               <FileSpreadsheet size={24} />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">Full Excel Multi-Sheet Workbook</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Posts log, campaign metrics & audience demographics</p>
+              <h3 className="text-base font-bold text-slate-900">Full Excel Data Export</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Spreadsheet of all campaigns, post metrics & audit logs</p>
             </div>
           </div>
           <button
             onClick={() => {
               setFormat("excel");
+              setReportType("campaign");
+              setTitle("Campaigns & Posts Complete Data Export");
               setIsModalOpen(true);
             }}
-            className="px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs sm:text-sm font-bold transition cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition cursor-pointer shrink-0"
           >
-            Create Excel
+            Export Excel
           </button>
         </div>
       </div>
 
-      {/* Reports History Table */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <div>
-            <h3 className="text-base font-bold text-slate-900">Generated Reports Archive</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Past generated PDF & Excel documents ready for download</p>
-          </div>
-          <span className="text-xs font-bold px-3 py-1 bg-slate-100 text-slate-700 rounded-xl">
-            {reports.length} Reports
-          </span>
+      {/* Generated Reports Table */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+        <div className="p-5 border-b border-slate-100">
+          <h2 className="text-base font-bold text-slate-900 font-display">Export History & Downloads</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Access previously compiled PDF and Excel documents</p>
         </div>
 
         {loading ? (
-          <div className="py-20 text-center text-slate-400 text-sm animate-pulse">
-            Loading reports...
+          <div className="p-12 text-center text-slate-400 text-sm animate-pulse">
+            Loading generated reports...
           </div>
         ) : reports.length === 0 ? (
-          <div className="py-16 text-center p-8 space-y-3">
-            <FileCheck className="mx-auto text-slate-300" size={36} />
-            <h3 className="text-base font-bold text-slate-800">No reports generated yet</h3>
-            <p className="text-sm text-slate-500">Click "Generate Report" above to create your first executive export.</p>
+          <div className="p-12 text-center text-slate-400 text-sm space-y-2">
+            <FileCheck className="mx-auto text-slate-300" size={32} />
+            <p className="font-semibold text-slate-600">No reports generated yet</p>
+            <p className="text-xs text-slate-400 max-w-xs mx-auto">
+              Click the Generate Report button above to compile your first export.
+            </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {reports.map((report) => (
-              <div
-                key={report.id}
-                className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition"
-              >
-                <div className="flex items-center gap-4 min-w-0">
-                  <div
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-                      report.format === "pdf"
-                        ? "bg-red-50 text-red-600 border border-red-100"
-                        : "bg-emerald-50 text-emerald-600 border border-emerald-100"
-                    }`}
-                  >
-                    {report.format === "pdf" ? <FileText size={22} /> : <FileSpreadsheet size={22} />}
-                  </div>
-
-                  <div className="min-w-0 space-y-1">
-                    <p className="text-sm font-bold text-slate-900 truncate">{report.title}</p>
-                    <div className="flex items-center gap-2.5 text-xs text-slate-500">
-                      <span className="capitalize">{report.report_type.replace("_", " ")}</span>
-                      <span>•</span>
-                      <span>{new Date(report.created_at).toLocaleDateString()}</span>
-                      <span>•</span>
-                      <span className="uppercase font-mono text-xs font-bold text-slate-700">{report.format}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
-                  <button
-                    onClick={() => handleDownload(report.id, report.format, report.title)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
-                  >
-                    <Download size={15} />
-                    <span>Download {report.format.toUpperCase()}</span>
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs sm:text-sm">
+              <thead>
+                <tr className="bg-slate-50/75 border-b border-slate-100 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                  <th className="p-4">Report Title</th>
+                  <th className="p-4">Format</th>
+                  <th className="p-4">Type</th>
+                  <th className="p-4">Channel / Scope</th>
+                  <th className="p-4">Created Date</th>
+                  <th className="p-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {reports.map((rep) => (
+                  <tr key={rep.id} className="hover:bg-slate-50/60 transition">
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+                            rep.format === "pdf"
+                              ? "bg-red-50 text-red-600 border border-red-100"
+                              : "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                          }`}
+                        >
+                          {rep.format.toUpperCase()}
+                        </div>
+                        <span className="font-bold text-slate-900">{rep.title}</span>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <span className="uppercase font-bold text-xs text-slate-700">
+                        {rep.format}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className="capitalize text-slate-700 font-semibold">
+                        {rep.report_type || "Executive"}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className="capitalize text-slate-600 font-medium">
+                        {rep.platform || "All Channels"}
+                      </span>
+                    </td>
+                    <td className="p-4 text-slate-500 font-medium">
+                      {new Date(rep.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="p-4 text-right">
+                      <button
+                        onClick={() => handleDownload(rep.id, rep.format, rep.title)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-bold transition cursor-pointer"
+                      >
+                        <Download size={14} />
+                        <span>Download</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -203,11 +248,11 @@ export default function ReportsPage() {
       {/* Generate Report Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <FileText size={20} className="text-blue-600" />
-                Generate Executive Report
+                Compile Executive Report
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -227,12 +272,44 @@ export default function ReportsPage() {
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g., Monthly Executive Performance Summary"
+                  placeholder="e.g., Q3 Social Performance Summary"
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Campaign Scope
+                </label>
+                <select
+                  value={campaignId}
+                  onChange={(e) => setCampaignId(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 font-semibold cursor-pointer"
+                >
+                  <option value="all">Workspace Wide (All Campaigns & Posts)</option>
+                  {campaignsList.map((c) => (
+                    <option key={c.id} value={String(c.id)}>
+                      🎯 Campaign: {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Format
+                  </label>
+                  <select
+                    value={format}
+                    onChange={(e) => setFormat(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 font-semibold cursor-pointer"
+                  >
+                    <option value="pdf">Styled PDF Document</option>
+                    <option value="excel">Excel Workbook (.xlsx)</option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Report Type
@@ -240,44 +317,31 @@ export default function ReportsPage() {
                   <select
                     value={reportType}
                     onChange={(e) => setReportType(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 font-semibold cursor-pointer"
                   >
-                    <option value="engagement">Engagement Overview</option>
-                    <option value="campaign">Campaign & ROI Breakdown</option>
-                    <option value="audience">Audience Demographics</option>
-                    <option value="platform_comparison">Platform Comparison</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Output Format
-                  </label>
-                  <select
-                    value={format}
-                    onChange={(e) => setFormat(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition font-semibold"
-                  >
-                    <option value="pdf">PDF Document (Formatted)</option>
-                    <option value="excel">Excel Workbook (.xlsx)</option>
+                    <option value="engagement">Engagement & Reach</option>
+                    <option value="campaign">Campaign Performance</option>
+                    <option value="audience">Audience Analytics</option>
                   </select>
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Channel Scope
+                  Platform Filter
                 </label>
                 <select
                   value={platform}
                   onChange={(e) => setPlatform(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 font-semibold cursor-pointer"
                 >
                   <option value="all">All Connected Channels</option>
                   <option value="instagram">Instagram</option>
                   <option value="facebook">Facebook</option>
                   <option value="linkedin">LinkedIn</option>
                   <option value="twitter">X / Twitter</option>
+                  <option value="youtube">YouTube</option>
+                  <option value="pinterest">Pinterest</option>
                 </select>
               </div>
 
@@ -293,7 +357,7 @@ export default function ReportsPage() {
                   type="submit"
                   className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold shadow-md shadow-blue-600/25 cursor-pointer"
                 >
-                  Generate & Download
+                  Generate {format.toUpperCase()}
                 </button>
               </div>
             </form>

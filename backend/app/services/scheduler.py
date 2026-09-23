@@ -210,26 +210,27 @@ def publish_post_now(post_id: int, db: Session = None) -> dict:
             # Refresh to get updated statuses
             db.refresh(post)
 
-            # Determine overall post status based on platform targets
-            all_statuses = [t.status for t in post.platform_targets]
-            if all(s == "published" for s in all_statuses):
+            # Query fresh targets from DB for accurate status aggregation
+            targets = db.query(PostPlatformTarget).filter(PostPlatformTarget.post_id == post.id).all()
+            all_statuses = [t.status for t in targets] if targets else []
+            if targets and all(s == "published" for s in all_statuses):
                 post.status = "published"
                 post.published_at = datetime.now(timezone.utc)
                 post.failure_reason = None
                 # Set external_post_id from first published target
-                published_targets = [t for t in post.platform_targets if t.external_post_id]
+                published_targets = [t for t in targets if t.external_post_id]
                 if published_targets:
                     post.external_post_id = published_targets[0].external_post_id
-            elif all(s == "failed" for s in all_statuses):
+            elif targets and all(s == "failed" for s in all_statuses):
                 post.status = "failed"
-                failed_targets = [t for t in post.platform_targets if t.status == "failed"]
+                failed_targets = [t for t in targets if t.status == "failed"]
                 err_msgs = [t.error_message for t in failed_targets if t.error_message]
                 post.failure_reason = err_msgs[0] if err_msgs else "All platform targets failed"
             elif any(s == "published" for s in all_statuses):
                 # Partial success — some platforms published
                 post.status = "published"
                 post.published_at = datetime.now(timezone.utc)
-                failed_platforms = [t.platform for t in post.platform_targets if t.status == "failed"]
+                failed_platforms = [t.platform for t in targets if t.status == "failed"]
                 post.failure_reason = f"Partial: failed on {', '.join(failed_platforms)}" if failed_platforms else None
             else:
                 post.status = "failed"

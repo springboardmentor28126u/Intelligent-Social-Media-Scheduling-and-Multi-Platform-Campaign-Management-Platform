@@ -43,13 +43,26 @@ def generate_report(
     db: Session = Depends(get_db)
 ):
     from app.db.models.social_account import SocialAccount
+    from app.db.models.campaign import CampaignPost
+    from sqlalchemy import or_
 
     # Collect data for report
-    posts = db.query(Post).all()
-    campaigns = db.query(Campaign).all()
+    posts_q = db.query(Post)
+    campaigns_q = db.query(Campaign)
+
+    if data.campaign_id:
+        camp_post_ids = [cp.post_id for cp in db.query(CampaignPost).filter(CampaignPost.campaign_id == data.campaign_id).all()]
+        if camp_post_ids:
+            posts_q = posts_q.filter(or_(Post.campaign_id == data.campaign_id, Post.id.in_(camp_post_ids)))
+        else:
+            posts_q = posts_q.filter(Post.campaign_id == data.campaign_id)
+        campaigns_q = campaigns_q.filter(Campaign.id == data.campaign_id)
+
+    posts = posts_q.all()
+    campaigns = campaigns_q.all()
     accounts = db.query(SocialAccount).filter(SocialAccount.is_active == True).all()
 
-    pub_posts = [p for p in posts if p.status == "published"]
+    pub_posts = [p for p in posts if str(p.status).lower() == "published"]
     tot_reach = sum(p.reach_count or 0 for p in pub_posts)
     tot_impressions = sum(p.impressions_count or 0 for p in pub_posts)
     tot_likes = sum(p.likes_count or 0 for p in pub_posts)

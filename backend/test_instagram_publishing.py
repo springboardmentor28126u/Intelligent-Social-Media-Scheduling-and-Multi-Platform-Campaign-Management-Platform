@@ -44,7 +44,10 @@ def setup_publisher_test(db):
         db.commit()
         db.refresh(user)
 
-    # Clean old posts/accounts
+    # Clean old posts/accounts/targets
+    old_post_ids = [p.id for p in db.query(Post).filter(Post.user_id == user.id).all()]
+    if old_post_ids:
+        db.query(PostPlatformTarget).filter(PostPlatformTarget.post_id.in_(old_post_ids)).delete(synchronize_session=False)
     db.query(Post).filter(Post.user_id == user.id).delete(synchronize_session=False)
     db.query(SocialAccount).filter(SocialAccount.user_id == user.id).delete(synchronize_session=False)
     db.commit()

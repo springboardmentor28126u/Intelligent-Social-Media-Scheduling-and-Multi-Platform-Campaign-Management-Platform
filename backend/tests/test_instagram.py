@@ -101,7 +101,7 @@ def test_instagram_callback_success(client, db_session):
             return mock_ig_account_resp
         return mock_ig_account_resp
 
-    with patch("requests.get", side_effect=mock_requests_get):
+    with patch("requests.get", side_effect=mock_requests_get), patch("requests.post", return_value=mock_token_resp):
         resp = client.get(
             f"/api/instagram/callback?code=real_meta_auth_code&state={state}",
             follow_redirects=False

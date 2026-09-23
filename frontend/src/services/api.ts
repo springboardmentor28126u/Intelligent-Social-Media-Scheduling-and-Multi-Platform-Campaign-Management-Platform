@@ -332,14 +332,33 @@ export const api = {
 
   // ── Campaigns ───────────────────────────────────────────────
   campaigns: {
-    list: () => apiRequest("/campaigns"),
+    list: (params?: { status?: string; search?: string }) => {
+      const query = new URLSearchParams();
+      if (params?.status) query.append("status", params.status);
+      if (params?.search) query.append("search", params.search);
+      const qs = query.toString();
+      return apiRequest(`/campaigns${qs ? `?${qs}` : ""}`);
+    },
     get: (id: number) => apiRequest(`/campaigns/${id}`),
     create: (data: any) =>
       apiRequest("/campaigns", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: any) =>
       apiRequest(`/campaigns/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    updateStatus: (id: number, status: string) =>
+      apiRequest(`/campaigns/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
     delete: (id: number) => apiRequest(`/campaigns/${id}`, { method: "DELETE" }),
     getPosts: (id: number) => apiRequest(`/campaigns/${id}/posts`),
+    addPosts: (campaignId: number, postIds: number[]) =>
+      apiRequest(`/campaigns/${campaignId}/posts`, { method: "POST", body: JSON.stringify({ post_ids: postIds }) }),
+    addPost: (campaignId: number, postId: number) =>
+      apiRequest(`/campaigns/${campaignId}/posts`, { method: "POST", body: JSON.stringify({ post_id: postId }) }),
+    removePost: (campaignId: number, postId: number) =>
+      apiRequest(`/campaigns/${campaignId}/posts/${postId}`, { method: "DELETE" }),
+    getStats: (id: number) => apiRequest(`/campaigns/${id}/stats`),
+    getAnalytics: (id: number, range = "30d") =>
+      apiRequest(`/campaigns/${id}/analytics?range=${range}`),
+    compare: (ids: number[]) =>
+      apiRequest(`/campaigns/compare?ids=${ids.join(",")}`),
   },
 
   // ── Dashboard ───────────────────────────────────────────────
@@ -353,8 +372,11 @@ export const api = {
 
   // ── Analytics ───────────────────────────────────────────────
   analytics: {
-    getOverview: (range = "30d", platform = "all") =>
-      apiRequest(`/analytics/overview?range=${range}&platform=${platform}`),
+    getOverview: (range = "30d", platform = "all", campaignId?: number) => {
+      const query = new URLSearchParams({ range, platform });
+      if (campaignId) query.append("campaign_id", campaignId.toString());
+      return apiRequest(`/analytics/overview?${query.toString()}`);
+    },
   },
 
   // ── Reports ─────────────────────────────────────────────────
@@ -365,6 +387,7 @@ export const api = {
       report_type: string;
       format: string;
       platform?: string;
+      campaign_id?: number;
     }) => apiRequest("/reports/generate", { method: "POST", body: JSON.stringify(data) }),
     getPdfUrl: (id: number) => `${API_BASE}/reports/${id}/pdf`,
     getExcelUrl: (id: number) => `${API_BASE}/reports/${id}/excel`,

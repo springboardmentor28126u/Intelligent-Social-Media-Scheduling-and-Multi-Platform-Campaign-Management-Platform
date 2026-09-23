@@ -8,6 +8,7 @@ class ReportGenerateRequest(BaseModel):
     report_type: str = "engagement"  # engagement, campaign, audience, publishing, platform_comparison
     format: str = "pdf"  # pdf, excel
     platform: Optional[str] = "all"
+    campaign_id: Optional[int] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
 

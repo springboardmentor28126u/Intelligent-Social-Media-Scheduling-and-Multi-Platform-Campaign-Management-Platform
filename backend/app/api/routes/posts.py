@@ -170,7 +170,11 @@ def get_posts(
     if platform:
         query = query.filter(Post.platform == platform.lower())
     if campaign_id:
-        query = query.filter(Post.campaign_id == campaign_id)
+        camp_post_ids = [cp.post_id for cp in db.query(CampaignPost).filter(CampaignPost.campaign_id == campaign_id).all()]
+        if camp_post_ids:
+            query = query.filter(or_(Post.campaign_id == campaign_id, Post.id.in_(camp_post_ids)))
+        else:
+            query = query.filter(Post.campaign_id == campaign_id)
 
     posts = query.options(
         selectinload(Post.user),
@@ -427,13 +431,23 @@ async def create_post(
             max_attempts=3
         )
         db.add(plat_target)
+
+        if post.campaign_id:
+            from app.db.models.campaign import CampaignPost
+            link = db.query(CampaignPost).filter(
+                CampaignPost.campaign_id == post.campaign_id,
+                CampaignPost.post_id == post.id
+            ).first()
+            if not link:
+                db.add(CampaignPost(campaign_id=post.campaign_id, post_id=post.id))
+
         db.commit()
         db.refresh(post)
 
         creator_user = db.query(User).filter(User.id == current_user["user_id"]).first()
 
         if initial_status == "published":
-            await run_in_threadpool(publish_post_now, post.id)
+            await run_in_threadpool(publish_post_now, post.id, db)
             db.refresh(post)
             if creator_user:
                 notify_admins_post_published(db=db, post=post, actor_user=creator_user)
@@ -529,13 +543,23 @@ async def create_post(
             max_attempts=3
         )
         db.add(plat_target)
+
+        if post.campaign_id:
+            from app.db.models.campaign import CampaignPost
+            link = db.query(CampaignPost).filter(
+                CampaignPost.campaign_id == post.campaign_id,
+                CampaignPost.post_id == post.id
+            ).first()
+            if not link:
+                db.add(CampaignPost(campaign_id=post.campaign_id, post_id=post.id))
+
         db.commit()
         db.refresh(post)
 
         creator_user = db.query(User).filter(User.id == current_user["user_id"]).first()
 
         if initial_status == "published":
-            await run_in_threadpool(publish_post_now, post.id)
+            await run_in_threadpool(publish_post_now, post.id, db)
             db.refresh(post)
             if creator_user:
                 notify_admins_post_published(db=db, post=post, actor_user=creator_user)
@@ -917,7 +941,7 @@ async def publish_immediate(
             target.error_message = None
     db.commit()
 
-    await run_in_threadpool(publish_post_now, post.id)
+    await run_in_threadpool(publish_post_now, post.id, db)
     db.refresh(post)
 
     user = db.query(User).filter(User.id == current_user["user_id"]).first()
@@ -968,7 +992,7 @@ async def retry_failed_post(
             target.error_message = None
     db.commit()
 
-    await run_in_threadpool(publish_post_now, post.id)
+    await run_in_threadpool(publish_post_now, post.id, db)
     db.refresh(post)
 
     log_audit_event(

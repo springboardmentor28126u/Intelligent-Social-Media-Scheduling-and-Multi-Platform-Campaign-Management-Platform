@@ -37,6 +37,7 @@ interface CreatePostModalProps {
   onClose: () => void;
   onPostCreated?: () => void;
   editPost?: any; // When editing an existing post
+  defaultCampaignId?: number | string;
 }
 
 const PLATFORM_LIST = [
@@ -53,6 +54,7 @@ export default function CreatePostModal({
   onClose,
   onPostCreated,
   editPost,
+  defaultCampaignId,
 }: CreatePostModalProps) {
   const { user, showToast } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -68,7 +70,7 @@ export default function CreatePostModal({
   const [postType, setPostType] = useState<"text" | "image" | "video">("text");
   const [scheduleType, setScheduleType] = useState<"draft" | "now" | "schedule">("draft");
   const [scheduledAt, setScheduledAt] = useState("");
-  const [campaignId, setCampaignId] = useState<string>("");
+  const [campaignId, setCampaignId] = useState<string>(defaultCampaignId ? String(defaultCampaignId) : "");
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [socialAccounts, setSocialAccounts] = useState<any[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
@@ -81,6 +83,13 @@ export default function CreatePostModal({
   const [submitting, setSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Sync defaultCampaignId on open
+  useEffect(() => {
+    if (defaultCampaignId) {
+      setCampaignId(String(defaultCampaignId));
+    }
+  }, [defaultCampaignId, isOpen]);
+
   // Prefill when editing
   useEffect(() => {
     if (editPost) {
@@ -89,6 +98,9 @@ export default function CreatePostModal({
       setSelectedPlatforms([editPost.platform || "instagram"]);
       setIsRecurring(editPost.is_recurring || false);
       setRecurrenceRule(editPost.recurrence_rule || "weekly");
+      if (editPost.campaign_id) {
+        setCampaignId(String(editPost.campaign_id));
+      }
       if (editPost.scheduled_at) {
         const d = new Date(editPost.scheduled_at);
         setScheduledAt(d.toISOString().slice(0, 16));
@@ -516,6 +528,26 @@ export default function CreatePostModal({
                         <option key={a.id} value={a.id}>{a.account_name} ({a.platform})</option>
                       ))
                     }
+                  </select>
+                </div>
+              )}
+
+              {campaigns.length > 0 && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Campaign Association {defaultCampaignId ? "(Pre-selected)" : "(Optional)"}
+                  </label>
+                  <select
+                    value={campaignId}
+                    onChange={(e) => setCampaignId(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 transition font-medium cursor-pointer"
+                  >
+                    <option value="">No Campaign</option>
+                    {campaigns.map((c: any) => (
+                      <option key={c.id} value={String(c.id)}>
+                        🎯 {c.name} ({c.platform})
+                      </option>
+                    ))}
                   </select>
                 </div>
               )}

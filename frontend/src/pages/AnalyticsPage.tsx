@@ -22,6 +22,8 @@ import {
   MousePointerClick,
   Download,
   Calendar,
+  Layers,
+  Target,
 } from "lucide-react";
 
 const COLORS = ["#2563eb", "#7c3aed", "#ec4899", "#10b981", "#f59e0b", "#06b6d4"];
@@ -29,13 +31,21 @@ const COLORS = ["#2563eb", "#7c3aed", "#ec4899", "#10b981", "#f59e0b", "#06b6d4"
 export default function AnalyticsPage() {
   const [range, setRange] = useState("30d");
   const [platform, setPlatform] = useState("all");
+  const [campaignId, setCampaignId] = useState<string>("all");
+  const [campaignsList, setCampaignsList] = useState<any[]>([]);
   const [data, setData] = useState<any>(null);
-  const [_loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+
+  // Load available campaigns for the dropdown
+  useEffect(() => {
+    api.campaigns.list().then((camps) => setCampaignsList(camps || [])).catch(() => {});
+  }, []);
 
   const loadAnalytics = async () => {
     setLoading(true);
     try {
-      const res = await api.analytics.getOverview(range, platform);
+      const campIdNum = campaignId !== "all" && !isNaN(Number(campaignId)) ? Number(campaignId) : undefined;
+      const res = await api.analytics.getOverview(range, platform, campIdNum);
       setData(res);
     } catch {
       // Ignore
@@ -46,7 +56,7 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     loadAnalytics();
-  }, [range, platform]);
+  }, [range, platform, campaignId]);
 
   return (
     <div className="space-y-7 animate-in fade-in duration-200">
@@ -57,11 +67,25 @@ export default function AnalyticsPage() {
             Analytics & Audience Insights
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Track multi-platform engagement trends, impression trajectories, and audience demographics.
+            Track multi-platform engagement trends, impression trajectories, and campaign performance from real database data.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {/* Campaign Selector */}
+          <select
+            value={campaignId}
+            onChange={(e) => setCampaignId(e.target.value)}
+            className="bg-white border border-slate-200/80 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-slate-800 outline-none focus:border-blue-500 transition cursor-pointer shadow-xs font-semibold"
+          >
+            <option value="all">All Campaigns</option>
+            {campaignsList.map((c) => (
+              <option key={c.id} value={String(c.id)}>
+                🎯 {c.name}
+              </option>
+            ))}
+          </select>
+
           {/* Range Selector */}
           <div className="flex items-center p-1 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
             {[
@@ -100,7 +124,7 @@ export default function AnalyticsPage() {
           </select>
 
           <button
-            onClick={() => (window.location.href = "/reports")}
+            onClick={() => (window.location.href = `/reports${campaignId !== "all" ? `?campaign_id=${campaignId}` : ""}`)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-xs sm:text-sm font-bold border border-slate-200/80 transition cursor-pointer shadow-xs"
           >
             <Download size={16} />
@@ -158,7 +182,7 @@ export default function AnalyticsPage() {
           </div>
           <div>
             <h3 className="text-3xl font-extrabold text-slate-900 font-display">
-              {data?.total_followers ? (data.total_followers >= 1000 ? `${(data.total_followers / 1000).toFixed(1)}K` : data.total_followers.toLocaleString()) : "0"}
+              {data?.total_followers ? (data.total_followers >= 1000 ? `${(data.total_followers / 1000).toFixed(1)}K` : data.total_followers.toLocaleString()) : "Data unavailable"}
             </h3>
             <p className="text-sm font-bold text-slate-800 mt-1">Followers Base</p>
             <p className="text-xs text-slate-500 mt-0.5 font-medium">Across connected channels</p>
@@ -195,27 +219,33 @@ export default function AnalyticsPage() {
           </div>
 
           <div className="h-72 w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data?.timeline || []}>
-                <defs>
-                  <linearGradient id="areaReach" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="areaImp" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="date" stroke="#64748b" fontSize={12} />
-                <YAxis stroke="#64748b" fontSize={12} />
-                <Tooltip contentStyle={{ backgroundColor: "#ffffff", borderColor: "#cbd5e1", borderRadius: "0.75rem", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }} />
-                <Legend wrapperStyle={{ paddingTop: "12px", fontSize: "13px" }} />
-                <Area type="monotone" name="Reach" dataKey="reach" stroke="#2563eb" strokeWidth={2.5} fill="url(#areaReach)" />
-                <Area type="monotone" name="Impressions" dataKey="impressions" stroke="#7c3aed" strokeWidth={2.5} fill="url(#areaImp)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {(!data?.timeline || data.timeline.length === 0 || data.timeline.every((p: any) => p.reach === 0 && p.impressions === 0)) ? (
+              <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                No analytics data available for this selection.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={data?.timeline || []}>
+                  <defs>
+                    <linearGradient id="areaReach" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="areaImp" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="date" stroke="#64748b" fontSize={12} />
+                  <YAxis stroke="#64748b" fontSize={12} />
+                  <Tooltip contentStyle={{ backgroundColor: "#ffffff", borderColor: "#cbd5e1", borderRadius: "0.75rem", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }} />
+                  <Legend wrapperStyle={{ paddingTop: "12px", fontSize: "13px" }} />
+                  <Area type="monotone" name="Reach" dataKey="reach" stroke="#2563eb" strokeWidth={2.5} fill="url(#areaReach)" />
+                  <Area type="monotone" name="Impressions" dataKey="impressions" stroke="#7c3aed" strokeWidth={2.5} fill="url(#areaImp)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 

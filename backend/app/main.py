@@ -1,6 +1,7 @@
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -52,6 +53,13 @@ def check_and_migrate_db():
                     conn.execute(text("ALTER TABLE posts ADD COLUMN approval_status VARCHAR(30) DEFAULT 'approved' NOT NULL"))
                     conn.execute(text("UPDATE posts SET approval_status = 'pending' WHERE status = 'pending_approval'"))
             
+            # Check users table
+            res_user = conn.execute(text("PRAGMA table_info(users)"))
+            u_cols = [row[1] for row in res_user.fetchall()]
+            if u_cols:
+                if "system_role" not in u_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN system_role VARCHAR(20) DEFAULT 'USER'"))
+
             # Check notifications table
             res_notif = conn.execute(text("PRAGMA table_info(notifications)"))
             n_cols = [row[1] for row in res_notif.fetchall()]
@@ -147,6 +155,25 @@ app.include_router(dashboard_router)
 app.include_router(linkedin_router)
 app.include_router(instagram_router)
 app.include_router(facebook_router)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    traceback.print_exc()
+    origin = request.headers.get("origin")
+    allowed_origin = origin if origin else "*"
+    headers = {
+        "Access-Control-Allow-Origin": allowed_origin,
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "*",
+        "Access-Control-Allow-Headers": "*",
+    }
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error: {str(exc)}"},
+        headers=headers
+    )
 
 
 

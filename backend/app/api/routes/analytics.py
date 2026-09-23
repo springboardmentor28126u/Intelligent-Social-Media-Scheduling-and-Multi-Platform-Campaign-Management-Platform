@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, date
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, String, desc
+from sqlalchemy import func, String, desc, or_
 
 from app.db.database import get_db
 from app.db.models.post import Post, PostPlatformTarget
@@ -39,9 +39,11 @@ def _calc_growth_pct(current_val: int, prev_val: int) -> Optional[float]:
 def get_analytics_overview(
     time_range: str = Query("30d", alias="range", description="7d, 30d, 90d, 1y"),
     platform: str = Query("all", description="all, facebook, instagram, linkedin, twitter, youtube, pinterest"),
+    campaign_id: Optional[int] = Query(None, description="Optional campaign ID to filter analytics"),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    from app.db.models.campaign import CampaignPost
     user_id = current_user["user_id"]
     role = current_user.get("role", "content_creator")
 
@@ -61,6 +63,13 @@ def get_analytics_overview(
     posts_query = db.query(Post)
     if role == "content_creator":
         posts_query = posts_query.filter(Post.user_id == user_id)
+
+    if campaign_id:
+        camp_post_ids = [cp.post_id for cp in db.query(CampaignPost).filter(CampaignPost.campaign_id == campaign_id).all()]
+        if camp_post_ids:
+            posts_query = posts_query.filter(or_(Post.campaign_id == campaign_id, Post.id.in_(camp_post_ids)))
+        else:
+            posts_query = posts_query.filter(Post.campaign_id == campaign_id)
 
     total_posts = posts_query.count()
     status_str = func.lower(func.cast(Post.status, String))
