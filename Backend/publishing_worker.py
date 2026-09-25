@@ -4,7 +4,7 @@ import logging
 import time
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 
 from database import SessionLocal
 from models import Post, PublishingJob, SocialAccount, SocialCredential, User
@@ -19,8 +19,11 @@ def run_due(user_id=None, session_factory=SessionLocal, publisher=publish, batch
     processed = 0
     # Recover abandoned claims conservatively: remote success may have occurred.
     with session_factory() as db:
-        query = db.query(PublishingJob).filter(PublishingJob.status == "processing",
-            PublishingJob.claimed_at < datetime.now(timezone.utc) - timedelta(minutes=10))
+        now = datetime.now(timezone.utc)
+        # Video uploads can legitimately take longer than a text post.
+        query = db.query(PublishingJob).filter(PublishingJob.status == "processing", or_(
+            and_(PublishingJob.provider != "youtube", PublishingJob.claimed_at < now - timedelta(minutes=10)),
+            PublishingJob.claimed_at < now - timedelta(minutes=45)))
         if user_id is not None:
             query = query.filter_by(user_id=user_id)
         stale_ids = [(job.id, job.post_id) for job in query.all()]
@@ -115,7 +118,7 @@ def snapshot_audience(session_factory=SessionLocal):
     from analytics import collect_audience
     with session_factory() as db:
         user_ids = [row[0] for row in db.query(SocialCredential.user_id).filter(
-            SocialCredential.provider.in_(["facebook", "instagram"])).distinct()]
+            SocialCredential.provider.in_(["facebook", "instagram", "linkedin", "x", "youtube"])).distinct()]
         total = 0
         for user_id in user_ids:
             refreshed, _ = collect_audience(db, user_id)
@@ -129,7 +132,7 @@ def sync_all_engagement(session_factory=SessionLocal):
     from analytics import sync_engagement
     with session_factory() as db:
         user_ids = [row[0] for row in db.query(SocialCredential.user_id).filter(
-            SocialCredential.provider.in_(["facebook", "instagram"])).distinct()]
+            SocialCredential.provider.in_(["facebook", "instagram", "linkedin", "x", "youtube"])).distinct()]
         refreshed = 0
         for user_id in user_ids:
             owner = db.get(User, user_id)

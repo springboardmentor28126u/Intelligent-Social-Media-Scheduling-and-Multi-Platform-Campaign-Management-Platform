@@ -31,8 +31,20 @@ PROVIDERS = {
     "facebook": ("Facebook", "https://www.facebook.com/{version}/dialog/oauth", "https://graph.facebook.com/{version}/oauth/access_token", "pages_show_list,pages_read_engagement,pages_manage_posts"),
     "instagram": ("Instagram", "https://www.instagram.com/oauth/authorize", "https://api.instagram.com/oauth/access_token", "instagram_business_basic,instagram_business_content_publish"),
     "linkedin": ("LinkedIn", "https://www.linkedin.com/oauth/v2/authorization", "https://www.linkedin.com/oauth/v2/accessToken", "openid profile w_member_social"),
-    "x": ("X", "https://x.com/i/oauth2/authorize", "https://api.x.com/2/oauth2/token", "tweet.read users.read tweet.write offline.access"),
+    "x": ("X", "https://x.com/i/oauth2/authorize", "https://api.x.com/2/oauth2/token", "tweet.read users.read tweet.write media.write offline.access"),
+    "youtube": ("YouTube", "https://accounts.google.com/o/oauth2/v2/auth", "https://oauth2.googleapis.com/token",
+                "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly"),
 }
+# Providers whose authorization uses PKCE (S256) in addition to the client secret.
+PKCE_PROVIDERS = {"x", "youtube"}
+
+
+def scopes_for(provider):
+    """Base scopes plus optional extras, e.g. LINKEDIN_EXTRA_SCOPES=r_member_postAnalytics."""
+    base = PROVIDERS[provider][3]
+    extra = os.getenv(provider.upper() + "_EXTRA_SCOPES", "").replace(",", " ").split()
+    separator = "," if provider in {"facebook", "instagram"} else " "
+    return separator.join(dict.fromkeys(base.split(separator) + extra))
 
 
 def cipher():
@@ -99,6 +111,8 @@ def exchange(provider, code, verifier):
         data.pop("client_secret")
         data["code_verifier"] = verifier
         basic = client_id + ":" + secret
+    if provider == "youtube":
+        data["code_verifier"] = verifier
     token = provider_request(endpoint, data=data, basic=basic)
     access = token.get("access_token")
     if not isinstance(access, str) or not access:
@@ -143,6 +157,14 @@ def exchange(provider, code, verifier):
     if provider == "linkedin":
         profile = provider_request("https://api.linkedin.com/v2/userinfo", token=access)
         return [(profile.get("sub"), profile.get("name"), token)]
+    if provider == "youtube":
+        if not token.get("refresh_token"):
+            raise HTTPException(502, "Google did not return a refresh token; remove the app from your Google account permissions and connect again")
+        channels = provider_request("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", token=access)
+        items = channels.get("items") or []
+        if not items:
+            raise HTTPException(400, "This Google account has no YouTube channel; create one first")
+        return [(item.get("id"), item.get("snippet", {}).get("title"), token) for item in items]
     profile = provider_request("https://api.x.com/2/users/me", token=access).get("data", {})
     return [(profile.get("id"), profile.get("username"), token)]
 
@@ -154,8 +176,11 @@ def digest(value):
 def provider_authorization_url(provider, state, verifier):
     client_id, _, redirect, version = settings(provider)
     params = dict(client_id=client_id, redirect_uri=redirect, response_type="code", state=state,
-                  scope=PROVIDERS[provider][3])
-    if provider == "x":
+                  scope=scopes_for(provider))
+    if provider == "youtube":
+        # Offline access + consent guarantees a refresh token for scheduled uploads.
+        params.update(access_type="offline", prompt="consent", include_granted_scopes="true")
+    if provider in PKCE_PROVIDERS:
         params.update(code_challenge=base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode(),
                       code_challenge_method="S256")
     return PROVIDERS[provider][1].format(version=version) + "?" + urlencode(params)

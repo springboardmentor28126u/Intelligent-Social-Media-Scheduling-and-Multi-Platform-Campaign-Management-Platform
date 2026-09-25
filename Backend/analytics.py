@@ -72,10 +72,85 @@ def provider_insights(job, token, version, external_post):
         return {}
 
 
+def x_metrics(job, token):
+    result, _ = request(f"https://api.x.com/2/tweets/{quote(job.provider_post_id, safe='')}?tweet.fields=public_metrics", token)
+    m = (result.get("data") or {}).get("public_metrics") or {}
+    return {"likes": count(m.get("like_count")), "comments": count(m.get("reply_count")),
+            "shares": count(m.get("retweet_count")) + count(m.get("quote_count")),
+            "impressions": count(m.get("impression_count")), "reach": count(m.get("impression_count"))}
+
+
+def youtube_metrics(job, token):
+    result, _ = request("https://www.googleapis.com/youtube/v3/videos?part=statistics&id="
+                        + quote(job.provider_post_id, safe=""), token)
+    items = result.get("items") or []
+    if not items:
+        raise PublishError("YouTube video not found; it may have been deleted or is still processing")
+    m = items[0].get("statistics") or {}
+    views = count(m.get("viewCount"))
+    return {"likes": count(m.get("likeCount")), "comments": count(m.get("commentCount")),
+            "impressions": views, "reach": views}
+
+
+def linkedin_metrics(job, token):
+    """Member post analytics need the r_member_postAnalytics permission (LINKEDIN_EXTRA_SCOPES)."""
+    from publishers import linkedin_headers
+    urn = job.provider_post_id
+    kind = "ugc" if ":ugcPost:" in urn else "share"
+    entity = f"({kind}:{quote(urn, safe='')})"
+    values = {}
+    for metric, key in (("REACTION", "likes"), ("COMMENT", "comments"), ("RESHARE", "shares"),
+                        ("IMPRESSION", "impressions"), ("MEMBERS_REACHED", "reach"), ("LINK_CLICKS", "clicks")):
+        try:
+            result, _ = request("https://api.linkedin.com/rest/memberCreatorPostAnalytics?q=entity&entity="
+                                + entity + "&queryType=" + metric + "&aggregation=TOTAL", token, headers=linkedin_headers())
+            values[key] = sum(count(e.get("count")) for e in result.get("elements") or [])
+        except PublishError:
+            if not values and metric == "REACTION":
+                raise PublishError("LinkedIn analytics need the r_member_postAnalytics permission; reconnect after enabling it") from None
+    return values
+
+
+OTHER_METRICS = {"x": x_metrics, "youtube": youtube_metrics, "linkedin": linkedin_metrics}
+
+
+def x_audience(credential, token):
+    result, _ = request("https://api.x.com/2/users/me?user.fields=public_metrics", token)
+    m = (result.get("data") or {}).get("public_metrics") or {}
+    return {"followers": count(m.get("followers_count")), "following": count(m.get("following_count")),
+            "media_count": count(m.get("tweet_count"))}
+
+
+def youtube_audience(credential, token):
+    result, _ = request("https://www.googleapis.com/youtube/v3/channels?part=statistics&id="
+                        + quote(credential.external_id, safe=""), token)
+    items = result.get("items") or []
+    m = (items[0].get("statistics") if items else None) or {}
+    return {"followers": count(m.get("subscriberCount")), "media_count": count(m.get("videoCount"))}
+
+
+def linkedin_audience(credential, token):
+    from publishers import linkedin_headers
+    try:
+        result, _ = request("https://api.linkedin.com/rest/memberFollowersCount?q=me", token, headers=linkedin_headers())
+    except PublishError:
+        raise PublishError("LinkedIn follower count needs the r_member_profileAnalytics permission") from None
+    elements = result.get("elements") or [{}]
+    return {"followers": count(elements[0].get("memberFollowersCount"))}
+
+
+OTHER_AUDIENCE = {"x": x_audience, "youtube": youtube_audience, "linkedin": linkedin_audience}
+ALL_PROVIDERS = ["facebook", "instagram", "linkedin", "x", "youtube"]
+MIN_REFRESH_MINUTES = {"x": int(os.getenv("X_METRICS_MINUTES", "360"))}
+
+
 def provider_metrics(db, job, credential):
     """Read public engagement counters without exposing provider responses."""
     token = access_token(db, credential)
     external_post = quote(job.provider_post_id, safe="")
+    if job.provider in OTHER_METRICS:
+        return {"likes": 0, "comments": 0, "shares": 0, "reach": 0, "impressions": 0, "clicks": 0,
+                **OTHER_METRICS[job.provider](job, token)}
     version = graph_version()
     if job.provider == "facebook":
         result, _ = request(
@@ -101,12 +176,14 @@ def provider_metrics(db, job, credential):
             "shares": 0, "reach": 0, "impressions": 0, "clicks": 0,
             **provider_insights(job, token, version, external_post),
         }
-    raise PublishError("Engagement sync is available for Facebook and Instagram")
+    raise PublishError("Engagement sync is not available for this platform")
 
 
 def provider_audience(db, credential):
     """Current follower counts for a connected Facebook Page or Instagram account."""
     token = access_token(db, credential)
+    if credential.provider in OTHER_AUDIENCE:
+        return {"followers": 0, "following": 0, "media_count": 0, **OTHER_AUDIENCE[credential.provider](credential, token)}
     version = graph_version()
     if credential.provider == "facebook":
         page = quote(credential.external_id, safe="")
@@ -116,7 +193,7 @@ def provider_audience(db, credential):
         result, _ = request(f"https://graph.instagram.com/{version}/me?fields=followers_count,follows_count,media_count", token)
         return {"followers": count(result.get("followers_count")), "following": count(result.get("follows_count")),
                 "media_count": count(result.get("media_count"))}
-    raise PublishError("Audience sync is available for Facebook and Instagram")
+    raise PublishError("Audience sync is not available for this platform")
 
 
 def collect_audience(db, user_id, now=None):
@@ -125,7 +202,7 @@ def collect_audience(db, user_id, now=None):
     rows = db.query(SocialAccount, SocialCredential).join(
         SocialCredential, SocialCredential.account_id == SocialAccount.id).filter(
         SocialAccount.user_id == user_id, SocialAccount.connected.is_(True),
-        SocialCredential.provider.in_(["facebook", "instagram"])).all()
+        SocialCredential.provider.in_(ALL_PROVIDERS)).all()
     refreshed, failed = 0, []
     for account, credential in rows:
         try:
@@ -145,12 +222,19 @@ def sync_engagement(db, user_id, days=30, limit=20, audience=True):
     jobs = db.query(PublishingJob).filter(
         PublishingJob.user_id == user_id, PublishingJob.status == "published",
         PublishingJob.provider_post_id.is_not(None), PublishingJob.scheduled_at >= cutoff,
-        PublishingJob.provider.in_(["facebook", "instagram"]),
+        PublishingJob.provider.in_(ALL_PROVIDERS),
         ~PublishingJob.provider_post_id.startswith(DEMO_PREFIX),
     ).order_by(PublishingJob.scheduled_at.desc()).limit(limit).all()
     refreshed, failed = 0, []
     previous = latest_snapshots(db, user_id, [job.id for job in jobs])
+    skipped = 0
     for job in jobs:
+        prior = previous.get(job.id)
+        # X's API tiers allow very few reads, so each X post is refreshed at most every few hours.
+        min_gap = MIN_REFRESH_MINUTES.get(job.provider, 0)
+        if prior is not None and min_gap and as_utc(prior.collected_at) > now - timedelta(minutes=min_gap):
+            skipped += 1
+            continue
         workflow = db.get(EngagementWorkflow, job.id)
         if workflow is None:
             workflow = EngagementWorkflow(job_id=job.id, user_id=user_id, status="monitoring")
@@ -163,7 +247,6 @@ def sync_engagement(db, user_id, days=30, limit=20, audience=True):
             metrics = provider_metrics(db, job, credential)
             db.add(EngagementSnapshot(job_id=job.id, user_id=user_id, provider=job.provider,
                                       collected_at=now, **metrics))
-            prior = previous.get(job.id)
             if prior is not None and metrics["comments"] > prior.comments:
                 workflow.status = "needs_attention"
             workflow.last_synced_at, workflow.last_error = now, None
@@ -172,7 +255,7 @@ def sync_engagement(db, user_id, days=30, limit=20, audience=True):
             workflow.last_error = str(error)[:300]
             failed.append({"job_id": job.id, "message": workflow.last_error})
         workflow.updated_at = now
-    result = {"refreshed": refreshed, "failed": failed, "checked": len(jobs)}
+    result = {"refreshed": refreshed, "failed": failed, "checked": len(jobs), "skipped": skipped}
     if audience:
         result["audience_refreshed"], result["audience_failed"] = collect_audience(db, user_id, now)
     db.commit()
@@ -274,7 +357,8 @@ def make_router(require_permission):
         platform = defaultdict(lambda: {"campaigns": 0, "published": 0, "engagements": 0})
         timeline = defaultdict(lambda: {"campaigns": 0, "published": 0, "engagements": 0, "reach": 0})
         today = datetime.now(timezone.utc).date()
-        for offset in range(min(days, 90) - 1, -1, -1):
+        # Cover every calendar day from the (partial) cutoff day through today.
+        for offset in range(min(days, 90), -1, -1):
             timeline[(today - timedelta(days=offset)).isoformat()]  # zero-filled days keep sparklines continuous
         top = []
         for post in posts:

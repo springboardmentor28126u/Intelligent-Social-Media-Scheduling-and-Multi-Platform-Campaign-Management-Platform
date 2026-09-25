@@ -200,7 +200,7 @@ class DemoAndLiveTests(unittest.TestCase):
         status, summary = self.request("GET", "/analytics/summary", self.user, query="days=30")
         self.assertGreater(summary["totals"]["engagements"], 0)
         self.assertIn("previous", summary)
-        self.assertEqual(len(summary["timeline"]), 30)
+        self.assertEqual(len(summary["timeline"]), 31)
         self.assertTrue(summary["top_campaigns"][0]["image_url"])
         status, perf = self.request("GET", "/reports/performance", self.user, query="days=60&timezone_name=Asia/Kolkata")
         self.assertEqual(len(perf["heatmap"]), 168)

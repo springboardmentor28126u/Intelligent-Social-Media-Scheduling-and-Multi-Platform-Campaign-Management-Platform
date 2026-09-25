@@ -1,4 +1,4 @@
-export const platformName = value => ({ instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X' }[value] || value || '')
+export const platformName = value => ({ instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X', youtube: 'YouTube' }[value] || value || '')
 export const statusLabel = status => (status || 'draft').replaceAll('_', ' ').replace(/^./, c => c.toUpperCase())
 export const isPending = status => ['scheduled', 'retry', 'publishing', 'processing'].includes(status)
 export function localFields(timestamp) {

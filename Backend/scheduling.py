@@ -72,6 +72,7 @@ class JobResponse(BaseModel):
     provider: str
     content: str
     image_url: str | None
+    video_url: str | None = None
     scheduled_at: datetime
     run_at: datetime
     timezone_name: str
@@ -147,13 +148,21 @@ def times_for(data, now):
 
 
 def validate_content(post, provider):
-    # Instagram and Facebook image posts can be published without a caption.
-    if not post.content.strip() and not (provider in {"facebook", "instagram"} and post.image_url):
+    # Image posts can be published without a caption; YouTube uses the title and a video.
+    if provider == "youtube":
+        if not post.video_url:
+            raise HTTPException(422, "YouTube requires a public HTTPS video URL")
+        if len(post.title) > 100:
+            raise HTTPException(422, "YouTube titles are limited to 100 characters")
+        if len(post.content) > 5000:
+            raise HTTPException(422, "YouTube descriptions are limited to 5000 characters")
+        if "<" in post.title or ">" in post.title:
+            raise HTTPException(422, "YouTube titles cannot contain < or >")
+        return
+    if not post.content.strip() and not (provider in {"facebook", "instagram", "linkedin", "x"} and post.image_url):
         raise HTTPException(422, "Add post content before scheduling")
     if provider == "instagram" and not post.image_url:
         raise HTTPException(422, "Instagram requires a public HTTPS image URL")
-    if provider in {"linkedin", "x"} and post.image_url:
-        raise HTTPException(422, "This publisher currently supports text-only LinkedIn and X posts")
     if provider == "instagram" and len(post.content) > 2200:
         raise HTTPException(422, "Instagram caption exceeds 2200 characters")
     if provider == "linkedin" and len(post.content) > 3000:
@@ -195,7 +204,7 @@ def make_router(require_permission):
         for scheduled_at in times:
             for account, provider in accounts:
                 job = PublishingJob(post_id=post.id, user_id=post.user_id, account_id=account.id,
-                    provider=provider, content=post.content, image_url=post.image_url, scheduled_at=scheduled_at,
+                    provider=provider, content=post.content, image_url=post.image_url, video_url=post.video_url, scheduled_at=scheduled_at,
                     run_at=scheduled_at, timezone_name=data.timezone_name, recurrence=data.recurrence, status="scheduled")
                 db.add(job)
                 db.flush()

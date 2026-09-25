@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Campaign, Post, SocialAccount, PublishingJob, PublishingLog
 
-Platform = Literal["facebook", "instagram", "linkedin", "x"]
+Platform = Literal["facebook", "instagram", "linkedin", "x", "youtube"]
+PLATFORMS = {"facebook", "instagram", "linkedin", "x", "youtube"}
 
 
 class DraftCreate(BaseModel):
@@ -18,6 +19,7 @@ class DraftCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     content: str = Field(default="", max_length=50000)
     image_url: str | None = Field(default=None, max_length=2048)
+    video_url: str | None = Field(default=None, max_length=2048)
     platform: Platform | None = None
     account_id: int | None = Field(default=None, gt=0)
     campaign_id: int | None = Field(default=None, gt=0)
@@ -27,7 +29,7 @@ class DraftCreate(BaseModel):
     def clean_title(cls, value):
         return value.strip() if isinstance(value, str) else value
 
-    @field_validator("image_url")
+    @field_validator("image_url", "video_url")
     @classmethod
     def check_image(cls, value):
         from scheduling import validate_image
@@ -39,6 +41,7 @@ class DraftUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=200)
     content: str | None = Field(default=None, max_length=50000)
     image_url: str | None = Field(default=None, max_length=2048)
+    video_url: str | None = Field(default=None, max_length=2048)
     platform: Platform | None = None
     account_id: int | None = Field(default=None, gt=0)
     campaign_id: int | None = Field(default=None, gt=0)
@@ -48,7 +51,7 @@ class DraftUpdate(BaseModel):
     def clean_title(cls, value):
         return value.strip() if isinstance(value, str) else value
 
-    @field_validator("image_url")
+    @field_validator("image_url", "video_url")
     @classmethod
     def check_image(cls, value):
         from scheduling import validate_image
@@ -75,6 +78,7 @@ class PostResponse(BaseModel):
     title: str
     content: str
     image_url: str | None
+    video_url: str | None = None
     platform: Platform | None
     account_id: int | None
     campaign_id: int | None = None
@@ -105,7 +109,7 @@ def validate_target(db, user_id, platform, account_id):
     if account is None:
         raise HTTPException(404, "Social account not found")
     account_platform = account.platform.lower()
-    if account_platform not in {"facebook", "instagram", "linkedin", "x"}:
+    if account_platform not in PLATFORMS:
         raise HTTPException(422, "Unsupported social account platform")
     if platform is not None and platform != account_platform:
         raise HTTPException(422, "Post platform does not match the social account")

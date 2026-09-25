@@ -66,7 +66,7 @@ export const Dashboard = ({
   const rangeLabel = { today: 'today', '7d': 'in the last 7 days', '30d': 'in the last 30 days' }[timeRange]
 
   // Platforms supported
-  const ALL_PLATFORMS = ['Instagram', 'Facebook', 'LinkedIn', 'X']
+  const ALL_PLATFORMS = ['Instagram', 'Facebook', 'LinkedIn', 'X', 'YouTube']
 
   const isPlatformConnected = (platformName) => {
     return connectedAccounts.some(

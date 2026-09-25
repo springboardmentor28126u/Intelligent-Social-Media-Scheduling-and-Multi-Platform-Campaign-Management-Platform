@@ -41,7 +41,9 @@ export const Campaigns = ({
   recurrence, setRecurrence, occurrences, setOccurrences,
   connectedAccounts = [], busy, formError,
   campaignOptions = [], campaignId = '', setCampaignId = () => {},
+  videoUrl = '', setVideoUrl = () => {},
 }) => {
+  const targetsYouTube = platform === 'YouTube' || connectedAccounts.some(a => accountIds.includes(a.id) && a.platform.toLowerCase() === 'youtube')
   const [searchQuery, setSearchQuery] = useState('')
   const [platformFilter, setPlatformFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All')
@@ -123,6 +125,7 @@ export const Campaigns = ({
               <option value="Facebook">Facebook</option>
               <option value="LinkedIn">LinkedIn</option>
               <option value="X">X (Twitter)</option>
+              <option value="YouTube">YouTube</option>
             </select>
           </div>
 
@@ -314,6 +317,7 @@ export const Campaigns = ({
                   <option value="Facebook">Facebook</option>
                   <option value="LinkedIn">LinkedIn</option>
                   <option value="X">X (formerly Twitter)</option>
+                  <option value="YouTube">YouTube</option>
                 </select>
               </div>
 
@@ -327,7 +331,13 @@ export const Campaigns = ({
               <div className="form-group-modern">
                 <label className="form-label" htmlFor="post-image">Public HTTPS image URL</label>
                 <input id="post-image" className="form-input" type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://example.com/image.jpg" />
-                <p className="page-main-sub">Required for Instagram; optional for Facebook. LinkedIn and X currently support text only.</p>
+                <p className="page-main-sub">Required for Instagram; optional for Facebook, LinkedIn and X (max 5 MB for X).</p>
+              </div>
+              <div className="form-group-modern">
+                <label className="form-label" htmlFor="post-video">Public HTTPS video URL {targetsYouTube && <span className="text-danger">*</span>}</label>
+                <input id="post-video" className="form-input" type="url" value={videoUrl} onChange={e => setVideoUrl(e.target.value)} placeholder="https://example.com/video.mp4" />
+                <p className="page-main-sub">Required for YouTube (the post title becomes the video title, the content its description). Other platforms ignore it.</p>
+                {targetsYouTube && campaignName.length > 100 && <p className="text-danger" role="alert">YouTube titles are limited to 100 characters ({campaignName.length}).</p>}
               </div>
               <div className="form-group-modern">
                 <div className="label-row">
@@ -374,11 +384,12 @@ export const Campaigns = ({
               <div className="form-group-modern"><span className="form-label">Live preview</span><PostPreview
                 platforms={[...new Set([platform, ...connectedAccounts.filter(a => accountIds.includes(a.id)).map(a => platformName(a.platform.toLowerCase()))].filter(Boolean))]}
                 accountNames={Object.fromEntries(connectedAccounts.filter(a => accountIds.includes(a.id)).map(a => [platformName(a.platform.toLowerCase()), a.account_name]))}
-                content={content} imageUrl={imageUrl.trim()} /></div>
+                content={content} imageUrl={imageUrl.trim()} videoUrl={videoUrl.trim()} title={campaignName} /></div>
               </fieldset>
             </div>
 
-            <div className="modal-footer">
+            <div className="modal-footer" style={{ flexWrap: 'wrap' }}>
+              {formError && <p className="text-danger" role="status" style={{ flexBasis: '100%', margin: 0, fontSize: '0.85rem', textAlign: 'right' }}>{formError}</p>}
               <button
                 type="button"
                 className="btn btn-secondary"

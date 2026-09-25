@@ -2870,3 +2870,17 @@ body {
 .btn-demo:hover { filter: brightness(1.08); }
 .demo-banner { display: flex; align-items: center; gap: 0.5rem; background: #faf5ff; border-color: #e9d5ff; color: #6b21a8; margin-bottom: 1.25rem; }
 .banner-right { flex-wrap: wrap; justify-content: flex-end; }
+
+/* YouTube brand */
+.p-mini-icon.p-youtube, .bg-youtube { background: #ff0000; }
+.platform-badge.platform-youtube { background: rgba(255, 0, 0, 0.08); color: #cc0000; border: 1px solid rgba(255, 0, 0, 0.22); }
+.cal-event-youtube { background: rgba(255, 0, 0, 0.12); color: #cc0000; }
+.text-danger { color: var(--danger-text); }
+.pv-avatar.yt { background: #ff0000; }
+.pv-video { aspect-ratio: 16 / 9; width: 100%; background: #000; max-height: none; }
+.pv-yt-title { font-size: 0.95rem; line-height: 1.3; }
+.pv-yt-channel { padding: 0.35rem 0; }
+.pv-yt-sub { margin-left: auto; background: #0f0f0f; color: #fff; border-radius: 999px; padding: 0.3rem 0.8rem; font-weight: 600; font-size: 0.75rem; }
+.pv-yt-desc { background: #f2f2f2; border-radius: 10px; padding: 0.55rem 0.65rem; display: flex; flex-direction: column; gap: 0.2rem; }
+.pv-x-media { padding: 0 0.75rem 0.6rem; }
+.pv-x-media .pv-media { border-radius: 14px; }

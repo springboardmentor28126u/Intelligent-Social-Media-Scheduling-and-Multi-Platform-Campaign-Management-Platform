@@ -225,3 +225,9 @@ Frontend/dist/
 .runtime/
 tools/
 Claude outputs/
+
+# Extra secret safety
+*.local
+client_secret*.json
+*.pem
+*.key

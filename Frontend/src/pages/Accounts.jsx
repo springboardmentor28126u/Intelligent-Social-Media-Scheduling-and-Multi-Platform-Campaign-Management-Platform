@@ -8,7 +8,7 @@ export const Accounts = ({
   loadingPlatform = null,
   providers = [], canManage = false,
 }) => {
-  const PLATFORMS = ['Instagram', 'Facebook', 'LinkedIn', 'X']
+  const PLATFORMS = ['Instagram', 'Facebook', 'LinkedIn', 'X', 'YouTube']
 
   const isAccountConnected = (platform) => {
     return connectedAccounts.some(

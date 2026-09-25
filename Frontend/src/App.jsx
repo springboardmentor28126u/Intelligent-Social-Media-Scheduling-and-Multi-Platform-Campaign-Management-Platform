@@ -58,6 +58,7 @@ function App() {
   const [campaignTime, setCampaignTime] = useState('')
   const [editId, setEditId] = useState(null)
   const [imageUrl, setImageUrl] = useState('')
+  const [videoUrl, setVideoUrl] = useState('')
   const [accountIds, setAccountIds] = useState([])
   const [recurrence, setRecurrence] = useState('none')
   const [occurrences, setOccurrences] = useState(1)
@@ -125,7 +126,7 @@ function App() {
   }, [isLoggedIn, refresh])
   const resetForm = () => {
     setEditId(null); setCampaignName(''); setPlatform(''); setContent(''); setCampaignDate(''); setCampaignTime('')
-    setImageUrl(''); setAccountIds([]); setRecurrence('none'); setOccurrences(1); setFormError(''); setCampaignId('')
+    setImageUrl(''); setVideoUrl(''); setAccountIds([]); setRecurrence('none'); setOccurrences(1); setFormError(''); setCampaignId('')
   }
   const openCampaignForm = () => {
     if (!canCreateCampaign || !loaded) return
@@ -136,7 +137,7 @@ function App() {
     if (!post || !canCreateCampaign) return
     if (post.status !== 'draft') { setDetailsId(post.id); return }
     resetForm(); setEditId(post.id); setCampaignName(post.name); setContent(post.content)
-    setPlatform(platformName(post.platform)); setImageUrl(post.image_url || '')
+    setPlatform(platformName(post.platform)); setImageUrl(post.image_url || ''); setVideoUrl(post.video_url || '')
     setAccountIds(post.account_id ? [post.account_id] : []); setCampaignId(post.campaign_id ? String(post.campaign_id) : '')
     setShowCampaignForm(true); setActivePage('campaigns')
   }
@@ -172,7 +173,7 @@ function App() {
     try {
       const draft = await api(editId ? `/posts/${editId}` : '/posts', {
         method: editId ? 'PATCH' : 'POST',
-        body: JSON.stringify({ title: campaignName.trim(), content, platform: platform ? platform.toLowerCase() : null, account_id: accountIds.length === 1 ? accountIds[0] : null, image_url: imageUrl.trim() || null, campaign_id: campaignId ? Number(campaignId) : null }),
+        body: JSON.stringify({ title: campaignName.trim(), content, platform: platform ? platform.toLowerCase() : null, account_id: accountIds.length === 1 ? accountIds[0] : null, image_url: imageUrl.trim() || null, video_url: videoUrl.trim() || null, campaign_id: campaignId ? Number(campaignId) : null }),
       })
       saved = true; setEditId(draft.id)
       if (schedule) await api(`/posts/${draft.id}/schedule`, { method: 'POST', body: JSON.stringify({ scheduled_at: scheduledAt, timezone_name: Intl.DateTimeFormat().resolvedOptions().timeZone, account_ids: accountIds, recurrence, occurrences: recurrence === 'none' ? 1 : Number(occurrences) }) })
@@ -231,7 +232,7 @@ function App() {
           {notice && <div className="info-callout-card" role="status">{notice}<button className="btn btn-ghost" onClick={() => setNotice('')}>Dismiss</button></div>}
           {!loaded ? <p role="status">Loading your workspace…</p> : <>
             {activeNavItem?.page === 'dashboard' && <Dashboard name={user.name} campaigns={campaigns} connectedAccounts={connectedAccounts.filter(a => a.connected)} onOpenCreateCampaign={openCampaignForm} canCreateCampaign={canCreateCampaign} onNavigate={handlePageNavigate} onEditCampaign={index => setDetailsId(campaigns[index].id)} onRefresh={() => refresh().catch(error => setWorkspaceError(error.message))} />}
-            {activeNavItem?.page === 'campaigns' && <Campaigns {...{ campaigns, showCampaignForm, campaignName, setCampaignName, platform, content, setContent, campaignDate, setCampaignDate, campaignTime, setCampaignTime, imageUrl, setImageUrl, accountIds, setAccountIds, recurrence, setRecurrence, occurrences, setOccurrences, connectedAccounts, busy, formError, canCreateCampaign, campaignOptions, campaignId, setCampaignId }} setPlatform={value => { setPlatform(value); setAccountIds([]) }} setShowCampaignForm={openCampaignForm} editIndex={editId} onSaveCampaign={saveCampaign} onCancelForm={() => { if (!busy) setShowCampaignForm(false) }} onEditCampaign={editCampaign} onDeleteCampaign={deleteCampaign} onDetails={setDetailsId} />}
+            {activeNavItem?.page === 'campaigns' && <Campaigns {...{ campaigns, showCampaignForm, campaignName, setCampaignName, platform, content, setContent, campaignDate, setCampaignDate, campaignTime, setCampaignTime, imageUrl, setImageUrl, accountIds, setAccountIds, recurrence, setRecurrence, occurrences, setOccurrences, connectedAccounts, busy, formError, canCreateCampaign, campaignOptions, campaignId, setCampaignId, videoUrl, setVideoUrl }} setPlatform={value => { setPlatform(value); setAccountIds([]) }} setShowCampaignForm={openCampaignForm} editIndex={editId} onSaveCampaign={saveCampaign} onCancelForm={() => { if (!busy) setShowCampaignForm(false) }} onEditCampaign={editCampaign} onDeleteCampaign={deleteCampaign} onDetails={setDetailsId} />}
             {activeNavItem?.page === 'schedule' && <Schedule campaigns={jobs.map(job => ({ ...job, name: posts.find(p => p.id === job.post_id)?.title || `Post ${job.post_id}`, account_name: connectedAccounts.find(a => a.id === job.account_id)?.account_name, platform: platformName(job.provider), ...localFields(job.scheduled_at) }))} onOpenCreateCampaign={canCreateCampaign ? openCampaignForm : undefined} onEditCampaign={index => setDetailsId(jobs[index].post_id)} initialView={activePage === 'calendar' ? 'calendar' : 'list'} onViewChange={view => setActivePage(view === 'calendar' ? 'calendar' : 'schedule')} />}
             {activeNavItem?.page === 'accounts' && <Accounts {...{ connectedAccounts, providers, loadingPlatform }} canManage={canCreateCampaign && !busy} onConnectAccount={connectAccount} onDisconnectAccount={disconnectAccount} />}
             {activeNavItem?.page === 'analytics' && <Analytics canRefresh={canCreateCampaign} />}

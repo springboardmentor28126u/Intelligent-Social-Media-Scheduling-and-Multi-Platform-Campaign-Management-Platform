@@ -36,6 +36,14 @@ export const AccountCard = ({
           iconBg: 'bg-linkedin',
           desc: 'Manage the LinkedIn account connected to this workspace.',
         }
+      case 'youtube':
+        return {
+          title: 'YouTube',
+          category: 'Video Channel',
+          accentClass: 'platform-card-youtube',
+          iconBg: 'bg-youtube',
+          desc: 'Upload videos to the YouTube channel connected to this workspace.',
+        }
       case 'x':
       case 'twitter':
         return {
