@@ -1,14 +1,52 @@
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
+from roles import Role
+
+
+class UserRoleUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: Role
 
 
 class UserCreate(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=100)
     email: EmailStr
-    password: str = Field(min_length=6)
-    
+    password: str = Field(min_length=6, max_length=1024)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def trim_name(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("email", mode="after")
+    @classmethod
+    def lower_email(cls, value):
+        return str(value).strip().lower()
+
+
 class UserLogin(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=1, max_length=1024)
+
+    @field_validator("email", mode="after")
+    @classmethod
+    def lower_email(cls, value):
+        return str(value).strip().lower()
+
+
+class ProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=100)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def trim_name(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+
+class PasswordChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    current_password: str = Field(min_length=1, max_length=1024)
+    new_password: str = Field(min_length=6, max_length=1024)
 
 
 class UserResponse(BaseModel):
@@ -28,5 +66,6 @@ class SocialAccountResponse(BaseModel):
     platform: str
     account_name: str
     connected: bool
+    is_demo: bool = False
 
     model_config = ConfigDict(from_attributes=True)

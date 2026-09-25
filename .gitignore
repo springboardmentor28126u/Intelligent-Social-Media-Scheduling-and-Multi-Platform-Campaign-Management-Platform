@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# SocialPilot project
+.env.*
+!.env.social.example
+node_modules/
+Frontend/dist/
+.runtime/
+tools/
+Claude outputs/
