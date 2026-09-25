@@ -14,6 +14,7 @@ const postsRouter = require("./routes/posts");
 const scheduledPostsRouter = require("./routes/scheduled_posts");
 const queueRouter = require("./routes/queue");
 const recurringPostsRouter = require("./routes/recurring_posts");
+const analyticsRouter = require("./routes/analytics");
 
 // =====================================================
 // MIDDLEWARE
@@ -44,9 +45,20 @@ const PORT = 5000;
 // GLOBAL MIDDLEWARE
 // =====================================================
 
-app.use(cors());
+app.use(
+    cors({
+        origin: true,
+        credentials: true
+    })
+);
 
 app.use(express.json());
+
+app.use(
+    express.urlencoded({
+        extended: true
+    })
+);
 
 // =====================================================
 // REQUEST LOGGING
@@ -64,7 +76,10 @@ app.use((req, res, next) => {
 // USER ROUTES
 // =====================================================
 
-app.use("/api/users", usersRouter);
+app.use(
+    "/api/users",
+    usersRouter
+);
 
 // =====================================================
 // CAMPAIGN ROUTES
@@ -89,15 +104,31 @@ app.use(
 // =====================================================
 // POST ROUTES
 // =====================================================
+//
+// routes/posts.js already uses authenticateToken
+// on its individual routes.
+//
+// Therefore authentication is NOT added again here.
+//
+// =====================================================
 
 app.use(
     "/api/posts",
-    authenticateToken,
     postsRouter
 );
 
 // =====================================================
 // SCHEDULED POST ROUTES
+// =====================================================
+//
+// Frontend endpoint:
+//
+// GET    /api/scheduled-posts
+// GET    /api/scheduled-posts/:id
+// POST   /api/scheduled-posts
+// PUT    /api/scheduled-posts/:id
+// DELETE /api/scheduled-posts/:id
+//
 // =====================================================
 
 app.use(
@@ -116,6 +147,12 @@ app.use(
     queueRouter
 );
 
+app.use(
+    "/api/publishing-queue",
+    authenticateToken,
+    queueRouter
+);
+
 // =====================================================
 // RECURRING POSTS ROUTES
 // =====================================================
@@ -124,6 +161,16 @@ app.use(
     "/api/recurring-posts",
     authenticateToken,
     recurringPostsRouter
+);
+
+// =====================================================
+// ANALYTICS ROUTES
+// =====================================================
+
+app.use(
+    "/api/analytics",
+    authenticateToken,
+    analyticsRouter
 );
 
 // =====================================================
@@ -139,9 +186,7 @@ app.get(
     "/api/publishing-logs",
     authenticateToken,
     async (req, res) => {
-
         try {
-
             const result = await pool.query(`
                 SELECT
                     log_id,
@@ -161,7 +206,6 @@ app.get(
             });
 
         } catch (error) {
-
             console.error(
                 "Error fetching publishing logs:",
                 error
@@ -184,13 +228,13 @@ app.get(
     "/api/publishing-logs/:id",
     authenticateToken,
     async (req, res) => {
-
         try {
-
             const logId = Number(req.params.id);
 
-            if (Number.isNaN(logId)) {
-
+            if (
+                !Number.isInteger(logId) ||
+                logId <= 0
+            ) {
                 return res.status(400).json({
                     message: "Invalid publishing log ID"
                 });
@@ -214,7 +258,6 @@ app.get(
             );
 
             if (result.rows.length === 0) {
-
                 return res.status(404).json({
                     message: "Publishing log not found"
                 });
@@ -225,7 +268,6 @@ app.get(
             });
 
         } catch (error) {
-
             console.error(
                 "Error fetching publishing log:",
                 error
@@ -248,13 +290,13 @@ app.get(
     "/api/publishing-logs/post/:postId",
     authenticateToken,
     async (req, res) => {
-
         try {
-
             const postId = Number(req.params.postId);
 
-            if (Number.isNaN(postId)) {
-
+            if (
+                !Number.isInteger(postId) ||
+                postId <= 0
+            ) {
                 return res.status(400).json({
                     message: "Invalid post ID"
                 });
@@ -284,7 +326,6 @@ app.get(
             });
 
         } catch (error) {
-
             console.error(
                 "Error fetching publishing logs for post:",
                 error
@@ -299,74 +340,50 @@ app.get(
 );
 
 // =====================================================
+// ANALYTICS QUICK TEST
+// =====================================================
+
+app.get(
+    "/api/analytics-test",
+    authenticateToken,
+    (req, res) => {
+        res.status(200).json({
+            message: "Analytics API is working",
+
+            endpoints: {
+                campaign:
+                    "/api/analytics/campaign/:campaignId",
+
+                audience:
+                    "/api/analytics/audience/:campaignId",
+
+                expenses:
+                    "/api/analytics/expenses/:campaignId"
+            }
+        });
+    }
+);
+
+// =====================================================
 // HOME ROUTE
 // =====================================================
 
-app.get("/", (req, res) => {
-
-    res.status(200).json({
-
-        message:
-            "Social Media Platform API is running!",
-
-        milestone:
-            "Milestone 2",
-
-        status:
-            "running",
-
-        services: {
-
-            publishing_queue:
-                "enabled",
-
-            recurring_posts:
-                "enabled",
-
-            publishing_logs:
-                "enabled"
-        }
-
-    });
-});
-
-// =====================================================
-// HEALTH CHECK
-// =====================================================
-
-app.get("/health", async (req, res) => {
-
-    try {
-
-        const result = await pool.query(
-            `
-            SELECT
-                current_database(),
-                CURRENT_TIMESTAMP
-            `
-        );
-
+app.get(
+    "/",
+    (req, res) => {
         res.status(200).json({
-
-            status:
-                "healthy",
-
-            server:
-                "running",
-
-            database:
-                "connected",
-
-            database_name:
-                result.rows[0].current_database,
-
-            server_time:
-                result.rows[0].current_timestamp,
+            message:
+                "Social Media Platform API is running!",
 
             milestone:
-                "Milestone 2",
+                "Milestone 3",
+
+            status:
+                "running",
 
             services: {
+                campaign_management:
+                    "enabled",
 
                 publishing_queue:
                     "enabled",
@@ -375,76 +392,127 @@ app.get("/health", async (req, res) => {
                     "enabled",
 
                 publishing_logs:
+                    "enabled",
+
+                analytics:
                     "enabled"
             }
-
-        });
-
-    } catch (error) {
-
-        console.error(
-            "HEALTH CHECK ERROR:",
-            error
-        );
-
-        res.status(500).json({
-
-            status:
-                "unhealthy",
-
-            server:
-                "running",
-
-            database:
-                "disconnected",
-
-            error:
-                error.message
-
         });
     }
-});
+);
+
+// =====================================================
+// HEALTH CHECK
+// =====================================================
+
+app.get(
+    "/health",
+    async (req, res) => {
+        try {
+            const result = await pool.query(
+                `
+                SELECT
+                    current_database(),
+                    CURRENT_TIMESTAMP
+                `
+            );
+
+            res.status(200).json({
+                status:
+                    "healthy",
+
+                server:
+                    "running",
+
+                database:
+                    "connected",
+
+                database_name:
+                    result.rows[0].current_database,
+
+                server_time:
+                    result.rows[0].current_timestamp,
+
+                milestone:
+                    "Milestone 3",
+
+                services: {
+                    campaign_management:
+                        "enabled",
+
+                    publishing_queue:
+                        "enabled",
+
+                    recurring_posts:
+                        "enabled",
+
+                    publishing_logs:
+                        "enabled",
+
+                    analytics:
+                        "enabled"
+                }
+            });
+
+        } catch (error) {
+            console.error(
+                "HEALTH CHECK ERROR:",
+                error
+            );
+
+            res.status(500).json({
+                status:
+                    "unhealthy",
+
+                server:
+                    "running",
+
+                database:
+                    "disconnected",
+
+                error:
+                    error.message
+            });
+        }
+    }
+);
 
 // =====================================================
 // DATABASE TEST
 // =====================================================
 
-app.get("/test-db", async (req, res) => {
+app.get(
+    "/test-db",
+    async (req, res) => {
+        try {
+            const result = await pool.query(
+                "SELECT current_database()"
+            );
 
-    try {
+            res.status(200).json({
+                message:
+                    "Database connected successfully",
 
-        const result = await pool.query(
-            "SELECT current_database()"
-        );
+                database:
+                    result.rows[0].current_database
+            });
 
-        res.status(200).json({
+        } catch (error) {
+            console.error(
+                "Database connection error:",
+                error
+            );
 
-            message:
-                "Database connected successfully",
+            res.status(500).json({
+                message:
+                    "Database connection failed",
 
-            database:
-                result.rows[0].current_database
-
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Database connection error:",
-            error
-        );
-
-        res.status(500).json({
-
-            message:
-                "Database connection failed",
-
-            error:
-                error.message
-
-        });
+                error:
+                    error.message
+            });
+        }
     }
-});
+);
 
 // =====================================================
 // JWT PROTECTED ROUTE TEST
@@ -454,15 +522,61 @@ app.get(
     "/api/protected",
     authenticateToken,
     (req, res) => {
-
         res.status(200).json({
-
             message:
                 "You accessed a protected route!",
 
             user:
                 req.user
+        });
+    }
+);
 
+// =====================================================
+// API INFORMATION
+// =====================================================
+
+app.get(
+    "/api",
+    (req, res) => {
+        res.status(200).json({
+            message:
+                "Intelligent Social Media Scheduling API",
+
+            milestone:
+                "Milestone 3",
+
+            routes: {
+                users:
+                    "/api/users",
+
+                campaigns:
+                    "/api/campaigns",
+
+                social_accounts:
+                    "/api/social-accounts",
+
+                posts:
+                    "/api/posts",
+
+                scheduled_posts:
+                    "/api/scheduled-posts",
+
+                queue:
+                    "/api/queue",
+
+                publishing_queue:
+                    "/api/publishing-queue",
+
+                recurring_posts:
+                    "/api/recurring-posts",
+
+                publishing_logs:
+                    "/api/publishing-logs",
+
+                analytics:
+                    "/api/analytics"
+            }
         });
     }
 );
@@ -471,21 +585,24 @@ app.get(
 // 404 HANDLER
 // =====================================================
 
-app.use((req, res) => {
+app.use(
+    (req, res) => {
+        console.log(
+            `404 ROUTE NOT FOUND: ${req.method} ${req.originalUrl}`
+        );
 
-    res.status(404).json({
+        res.status(404).json({
+            message:
+                "API route not found",
 
-        message:
-            "API route not found",
+            method:
+                req.method,
 
-        method:
-            req.method,
-
-        path:
-            req.originalUrl
-
-    });
-});
+            path:
+                req.originalUrl
+        });
+    }
+);
 
 // =====================================================
 // GLOBAL ERROR HANDLER
@@ -493,20 +610,17 @@ app.use((req, res) => {
 
 app.use(
     (err, req, res, next) => {
-
         console.error(
             "SERVER ERROR:",
             err
         );
 
         res.status(500).json({
-
             message:
                 "Internal server error",
 
             error:
                 err.message
-
         });
     }
 );
@@ -516,11 +630,10 @@ app.use(
 // =====================================================
 
 let publishingProcessorRunning = false;
-
 let recurringProcessorRunning = false;
 
 // =====================================================
-// PROCESSOR INTERVALS
+// PROCESSOR INTERVAL
 // =====================================================
 
 const PROCESSOR_INTERVAL = 10000;
@@ -548,7 +661,11 @@ const server = app.listen(
         );
 
         console.log(
-            "Milestone 2 publishing services are enabled."
+            "Milestone 3 campaign management and analytics services are enabled."
+        );
+
+        console.log(
+            "Campaign management API: ENABLED"
         );
 
         console.log(
@@ -564,14 +681,94 @@ const server = app.listen(
         );
 
         console.log(
+            "Analytics API: ENABLED"
+        );
+
+        console.log(
             "================================================="
         );
 
-        console.log("");
+        console.log(
+            "REGISTERED ROUTES"
+        );
+
+        console.log(
+            "================================================="
+        );
+
+        console.log(
+            "GET  /"
+        );
+
+        console.log(
+            "GET  /health"
+        );
+
+        console.log(
+            "GET  /test-db"
+        );
+
+        console.log(
+            "GET  /api"
+        );
+
+        console.log(
+            "GET  /api/protected"
+        );
+
+        console.log(
+            "GET  /api/campaigns"
+        );
+
+        console.log(
+            "GET  /api/social-accounts"
+        );
+
+        console.log(
+            "GET  /api/posts"
+        );
+
+        console.log(
+            "GET  /api/scheduled-posts"
+        );
+
+        console.log(
+            "GET  /api/queue"
+        );
+
+        console.log(
+            "GET  /api/publishing-queue"
+        );
+
+        console.log(
+            "GET  /api/recurring-posts"
+        );
+
+        console.log(
+            "GET  /api/publishing-logs"
+        );
+
+        console.log(
+            "GET  /api/analytics/campaign/:campaignId"
+        );
+
+        console.log(
+            "GET  /api/analytics/audience/:campaignId"
+        );
+
+        console.log(
+            "GET  /api/analytics/expenses/:campaignId"
+        );
+
+        console.log(
+            "================================================="
+        );
 
         console.log(
             "Automatic processors will start checking after 10 seconds."
         );
+
+        console.log("");
     }
 );
 
@@ -583,7 +780,6 @@ const publishingQueueInterval = setInterval(
     async () => {
 
         if (publishingProcessorRunning) {
-
             console.log(
                 "Publishing queue processor is already running. Skipping this cycle."
             );
@@ -598,7 +794,6 @@ const publishingQueueInterval = setInterval(
         );
 
         try {
-
             await processPublishingQueue();
 
             console.log(
@@ -606,14 +801,12 @@ const publishingQueueInterval = setInterval(
             );
 
         } catch (error) {
-
             console.error(
                 "Publishing queue processor error:",
                 error
             );
 
         } finally {
-
             publishingProcessorRunning = false;
         }
 
@@ -629,7 +822,6 @@ const recurringPostsInterval = setInterval(
     async () => {
 
         if (recurringProcessorRunning) {
-
             console.log(
                 "Recurring posts processor is already running. Skipping this cycle."
             );
@@ -644,7 +836,6 @@ const recurringPostsInterval = setInterval(
         );
 
         try {
-
             await processRecurringPosts();
 
             console.log(
@@ -652,14 +843,12 @@ const recurringPostsInterval = setInterval(
             );
 
         } catch (error) {
-
             console.error(
                 "Recurring posts processor error:",
                 error
             );
 
         } finally {
-
             recurringProcessorRunning = false;
         }
 

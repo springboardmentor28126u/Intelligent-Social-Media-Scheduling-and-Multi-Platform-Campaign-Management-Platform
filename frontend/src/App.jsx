@@ -1,3053 +1,2025 @@
-import React, { useEffect, useMemo, useState } from "react";
-
+import { useEffect, useMemo, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
+
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 import "./App.css";
 
 const API_BASE = "http://localhost:5000/api";
 
-function App() {
-  /* =====================================================
-     AUTHENTICATION
-  ===================================================== */
+/* =========================================================
+   HELPERS
+========================================================= */
 
-  const [token, setToken] = useState(
-    localStorage.getItem("token") || ""
+function getArray(data, keys = []) {
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (data && typeof data === "object") {
+    for (const key of keys) {
+      if (Array.isArray(data[key])) {
+        return data[key];
+      }
+    }
+  }
+
+  return [];
+}
+
+function numberValue(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function formatNumber(value) {
+  return numberValue(value).toLocaleString();
+}
+
+function formatPercent(value) {
+  return `${numberValue(value).toFixed(2)}%`;
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString("en-IN");
+}
+
+function formatCampaignDate(value) {
+  if (!value) {
+    return "Not set";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("en-IN");
+}
+
+function getStatusClass(status) {
+  const normalized = String(status || "pending")
+    .toLowerCase()
+    .replace(/\s+/g, "-");
+
+  return `status-badge status-${normalized}`;
+}
+
+function getPostContent(postId, posts) {
+  const post = posts.find(
+    (item) => Number(item.post_id) === Number(postId)
   );
 
-  const [currentPage, setCurrentPage] = useState("dashboard");
+  return post?.content || `Post #${postId}`;
+}
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+/* =========================================================
+   API REQUEST
+========================================================= */
+
+async function apiRequest(endpoint, options = {}) {
+  const token = localStorage.getItem("token");
+
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  let data = null;
+
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    const error = new Error(
+      data?.message ||
+        data?.error ||
+        `Request failed with status ${response.status}`
+    );
+
+    error.status = response.status;
+    error.data = data;
+
+    throw error;
+  }
+
+  return data;
+}
+
+/* =========================================================
+   APP
+========================================================= */
+
+export default function App() {
+  /* =======================================================
+     AUTH
+  ======================================================= */
+
+  const [token, setToken] = useState(() => {
+    return localStorage.getItem("token");
+  });
+
+  const [loginEmail, setLoginEmail] = useState("pallavi@gmail.com");
+  const [loginPassword, setLoginPassword] = useState("Pallavi@123");
   const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
 
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  /* =======================================================
+     NAVIGATION
+  ======================================================= */
+
+  const [page, setPage] = useState("dashboard");
+
+  /* =======================================================
+     GENERAL
+  ======================================================= */
+
   const [loading, setLoading] = useState(false);
+  const [globalMessage, setGlobalMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
-  /* =====================================================
+  /* =======================================================
      DATA
-  ===================================================== */
+  ======================================================= */
 
   const [campaigns, setCampaigns] = useState([]);
   const [socialAccounts, setSocialAccounts] = useState([]);
   const [posts, setPosts] = useState([]);
   const [scheduledPosts, setScheduledPosts] = useState([]);
   const [publishingQueue, setPublishingQueue] = useState([]);
+  const [publishingLogs, setPublishingLogs] = useState([]);
 
-  /* =====================================================
+  /* =======================================================
      CAMPAIGN FORM
-  ===================================================== */
+  ======================================================= */
 
   const [campaignName, setCampaignName] = useState("");
-  const [campaignDescription, setCampaignDescription] =
-    useState("");
-  const [campaignStartDate, setCampaignStartDate] =
-    useState("");
-  const [campaignEndDate, setCampaignEndDate] = useState("");
+  const [campaignDescription, setCampaignDescription] = useState("");
   const [campaignStatus, setCampaignStatus] = useState("draft");
-  const [editingCampaignId, setEditingCampaignId] =
-    useState(null);
+  const [campaignStartDate, setCampaignStartDate] = useState("");
+  const [campaignEndDate, setCampaignEndDate] = useState("");
+  const [selectedCampaign, setSelectedCampaign] = useState("");
 
-  /* =====================================================
+  /* =======================================================
      SOCIAL ACCOUNT FORM
-  ===================================================== */
+  ======================================================= */
 
-  const [accountPlatform, setAccountPlatform] =
-    useState("Instagram");
+  const [socialPlatform, setSocialPlatform] = useState("Instagram");
+  const [socialUsername, setSocialUsername] = useState("");
 
-  const [accountName, setAccountName] = useState("");
-  const [editingAccountId, setEditingAccountId] =
-    useState(null);
-
-  /* =====================================================
+  /* =======================================================
      POST FORM
-  ===================================================== */
+  ======================================================= */
 
-  const [postCampaignId, setPostCampaignId] = useState("");
-  const [postAccountId, setPostAccountId] = useState("");
   const [postContent, setPostContent] = useState("");
-  const [postMediaUrl, setPostMediaUrl] = useState("");
-  const [postScheduledTime, setPostScheduledTime] =
-    useState("");
-  const [postStatus, setPostStatus] = useState("draft");
-  const [editingPostId, setEditingPostId] = useState(null);
+  const [postCampaignId, setPostCampaignId] = useState("");
 
-  /* =====================================================
-     SCHEDULED POST FORM
-  ===================================================== */
+  /* =======================================================
+     SCHEDULE FORM
+  ======================================================= */
 
   const [schedulePostId, setSchedulePostId] = useState("");
-  const [scheduleDateTime, setScheduleDateTime] =
-    useState("");
-  const [scheduleStatus, setScheduleStatus] =
-    useState("pending");
-  const [editingScheduleId, setEditingScheduleId] =
-    useState(null);
+  const [scheduleAccountId, setScheduleAccountId] = useState("");
+  const [scheduleDateTime, setScheduleDateTime] = useState("");
 
-  /* =====================================================
-     SAFE ARRAYS
-  ===================================================== */
+  /* =======================================================
+     ANALYTICS
+  ======================================================= */
 
-  const safeCampaigns = Array.isArray(campaigns)
-    ? campaigns
-    : [];
+  const [campaignAnalytics, setCampaignAnalytics] = useState(null);
+  const [audienceAnalytics, setAudienceAnalytics] = useState(null);
+  const [expenseAnalytics, setExpenseAnalytics] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
-  const safeSocialAccounts = Array.isArray(socialAccounts)
-    ? socialAccounts
-    : [];
+  /* =======================================================
+     HEALTH
+  ======================================================= */
 
-  const safePosts = Array.isArray(posts)
-    ? posts
-    : [];
+  const [serverHealth, setServerHealth] = useState("Checking...");
 
-  const safeScheduledPosts = Array.isArray(scheduledPosts)
-    ? scheduledPosts
-    : [];
+  /* =======================================================
+     AUTH FAILURE
+  ======================================================= */
 
-  const safePublishingQueue = Array.isArray(
-    publishingQueue
-  )
-    ? publishingQueue
-    : [];
-
-  /* =====================================================
-     HELPERS
-  ===================================================== */
-
-  const getHeaders = () => ({
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  });
-
-  const showMessage = (text) => {
-    setMessage(text);
-    setError("");
-
-    setTimeout(() => {
-      setMessage("");
-    }, 3000);
-  };
-
-  const showError = (text) => {
-    setError(text);
-    setMessage("");
-
-    setTimeout(() => {
-      setError("");
-    }, 5000);
-  };
-
-  const readResponse = async (response) => {
-    const text = await response.text();
-
-    if (!text) {
-      return {};
-    }
-
-    try {
-      return JSON.parse(text);
-    } catch {
-      return {
-        message: text,
-      };
-    }
-  };
-
-  const extractArray = (data, keys = []) => {
-    if (Array.isArray(data)) {
-      return data;
-    }
-
-    if (!data || typeof data !== "object") {
-      return [];
-    }
-
-    for (const key of keys) {
-      if (Array.isArray(data[key])) {
-        return data[key];
-      }
-    }
-
-    if (Array.isArray(data.rows)) {
-      return data.rows;
-    }
-
-    return [];
-  };
-
-  const formatDate = (date) => {
-    if (!date) return "N/A";
-
-    try {
-      return new Date(date).toLocaleString();
-    } catch {
-      return date;
-    }
-  };
-
-  const getStatusClass = (status) => {
-    return `status-badge status-${String(
-      status || "unknown"
-    ).toLowerCase()}`;
-  };
-
-  /* =====================================================
-     LOGIN
-  ===================================================== */
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-
-    setLoginError("");
-    setLoading(true);
-
-    try {
-      console.log("LOGIN EMAIL:", email);
-      console.log("LOGIN PASSWORD:", password);
-      const response = await fetch(
-        `${API_BASE}/users/login`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email,
-            password,
-          }),
-        }
-      );
-
-
-      const data = await readResponse(response);
-
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Login failed"
-        );
-      }
-
-      if (!data.token) {
-        throw new Error(
-          "Token was not returned by the server"
-        );
-      }
-
-      localStorage.setItem("token", data.token);
-      setToken(data.token);
-
-      setEmail("");
-      setPassword("");
-
-      showMessage("Login successful");
-    } catch (err) {
-      console.error("Login error:", err);
-
-      setLoginError(
-        err.message || "Login failed"
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /* =====================================================
-     LOGOUT
-  ===================================================== */
-
-  const handleLogout = () => {
+  const handleAuthFailure = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("authToken");
 
-    setToken("");
+    setToken(null);
 
     setCampaigns([]);
     setSocialAccounts([]);
     setPosts([]);
     setScheduledPosts([]);
     setPublishingQueue([]);
+    setPublishingLogs([]);
 
-    setCurrentPage("dashboard");
+    setCampaignAnalytics(null);
+    setAudienceAnalytics(null);
+    setExpenseAnalytics(null);
 
-    setMessage("");
-    setError("");
+    setLoginError(
+      "Your login session has expired. Please login again."
+    );
+
+    setPage("dashboard");
   };
 
-  /* =====================================================
-     FETCH CAMPAIGNS
-  ===================================================== */
+  /* =======================================================
+     SAFE REQUEST
+  ======================================================= */
 
-  const fetchCampaigns = async () => {
+  const safeRequest = async (
+    endpoint,
+    options = {},
+    config = {}
+  ) => {
     try {
-      const response = await fetch(
-        `${API_BASE}/campaigns`,
-        {
-          headers: getHeaders(),
-        }
-      );
+      return await apiRequest(endpoint, options);
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        handleAuthFailure();
+      }
 
-      const data = await readResponse(response);
+      if (config.ignore404 && error.status === 404) {
+        return null;
+      }
 
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to fetch campaigns"
+      if (!config.silent) {
+        setErrorMessage(
+          error.message || "Something went wrong."
         );
       }
 
-      setCampaigns(
-        extractArray(data, [
-          "campaigns",
-          "data",
-        ])
-      );
-    } catch (err) {
-      console.error(
-        "Campaign fetch error:",
-        err
-      );
-
-      showError(err.message);
-      setCampaigns([]);
+      throw error;
     }
   };
 
-  /* =====================================================
-     FETCH SOCIAL ACCOUNTS
-  ===================================================== */
+  /* =======================================================
+     LOGIN
+  ======================================================= */
 
-  const fetchSocialAccounts = async () => {
+  const handleLogin = async (event) => {
+    event.preventDefault();
+
+    setLoginError("");
+    setGlobalMessage("");
+    setErrorMessage("");
+    setLoginLoading(true);
+
     try {
-      const response = await fetch(
-        `${API_BASE}/social-accounts`,
-        {
-          headers: getHeaders(),
-        }
-      );
+      const response = await apiRequest("/users/login", {
+        method: "POST",
+        body: JSON.stringify({
+          email: loginEmail,
+          password: loginPassword,
+        }),
+      });
 
-      const data = await readResponse(response);
-
-      if (!response.ok) {
+      if (!response?.token) {
         throw new Error(
-          data.message ||
-            "Failed to fetch social accounts"
+          "Login successful but no token was returned."
         );
       }
 
-      setSocialAccounts(
-        extractArray(data, [
-          "socialAccounts",
-          "social_accounts",
-          "accounts",
-          "data",
-        ])
-      );
-    } catch (err) {
-      console.error(
-        "Social account fetch error:",
-        err
-      );
+      localStorage.setItem("token", response.token);
 
-      showError(err.message);
-      setSocialAccounts([]);
+      setToken(response.token);
+      setPage("dashboard");
+      setGlobalMessage("Login successful.");
+
+      await loadAllData();
+    } catch (error) {
+      setLoginError(
+        error.message ||
+          "Login failed. Please check your credentials."
+      );
+    } finally {
+      setLoginLoading(false);
     }
   };
 
-  /* =====================================================
-     FETCH POSTS
-  ===================================================== */
+  /* =======================================================
+     LOGOUT
+  ======================================================= */
 
-  const fetchPosts = async () => {
-    try {
-      const response = await fetch(
-        `${API_BASE}/posts`,
-        {
-          headers: getHeaders(),
-        }
-      );
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("authToken");
 
-      const data = await readResponse(response);
+    setToken(null);
 
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to fetch posts"
-        );
-      }
+    setCampaigns([]);
+    setSocialAccounts([]);
+    setPosts([]);
+    setScheduledPosts([]);
+    setPublishingQueue([]);
+    setPublishingLogs([]);
 
-      setPosts(
-        extractArray(data, [
-          "posts",
-          "data",
-        ])
-      );
-    } catch (err) {
-      console.error(
-        "Post fetch error:",
-        err
-      );
+    setCampaignAnalytics(null);
+    setAudienceAnalytics(null);
+    setExpenseAnalytics(null);
 
-      showError(err.message);
-      setPosts([]);
-    }
+    setGlobalMessage("");
+    setErrorMessage("");
+    setLoginError("");
   };
 
-  /* =====================================================
-     FETCH SCHEDULED POSTS
-  ===================================================== */
+  /* =======================================================
+     LOAD CAMPAIGNS
+  ======================================================= */
 
-  const fetchScheduledPosts = async () => {
-    try {
-      const response = await fetch(
-        `${API_BASE}/scheduled-posts`,
-        {
-          headers: getHeaders(),
-        }
-      );
-
-      const data = await readResponse(response);
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to fetch scheduled posts"
-        );
+  const loadCampaigns = async () => {
+    const response = await safeRequest(
+      "/campaigns",
+      {},
+      {
+        silent: true,
       }
+    );
 
-      const result = extractArray(data, [
-        "scheduledPosts",
-        "scheduled_posts",
-        "schedules",
-        "data",
-      ]);
+    const data = getArray(response, [
+      "campaigns",
+      "data",
+      "results",
+    ]);
 
-      setScheduledPosts(
-        Array.isArray(result)
-          ? result
-          : []
-      );
-    } catch (err) {
-      console.error(
-        "Scheduled posts fetch error:",
-        err
-      );
+    setCampaigns(data);
 
-      showError(err.message);
-      setScheduledPosts([]);
+    if (data.length > 0) {
+      setSelectedCampaign((current) => {
+        if (
+          current &&
+          data.some(
+            (campaign) =>
+              String(campaign.campaign_id) === String(current)
+          )
+        ) {
+          return current;
+        }
+
+        return String(data[0].campaign_id);
+      });
+    } else {
+      setSelectedCampaign("");
     }
+
+    return data;
   };
 
-  /* =====================================================
-     FETCH PUBLISHING QUEUE
-  ===================================================== */
+  /* =======================================================
+     LOAD SOCIAL ACCOUNTS
+  ======================================================= */
 
-  const fetchPublishingQueue = async () => {
+  const loadSocialAccounts = async () => {
+    const response = await safeRequest(
+      "/social-accounts",
+      {},
+      {
+        silent: true,
+      }
+    );
+
+    const data = getArray(response, [
+      "socialAccounts",
+      "social_accounts",
+      "accounts",
+      "data",
+      "results",
+    ]);
+
+    setSocialAccounts(data);
+
+    return data;
+  };
+
+  /* =======================================================
+     LOAD POSTS
+  ======================================================= */
+
+  const loadPosts = async () => {
+    const response = await safeRequest(
+      "/posts",
+      {},
+      {
+        silent: true,
+      }
+    );
+
+    const data = getArray(response, [
+      "posts",
+      "data",
+      "results",
+    ]);
+
+    setPosts(data);
+
+    return data;
+  };
+
+  /* =======================================================
+     LOAD SCHEDULED POSTS
+  ======================================================= */
+
+  const loadScheduledPosts = async () => {
+    const response = await safeRequest(
+      "/scheduled-posts",
+      {},
+      {
+        silent: true,
+      }
+    );
+
+    const data = getArray(response, [
+      "scheduledPosts",
+      "scheduled_posts",
+      "data",
+      "results",
+    ]);
+
+    setScheduledPosts(data);
+
+    return data;
+  };
+
+  /* =======================================================
+     LOAD QUEUE
+  ======================================================= */
+
+  const loadPublishingQueue = async () => {
     try {
-      const response = await fetch(
-        `${API_BASE}/queue`,
+      const response = await safeRequest(
+        "/publishing-queue",
+        {},
         {
-          headers: getHeaders(),
+          silent: true,
+          ignore404: true,
         }
       );
 
-      const data = await readResponse(response);
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to fetch publishing queue"
-        );
-      }
-
-      const result = extractArray(data, [
-        "queue",
-        "queues",
+      const data = getArray(response, [
         "publishingQueue",
         "publishing_queue",
+        "queue",
         "data",
+        "results",
       ]);
 
-      setPublishingQueue(
-        Array.isArray(result)
-          ? result
-          : []
-      );
-    } catch (err) {
-      console.error(
-        "Publishing queue fetch error:",
-        err
-      );
+      setPublishingQueue(data);
 
-      /*
-        Do not show an error every time if the
-        queue endpoint is not available yet.
-      */
-
+      return data;
+    } catch {
       setPublishingQueue([]);
+      return [];
     }
   };
 
-  /* =====================================================
-     FETCH ALL
-  ===================================================== */
+  /* =======================================================
+     LOAD PUBLISHING LOGS
+  ======================================================= */
 
-  const fetchAllData = async () => {
-    if (!token) return;
+  const loadPublishingLogs = async () => {
+    try {
+      const response = await safeRequest(
+        "/publishing-logs",
+        {},
+        {
+          silent: true,
+          ignore404: true,
+        }
+      );
+
+      const data = getArray(response, [
+        "publishingLogs",
+        "publishing_logs",
+        "logs",
+        "data",
+        "results",
+      ]);
+
+      setPublishingLogs(data);
+
+      return data;
+    } catch {
+      setPublishingLogs([]);
+      return [];
+    }
+  };
+
+  /* =======================================================
+     LOAD ALL DATA
+  ======================================================= */
+
+  const loadAllData = async () => {
+    if (!localStorage.getItem("token")) {
+      return;
+    }
 
     setLoading(true);
+    setErrorMessage("");
 
     try {
-      await Promise.all([
-        fetchCampaigns(),
-        fetchSocialAccounts(),
-        fetchPosts(),
-        fetchScheduledPosts(),
-        fetchPublishingQueue(),
+      await Promise.allSettled([
+        loadCampaigns(),
+        loadSocialAccounts(),
+        loadPosts(),
+        loadScheduledPosts(),
+        loadPublishingQueue(),
+        loadPublishingLogs(),
       ]);
     } finally {
       setLoading(false);
     }
   };
 
+  /* =======================================================
+     HEALTH CHECK
+  ======================================================= */
+
+  const checkHealth = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE.replace("/api", "")}/health`
+      );
+
+      if (response.ok) {
+        setServerHealth("Healthy");
+      } else {
+        setServerHealth("Unavailable");
+      }
+    } catch {
+      setServerHealth("Unavailable");
+    }
+  };
+
+  /* =======================================================
+     INITIAL LOAD
+  ======================================================= */
+
   useEffect(() => {
     if (token) {
-      fetchAllData();
+      loadAllData();
+      checkHealth();
     }
   }, [token]);
 
-  /* =====================================================
-     CAMPAIGN FORM
-  ===================================================== */
+  /* =======================================================
+     CREATE CAMPAIGN
+  ======================================================= */
 
-  const resetCampaignForm = () => {
-    setCampaignName("");
-    setCampaignDescription("");
-    setCampaignStartDate("");
-    setCampaignEndDate("");
-    setCampaignStatus("draft");
-    setEditingCampaignId(null);
-  };
+  const handleCreateCampaign = async (event) => {
+    event.preventDefault();
 
-  const handleCampaignSubmit = async (e) => {
-    e.preventDefault();
+    setGlobalMessage("");
+    setErrorMessage("");
 
-    /*
-      IMPORTANT:
-      Backend expects campaign_name,
-      not name.
-    */
+    if (!campaignName.trim()) {
+      setErrorMessage("Please enter a campaign name.");
+      return;
+    }
 
-    const trimmedName = campaignName.trim();
-
-    if (!trimmedName) {
-      showError("Campaign name is required");
+    if (!campaignStatus) {
+      setErrorMessage("Please select a campaign status.");
       return;
     }
 
     if (!campaignStartDate) {
-      showError("Campaign start date is required");
+      setErrorMessage("Please select a start date.");
       return;
     }
 
     if (!campaignEndDate) {
-      showError("Campaign end date is required");
+      setErrorMessage("Please select an end date.");
       return;
     }
 
-    if (
-      new Date(campaignEndDate) <
-      new Date(campaignStartDate)
-    ) {
-      showError(
-        "End date cannot be before start date"
+    if (campaignEndDate < campaignStartDate) {
+      setErrorMessage(
+        "End date cannot be before start date."
       );
       return;
     }
 
     try {
-      const payload = {
-        campaign_name: trimmedName,
-        description: campaignDescription.trim(),
-        start_date: campaignStartDate,
-        end_date: campaignEndDate,
-        status: campaignStatus,
-      };
+      setLoading(true);
 
-      console.log(
-        "Campaign request payload:",
-        payload
-      );
-
-      const url = editingCampaignId
-        ? `${API_BASE}/campaigns/${editingCampaignId}`
-        : `${API_BASE}/campaigns`;
-
-      const method = editingCampaignId
-        ? "PUT"
-        : "POST";
-
-      const response = await fetch(url, {
-        method,
-        headers: getHeaders(),
-        body: JSON.stringify(payload),
+      await apiRequest("/campaigns", {
+        method: "POST",
+        body: JSON.stringify({
+          campaign_name: campaignName.trim(),
+          description: campaignDescription.trim(),
+          status: campaignStatus,
+          start_date: campaignStartDate,
+          end_date: campaignEndDate,
+        }),
       });
 
-      const data = await readResponse(response);
+      setCampaignName("");
+      setCampaignDescription("");
+      setCampaignStatus("draft");
+      setCampaignStartDate("");
+      setCampaignEndDate("");
 
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Campaign operation failed"
+      setGlobalMessage(
+        "Campaign created successfully."
+      );
+
+      await loadCampaigns();
+    } catch (error) {
+      if (
+        error.status === 401 ||
+        error.status === 403
+      ) {
+        handleAuthFailure();
+      } else {
+        setErrorMessage(
+          error.message ||
+            "Failed to create campaign."
         );
       }
-
-      showMessage(
-        editingCampaignId
-          ? "Campaign updated successfully"
-          : "Campaign created successfully"
-      );
-
-      resetCampaignForm();
-
-      await fetchCampaigns();
-    } catch (err) {
-      console.error(
-        "Campaign submit error:",
-        err
-      );
-
-      showError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const editCampaign = (campaign) => {
-    setEditingCampaignId(
-      campaign.campaign_id
+  /* =======================================================
+     DELETE CAMPAIGN
+  ======================================================= */
+
+  const handleDeleteCampaign = async (campaignId) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this campaign?"
     );
 
-    setCampaignName(
-      campaign.campaign_name ||
-        campaign.name ||
-        ""
-    );
-
-    setCampaignDescription(
-      campaign.description || ""
-    );
-
-    setCampaignStartDate(
-      campaign.start_date
-        ? String(
-            campaign.start_date
-          ).substring(0, 10)
-        : ""
-    );
-
-    setCampaignEndDate(
-      campaign.end_date
-        ? String(
-            campaign.end_date
-          ).substring(0, 10)
-        : ""
-    );
-
-    setCampaignStatus(
-      campaign.status || "draft"
-    );
-
-    setCurrentPage("campaigns");
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-
-  const deleteCampaign = async (id) => {
-    if (
-      !window.confirm(
-        "Delete this campaign?"
-      )
-    ) {
+    if (!confirmed) {
       return;
     }
 
     try {
-      const response = await fetch(
-        `${API_BASE}/campaigns/${id}`,
-        {
-          method: "DELETE",
-          headers: getHeaders(),
-        }
-      );
+      setLoading(true);
 
-      const data = await readResponse(response);
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to delete campaign"
-        );
-      }
-
-      showMessage(
-        "Campaign deleted successfully"
-      );
-
-      await fetchAllData();
-    } catch (err) {
-      console.error(
-        "Delete campaign error:",
-        err
-      );
-
-      showError(err.message);
-    }
-  };
-
-  const publishCampaign = async (campaign) => {
-    try {
-      const response = await fetch(
-        `${API_BASE}/campaigns/${campaign.campaign_id}`,
-        {
-          method: "PUT",
-          headers: getHeaders(),
-          body: JSON.stringify({
-            campaign_name:
-              campaign.campaign_name ||
-              campaign.name ||
-              "",
-            description:
-              campaign.description || "",
-            start_date:
-              campaign.start_date,
-            end_date:
-              campaign.end_date,
-            status: "active",
-          }),
-        }
-      );
-
-      const data = await readResponse(response);
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to publish campaign"
-        );
-      }
-
-      showMessage(
-        "Campaign activated successfully"
-      );
-
-      await fetchCampaigns();
-    } catch (err) {
-      showError(err.message);
-    }
-  };
-
-  /* =====================================================
-     SOCIAL ACCOUNTS
-  ===================================================== */
-
-  const resetAccountForm = () => {
-    setAccountPlatform("Instagram");
-    setAccountName("");
-    setEditingAccountId(null);
-  };
-
-  const handleAccountSubmit = async (e) => {
-    e.preventDefault();
-
-    /*
-      IMPORTANT:
-      Backend error says:
-
-      "Platform and username are required"
-
-      Therefore send username,
-      NOT account_name.
-    */
-
-    const trimmedUsername = accountName.trim();
-
-    if (!accountPlatform) {
-      showError("Platform is required");
-      return;
-    }
-
-    if (!trimmedUsername) {
-      showError("Username is required");
-      return;
-    }
-
-    try {
-      const payload = {
-        platform: accountPlatform,
-        username: trimmedUsername,
-      };
-
-      console.log(
-        "Social account request payload:",
-        payload
-      );
-
-      const url = editingAccountId
-        ? `${API_BASE}/social-accounts/${editingAccountId}`
-        : `${API_BASE}/social-accounts`;
-
-      const method = editingAccountId
-        ? "PUT"
-        : "POST";
-
-      const response = await fetch(url, {
-        method,
-        headers: getHeaders(),
-        body: JSON.stringify(payload),
+      await apiRequest(`/campaigns/${campaignId}`, {
+        method: "DELETE",
       });
 
-      const data = await readResponse(response);
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Social account operation failed"
-        );
-      }
-
-      showMessage(
-        editingAccountId
-          ? "Social account updated successfully"
-          : "Social account created successfully"
+      setGlobalMessage(
+        "Campaign deleted successfully."
       );
-
-      resetAccountForm();
-
-      await fetchSocialAccounts();
-    } catch (err) {
-      console.error(
-        "Account submit error:",
-        err
-      );
-
-      showError(err.message);
-    }
-  };
-
-  const editAccount = (account) => {
-    setEditingAccountId(
-      account.account_id
-    );
-
-    setAccountPlatform(
-      account.platform || "Instagram"
-    );
-
-    setAccountName(
-      account.username ||
-        account.account_name ||
-        account.accountName ||
-        ""
-    );
-
-    setCurrentPage("social-accounts");
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-
-  const deleteAccount = async (id) => {
-    if (
-      !window.confirm(
-        "Delete this social account?"
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `${API_BASE}/social-accounts/${id}`,
-        {
-          method: "DELETE",
-          headers: getHeaders(),
-        }
-      );
-
-      const data = await readResponse(response);
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to delete social account"
-        );
-      }
-
-      showMessage(
-        "Social account deleted successfully"
-      );
-
-      await fetchAllData();
-    } catch (err) {
-      console.error(
-        "Delete account error:",
-        err
-      );
-
-      showError(err.message);
-    }
-  };
-
-  const activateAccount = async (account) => {
-    try {
-      const response = await fetch(
-        `${API_BASE}/social-accounts/${account.account_id}`,
-        {
-          method: "PUT",
-          headers: getHeaders(),
-          body: JSON.stringify({
-            platform:
-              account.platform,
-            username:
-              account.username ||
-              account.account_name ||
-              account.accountName ||
-              "",
-            status: "connected",
-          }),
-        }
-      );
-
-      const data = await readResponse(response);
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to activate account"
-        );
-      }
-
-      showMessage(
-        "Social account activated"
-      );
-
-      await fetchSocialAccounts();
-    } catch (err) {
-      showError(err.message);
-    }
-  };
-
-  /* =====================================================
-     POSTS
-  ===================================================== */
-
-  const resetPostForm = () => {
-    setPostCampaignId("");
-    setPostAccountId("");
-    setPostContent("");
-    setPostMediaUrl("");
-    setPostScheduledTime("");
-    setPostStatus("draft");
-    setEditingPostId(null);
-  };
-
-  const handlePostSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!postCampaignId) {
-      showError("Please select a campaign");
-      return;
-    }
-
-    if (!postAccountId) {
-      showError("Please select a social account");
-      return;
-    }
-
-    if (!postContent.trim()) {
-      showError("Post content is required");
-      return;
-    }
-
-    try {
-      const payload = {
-        campaign_id: Number(
-          postCampaignId
-        ),
-
-        account_id: Number(
-          postAccountId
-        ),
-
-        content: postContent.trim(),
-
-        media_url:
-          postMediaUrl.trim() || null,
-
-        scheduled_time:
-          postScheduledTime || null,
-
-        status: postStatus,
-      };
-
-      console.log(
-        "Post request payload:",
-        payload
-      );
-
-      const url = editingPostId
-        ? `${API_BASE}/posts/${editingPostId}`
-        : `${API_BASE}/posts`;
-
-      const method = editingPostId
-        ? "PUT"
-        : "POST";
-
-      const response = await fetch(url, {
-        method,
-        headers: getHeaders(),
-        body: JSON.stringify(payload),
-      });
-
-      const data = await readResponse(response);
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Post operation failed"
-        );
-      }
-
-      showMessage(
-        editingPostId
-          ? "Post updated successfully"
-          : "Post created successfully"
-      );
-
-      resetPostForm();
-
-      await fetchPosts();
-      await fetchScheduledPosts();
-      await fetchPublishingQueue();
-    } catch (err) {
-      console.error(
-        "Post submit error:",
-        err
-      );
-
-      showError(err.message);
-    }
-  };
-
-  const editPost = (post) => {
-    setEditingPostId(post.post_id);
-
-    setPostCampaignId(
-      post.campaign_id
-        ? String(post.campaign_id)
-        : ""
-    );
-
-    setPostAccountId(
-      post.account_id
-        ? String(post.account_id)
-        : ""
-    );
-
-    setPostContent(
-      post.content || ""
-    );
-
-    setPostMediaUrl(
-      post.media_url || ""
-    );
-
-    setPostScheduledTime(
-      post.scheduled_time
-        ? String(
-            post.scheduled_time
-          ).substring(0, 16)
-        : ""
-    );
-
-    setPostStatus(
-      post.status || "draft"
-    );
-
-    setCurrentPage("posts");
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-
-  /* =====================================================
-     DELETE POST
-  ===================================================== */
-
-  const deletePost = async (id) => {
-    if (
-      !window.confirm(
-        "Delete this post?\n\nAny schedules linked to this post will also be removed first."
-      )
-    ) {
-      return;
-    }
-
-    try {
-      /*
-        STEP 1:
-        Find all schedules belonging to this post.
-      */
-
-      const relatedSchedules =
-        safeScheduledPosts.filter(
-          (schedule) =>
-            Number(schedule.post_id) ===
-            Number(id)
-        );
-
-      /*
-        STEP 2:
-        Delete related schedules first.
-
-        This prevents a common PostgreSQL
-        foreign-key error.
-      */
-
-      for (const schedule of relatedSchedules) {
-        const scheduleResponse =
-          await fetch(
-            `${API_BASE}/scheduled-posts/${schedule.schedule_id}`,
-            {
-              method: "DELETE",
-              headers: getHeaders(),
-            }
-          );
-
-        const scheduleData =
-          await readResponse(
-            scheduleResponse
-          );
-
-        if (!scheduleResponse.ok) {
-          throw new Error(
-            scheduleData.message ||
-              `Could not delete schedule #${schedule.schedule_id}`
-          );
-        }
-      }
-
-      /*
-        STEP 3:
-        Delete the actual post.
-      */
-
-      const response = await fetch(
-        `${API_BASE}/posts/${id}`,
-        {
-          method: "DELETE",
-          headers: getHeaders(),
-        }
-      );
-
-      const data = await readResponse(response);
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to delete post"
-        );
-      }
-
-      showMessage(
-        "Post deleted successfully"
-      );
-
-      await fetchPosts();
-      await fetchScheduledPosts();
-      await fetchPublishingQueue();
-    } catch (err) {
-      console.error(
-        "Delete post error:",
-        err
-      );
-
-      /*
-        Give a useful explanation for
-        PostgreSQL foreign-key errors.
-      */
-
-      const messageText =
-        String(err.message || "");
 
       if (
-        messageText
-          .toLowerCase()
-          .includes("foreign key")
+        String(selectedCampaign) ===
+        String(campaignId)
       ) {
-        showError(
-          "Post cannot be deleted because another publishing record still references it. Delete the related queue record or update the backend DELETE route to use CASCADE."
-        );
-      } else {
-        showError(messageText);
+        setCampaignAnalytics(null);
+        setAudienceAnalytics(null);
+        setExpenseAnalytics(null);
+        setSelectedCampaign("");
       }
+
+      await loadCampaigns();
+    } catch (error) {
+      if (
+        error.status === 401 ||
+        error.status === 403
+      ) {
+        handleAuthFailure();
+      } else {
+        setErrorMessage(
+          error.message ||
+            "Campaign could not be deleted. It may be connected to posts or publishing records."
+        );
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  /* =====================================================
-     PUBLISH POST
-  ===================================================== */
+  /* =======================================================
+     CREATE SOCIAL ACCOUNT
+  ======================================================= */
 
-  const publishPost = async (post) => {
+  const handleCreateSocialAccount = async (event) => {
+    event.preventDefault();
+
+    setGlobalMessage("");
+    setErrorMessage("");
+
+    if (!socialUsername.trim()) {
+      setErrorMessage("Please enter a username.");
+      return;
+    }
+
     try {
-      if (!post.account_id) {
-        showError(
-          "This post has no social account."
-        );
-        return;
-      }
+      setLoading(true);
 
-      const response = await fetch(
-        `${API_BASE}/posts/${post.post_id}/publish`,
+      await apiRequest("/social-accounts", {
+        method: "POST",
+        body: JSON.stringify({
+          platform: socialPlatform,
+          username: socialUsername.trim(),
+        }),
+      });
+
+      setSocialUsername("");
+
+      setGlobalMessage(
+        "Social account added successfully."
+      );
+
+      await loadSocialAccounts();
+    } catch (error) {
+      if (
+        error.status === 401 ||
+        error.status === 403
+      ) {
+        handleAuthFailure();
+      } else {
+        setErrorMessage(
+          error.message ||
+            "Failed to add social account."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* =======================================================
+     DELETE SOCIAL ACCOUNT
+  ======================================================= */
+
+  const handleDeleteSocialAccount = async (accountId) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this social account?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await apiRequest(
+        `/social-accounts/${accountId}`,
         {
-          method: "POST",
-          headers: getHeaders(),
-          body: JSON.stringify({
-            account_id:
-              Number(post.account_id),
-          }),
+          method: "DELETE",
         }
       );
 
-      const data = await readResponse(response);
+      setGlobalMessage(
+        "Social account deleted successfully."
+      );
 
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to publish post"
+      await loadSocialAccounts();
+    } catch (error) {
+      if (
+        error.status === 401 ||
+        error.status === 403
+      ) {
+        handleAuthFailure();
+      } else {
+        setErrorMessage(
+          error.message ||
+            "Social account could not be deleted."
         );
       }
-
-      showMessage(
-        "Post published successfully"
-      );
-
-      await fetchPosts();
-      await fetchScheduledPosts();
-      await fetchPublishingQueue();
-    } catch (err) {
-      showError(
-        `${err.message}. Make sure the publish API exists in the backend.`
-      );
+    } finally {
+      setLoading(false);
     }
   };
 
-  /* =====================================================
-     SCHEDULED POSTS
-  ===================================================== */
+  /* =======================================================
+     CREATE POST
+  ======================================================= */
 
-  const resetScheduleForm = () => {
-    setSchedulePostId("");
-    setScheduleDateTime("");
-    setScheduleStatus("pending");
-    setEditingScheduleId(null);
+  const handleCreatePost = async (event) => {
+    event.preventDefault();
+
+    setGlobalMessage("");
+    setErrorMessage("");
+
+    if (!postContent.trim()) {
+      setErrorMessage("Please enter post content.");
+      return;
+    }
+
+    if (!postCampaignId) {
+      setErrorMessage("Please select a campaign.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await apiRequest("/posts", {
+        method: "POST",
+        body: JSON.stringify({
+          content: postContent.trim(),
+          campaign_id: Number(postCampaignId),
+        }),
+      });
+
+      setPostContent("");
+      setPostCampaignId("");
+
+      setGlobalMessage(
+        "Post created successfully."
+      );
+
+      await loadPosts();
+    } catch (error) {
+      if (
+        error.status === 401 ||
+        error.status === 403
+      ) {
+        handleAuthFailure();
+      } else {
+        setErrorMessage(
+          error.message ||
+            "Failed to create post."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleScheduleSubmit = async (e) => {
-    e.preventDefault();
+  /* =======================================================
+     DELETE POST
+  ======================================================= */
+
+  const handleDeletePost = async (postId) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this post?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await apiRequest(`/posts/${postId}`, {
+        method: "DELETE",
+      });
+
+      setGlobalMessage(
+        "Post deleted successfully."
+      );
+
+      await Promise.all([
+        loadPosts(),
+        loadScheduledPosts(),
+      ]);
+    } catch (error) {
+      if (
+        error.status === 401 ||
+        error.status === 403
+      ) {
+        handleAuthFailure();
+      } else {
+        setErrorMessage(
+          error.message ||
+            "Post could not be deleted. It may be linked to scheduling records."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* =======================================================
+     CREATE SCHEDULE
+  ======================================================= */
+
+  const handleSchedulePost = async (event) => {
+    event.preventDefault();
+
+    setGlobalMessage("");
+    setErrorMessage("");
 
     if (!schedulePostId) {
-      showError("Please select a post");
+      setErrorMessage("Please select a post.");
       return;
     }
 
     if (!scheduleDateTime) {
-      showError(
-        "Please select date and time"
+      setErrorMessage(
+        "Please select a date and time."
+      );
+      return;
+    }
+
+    const selectedDate = new Date(scheduleDateTime);
+
+    if (Number.isNaN(selectedDate.getTime())) {
+      setErrorMessage(
+        "Please select a valid date and time."
       );
       return;
     }
 
     try {
-      const payload = {
-        post_id: Number(
-          schedulePostId
-        ),
+      setLoading(true);
 
-        scheduled_at:
-          scheduleDateTime,
-
-        status:
-          scheduleStatus,
+      const body = {
+        post_id: Number(schedulePostId),
+        scheduled_at: selectedDate.toISOString(),
       };
 
-      const url = editingScheduleId
-        ? `${API_BASE}/scheduled-posts/${editingScheduleId}`
-        : `${API_BASE}/scheduled-posts`;
-
-      const method = editingScheduleId
-        ? "PUT"
-        : "POST";
-
-      const response = await fetch(url, {
-        method,
-        headers: getHeaders(),
-        body: JSON.stringify(payload),
-      });
-
-      const data = await readResponse(response);
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Schedule operation failed"
-        );
+      if (scheduleAccountId) {
+        body.account_id = Number(scheduleAccountId);
       }
 
-      showMessage(
-        editingScheduleId
-          ? "Schedule updated successfully"
-          : "Post scheduled successfully"
+      await apiRequest("/scheduled-posts", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+
+      setSchedulePostId("");
+      setScheduleAccountId("");
+      setScheduleDateTime("");
+
+      setGlobalMessage(
+        "Post scheduled successfully."
       );
 
-      resetScheduleForm();
-
-      await fetchScheduledPosts();
-      await fetchPosts();
-      await fetchPublishingQueue();
-    } catch (err) {
-      showError(err.message);
+      await Promise.all([
+        loadScheduledPosts(),
+        loadPublishingQueue(),
+      ]);
+    } catch (error) {
+      if (
+        error.status === 401 ||
+        error.status === 403
+      ) {
+        handleAuthFailure();
+      } else {
+        setErrorMessage(
+          error.message ||
+            "Failed to schedule post."
+        );
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const editSchedule = (schedule) => {
-    setEditingScheduleId(
-      schedule.schedule_id
-    );
+  /* =======================================================
+     PUBLISH NOW
+  ======================================================= */
 
-    setSchedulePostId(
-      schedule.post_id
-        ? String(schedule.post_id)
-        : ""
-    );
+  const handlePublishNow = async (scheduleId) => {
+    try {
+      setLoading(true);
 
-    setScheduleDateTime(
-      schedule.scheduled_at
-        ? String(
-            schedule.scheduled_at
-          ).substring(0, 16)
-        : ""
-    );
+      await apiRequest(
+        `/scheduled-posts/${scheduleId}/publish`,
+        {
+          method: "POST",
+        }
+      );
 
-    setScheduleStatus(
-      schedule.status || "pending"
-    );
+      setGlobalMessage(
+        "Post published successfully."
+      );
 
-    setCurrentPage("scheduled-posts");
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+      await Promise.all([
+        loadScheduledPosts(),
+        loadPublishingQueue(),
+        loadPublishingLogs(),
+      ]);
+    } catch (error) {
+      if (
+        error.status === 401 ||
+        error.status === 403
+      ) {
+        handleAuthFailure();
+      } else {
+        setErrorMessage(
+          error.message ||
+            "Failed to publish post."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const deleteSchedule = async (id) => {
-    if (
-      !window.confirm(
-        "Delete this scheduled post?"
-      )
-    ) {
+  /* =======================================================
+     LOAD ANALYTICS
+  ======================================================= */
+
+  const loadAnalytics = async (
+    campaignId = selectedCampaign
+  ) => {
+    if (!campaignId) {
+      setErrorMessage(
+        "Please select a campaign first."
+      );
       return;
     }
 
+    setSelectedCampaign(String(campaignId));
+    setAnalyticsLoading(true);
+    setErrorMessage("");
+
     try {
-      const response = await fetch(
-        `${API_BASE}/scheduled-posts/${id}`,
-        {
-          method: "DELETE",
-          headers: getHeaders(),
-        }
-      );
+      const [
+        campaignResult,
+        audienceResult,
+        expenseResult,
+      ] = await Promise.allSettled([
+        apiRequest(
+          `/analytics/campaign/${campaignId}`
+        ),
+        apiRequest(
+          `/analytics/audience/${campaignId}`
+        ),
+        apiRequest(
+          `/analytics/expenses/${campaignId}`
+        ),
+      ]);
 
-      const data = await readResponse(response);
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to delete scheduled post"
+      if (
+        campaignResult.status === "fulfilled"
+      ) {
+        setCampaignAnalytics(
+          campaignResult.value
         );
-      }
+      } else {
+        setCampaignAnalytics(null);
 
-      showMessage(
-        "Scheduled post deleted successfully"
-      );
+        const error = campaignResult.reason;
 
-      await fetchScheduledPosts();
-      await fetchPublishingQueue();
-    } catch (err) {
-      showError(err.message);
-    }
-  };
-
-  const publishSchedule = async (schedule) => {
-    try {
-      const response = await fetch(
-        `${API_BASE}/scheduled-posts/${schedule.schedule_id}/publish`,
-        {
-          method: "POST",
-          headers: getHeaders(),
-        }
-      );
-
-      const data = await readResponse(response);
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to publish scheduled post"
-        );
-      }
-
-      showMessage(
-        "Scheduled post published successfully"
-      );
-
-      await fetchScheduledPosts();
-      await fetchPosts();
-      await fetchPublishingQueue();
-    } catch (err) {
-      showError(
-        `${err.message}. Make sure the scheduled publish API exists in the backend.`
-      );
-    }
-  };
-
-  /* =====================================================
-     CALENDAR
-  ===================================================== */
-
-  const calendarEvents = useMemo(() => {
-    const events = [];
-
-    safeScheduledPosts.forEach(
-      (schedule) => {
-        const post = safePosts.find(
-          (p) =>
-            Number(p.post_id) ===
-            Number(schedule.post_id)
-        );
-
-        const account = post
-          ? safeSocialAccounts.find(
-              (a) =>
-                Number(a.account_id) ===
-                Number(post.account_id)
-            )
-          : null;
-
-        events.push({
-          id: `schedule-${schedule.schedule_id}`,
-
-          title: post
-            ? `${
-                account?.platform ||
-                "Post"
-              }: ${
-                post.content?.substring(
-                  0,
-                  35
-                ) ||
-                `Post #${post.post_id}`
-              }`
-            : `Scheduled Post #${schedule.schedule_id}`,
-
-          start: schedule.scheduled_at,
-
-          extendedProps: {
-            type: "scheduled",
-
-            postId:
-              schedule.post_id,
-
-            scheduleId:
-              schedule.schedule_id,
-
-            status:
-              schedule.status,
-
-            content: post
-              ? post.content
-              : "",
-
-            platform:
-              account?.platform ||
-              "Unknown",
-
-            accountName:
-              account?.username ||
-              account?.account_name ||
-              account?.accountName ||
-              "",
-          },
-        });
-      }
-    );
-
-    safePublishingQueue.forEach(
-      (queue) => {
-        const post = safePosts.find(
-          (p) =>
-            Number(p.post_id) ===
-            Number(queue.post_id)
-        );
-
-        const account = post
-          ? safeSocialAccounts.find(
-              (a) =>
-                Number(a.account_id) ===
-                Number(post.account_id)
-            )
-          : null;
-
-        const alreadyScheduled =
-          safeScheduledPosts.some(
-            (schedule) =>
-              Number(schedule.post_id) ===
-                Number(queue.post_id) &&
-              schedule.scheduled_at &&
-              queue.scheduled_time &&
-              new Date(
-                schedule.scheduled_at
-              ).getTime() ===
-                new Date(
-                  queue.scheduled_time
-                ).getTime()
-          );
-
-        if (alreadyScheduled) {
+        if (
+          error?.status === 401 ||
+          error?.status === 403
+        ) {
+          handleAuthFailure();
           return;
         }
+      }
 
-        events.push({
-          id: `queue-${queue.queue_id}`,
+      if (
+        audienceResult.status === "fulfilled"
+      ) {
+        setAudienceAnalytics(
+          audienceResult.value
+        );
+      } else {
+        setAudienceAnalytics(null);
 
-          title: post
-            ? `Queue - ${
-                account?.platform ||
-                queue.platform ||
-                "Post"
-              }: ${
-                post.content?.substring(
-                  0,
-                  35
-                ) ||
-                `Post #${post.post_id}`
-              }`
-            : `Queue #${queue.queue_id}`,
+        const error = audienceResult.reason;
 
-          start:
-            queue.scheduled_time,
+        if (
+          error?.status === 401 ||
+          error?.status === 403
+        ) {
+          handleAuthFailure();
+          return;
+        }
+      }
+
+      if (
+        expenseResult.status === "fulfilled"
+      ) {
+        setExpenseAnalytics(
+          expenseResult.value
+        );
+      } else {
+        setExpenseAnalytics(null);
+
+        const error = expenseResult.reason;
+
+        if (
+          error?.status === 401 ||
+          error?.status === 403
+        ) {
+          handleAuthFailure();
+          return;
+        }
+      }
+
+      const errors = [
+        campaignResult,
+        audienceResult,
+        expenseResult,
+      ]
+        .filter(
+          (result) =>
+            result.status === "rejected"
+        )
+        .map(
+          (result) =>
+            result.reason?.message
+        )
+        .filter(Boolean);
+
+      if (errors.length > 0) {
+        setErrorMessage(
+          `Some analytics could not be loaded: ${errors.join(
+            " | "
+          )}`
+        );
+      }
+
+      setPage("analytics");
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
+  /* =======================================================
+     CALENDAR EVENTS
+  ======================================================= */
+
+  const calendarEvents = useMemo(() => {
+    return scheduledPosts
+      .filter((item) => item.scheduled_at)
+      .map((item) => {
+        const content = getPostContent(
+          item.post_id,
+          posts
+        );
+
+        const status =
+          item.status || "pending";
+
+        return {
+          id: String(
+            item.schedule_id ||
+              item.id ||
+              `${item.post_id}-${item.scheduled_at}`
+          ),
+
+          title: `${content.slice(0, 45)}${
+            content.length > 45 ? "..." : ""
+          }`,
+
+          start: item.scheduled_at,
 
           extendedProps: {
-            type: "queue",
-
-            queueId:
-              queue.queue_id,
-
-            postId:
-              queue.post_id,
-
-            status:
-              queue.status,
-
-            content: post
-              ? post.content
-              : "",
-
-            platform:
-              queue.platform ||
-              account?.platform ||
-              "Unknown",
-
-            accountName:
-              account?.username ||
-              account?.account_name ||
-              account?.accountName ||
-              "",
-
-            retryCount:
-              queue.retry_count || 0,
+            status,
+            postId: item.post_id,
+            scheduleId: item.schedule_id,
           },
-        });
-      }
-    );
+        };
+      });
+  }, [scheduledPosts, posts]);
 
-    return events;
+  /* =======================================================
+     DASHBOARD STATS
+  ======================================================= */
+
+  const dashboardStats = useMemo(() => {
+    const publishedPosts =
+      scheduledPosts.filter(
+        (item) =>
+          String(item.status || "").toLowerCase() ===
+          "published"
+      ).length;
+
+    const pendingPosts =
+      scheduledPosts.filter(
+        (item) =>
+          String(item.status || "").toLowerCase() ===
+          "pending"
+      ).length;
+
+    return {
+      campaigns: campaigns.length,
+      socialAccounts: socialAccounts.length,
+      posts: posts.length,
+      scheduled: scheduledPosts.length,
+      published: publishedPosts,
+      pending: pendingPosts,
+    };
   }, [
-    safeScheduledPosts,
-    safePublishingQueue,
-    safePosts,
-    safeSocialAccounts,
+    campaigns,
+    socialAccounts,
+    posts,
+    scheduledPosts,
   ]);
 
-  /* =====================================================
-     CALENDAR EVENT CLICK
-  ===================================================== */
+  /* =======================================================
+     ANALYTICS DISPLAY DATA
+  ======================================================= */
 
-  const handleCalendarEventClick = (
-    info
-  ) => {
-    const event = info.event;
-    const props = event.extendedProps;
-
-    let details = "";
-
-    if (props.type === "scheduled") {
-      details =
-        `Scheduled Post\n\n` +
-        `Schedule ID: ${props.scheduleId}\n` +
-        `Post ID: ${props.postId}\n` +
-        `Platform: ${props.platform}\n` +
-        `Status: ${props.status}\n` +
-        `Content: ${
-          props.content || "N/A"
-        }\n` +
-        `Date: ${
-          event.start
-            ? event.start.toLocaleString()
-            : "N/A"
-        }`;
-    } else {
-      details =
-        `Publishing Queue\n\n` +
-        `Queue ID: ${props.queueId}\n` +
-        `Post ID: ${props.postId}\n` +
-        `Platform: ${props.platform}\n` +
-        `Status: ${props.status}\n` +
-        `Retry Count: ${props.retryCount}\n` +
-        `Content: ${
-          props.content || "N/A"
-        }\n` +
-        `Date: ${
-          event.start
-            ? event.start.toLocaleString()
-            : "N/A"
-        }`;
+  const campaignAnalyticsRows = useMemo(() => {
+    if (!campaignAnalytics) {
+      return [];
     }
 
-    alert(details);
-  };
+    return getArray(campaignAnalytics, [
+      "analytics",
+      "campaignAnalytics",
+      "campaign_analytics",
+      "data",
+      "results",
+    ]);
+  }, [campaignAnalytics]);
 
-  /* =====================================================
-     CALENDAR DATE CLICK
-  ===================================================== */
+  const audienceRows = useMemo(() => {
+    if (!audienceAnalytics) {
+      return [];
+    }
 
-  const handleDateClick = (info) => {
-    setCurrentPage(
-      "scheduled-posts"
+    return getArray(audienceAnalytics, [
+      "audience",
+      "audienceGrowth",
+      "audience_growth",
+      "data",
+      "results",
+    ]);
+  }, [audienceAnalytics]);
+
+  /* =======================================================
+     EXPENSE DATA NORMALIZATION
+  ======================================================= */
+
+  const expenseData = useMemo(() => {
+    if (!expenseAnalytics) {
+      return null;
+    }
+
+    if (
+      expenseAnalytics.data &&
+      !Array.isArray(expenseAnalytics.data) &&
+      typeof expenseAnalytics.data === "object"
+    ) {
+      return expenseAnalytics.data;
+    }
+
+    if (
+      expenseAnalytics.expense &&
+      typeof expenseAnalytics.expense === "object"
+    ) {
+      return expenseAnalytics.expense;
+    }
+
+    if (
+      expenseAnalytics.expenses &&
+      typeof expenseAnalytics.expenses === "object" &&
+      !Array.isArray(expenseAnalytics.expenses)
+    ) {
+      return expenseAnalytics.expenses;
+    }
+
+    return expenseAnalytics;
+  }, [expenseAnalytics]);
+
+  /* =======================================================
+     CAMPAIGN TOTALS
+  ======================================================= */
+
+  const campaignTotals = useMemo(() => {
+    if (!campaignAnalytics) {
+      return {
+        impressions: 0,
+        reach: 0,
+        likes: 0,
+        comments: 0,
+        shares: 0,
+        clicks: 0,
+        engagement: 0,
+        engagementRate: 0,
+      };
+    }
+
+    const impressions = numberValue(
+      campaignAnalytics.totalImpressions ??
+        campaignAnalytics.total_impressions ??
+        campaignAnalytics.impressions
     );
 
-    setScheduleDateTime(
-      `${info.dateStr}T09:00`
+    const reach = numberValue(
+      campaignAnalytics.totalReach ??
+        campaignAnalytics.total_reach ??
+        campaignAnalytics.reach
     );
 
-    setSchedulePostId("");
+    const likes = numberValue(
+      campaignAnalytics.totalLikes ??
+        campaignAnalytics.total_likes ??
+        campaignAnalytics.likes
+    );
 
-    setScheduleStatus("pending");
+    const comments = numberValue(
+      campaignAnalytics.totalComments ??
+        campaignAnalytics.total_comments ??
+        campaignAnalytics.comments
+    );
 
-    setEditingScheduleId(null);
-  };
+    const shares = numberValue(
+      campaignAnalytics.totalShares ??
+        campaignAnalytics.total_shares ??
+        campaignAnalytics.shares
+    );
 
-  /* =====================================================
-     DASHBOARD STATISTICS
-  ===================================================== */
+    const clicks = numberValue(
+      campaignAnalytics.totalClicks ??
+        campaignAnalytics.total_clicks ??
+        campaignAnalytics.clicks
+    );
 
-  const activeCampaigns =
-    safeCampaigns.filter(
-      (campaign) =>
-        campaign.status === "active"
-    ).length;
+    const engagementFromAPI =
+      campaignAnalytics.totalEngagement ??
+      campaignAnalytics.total_engagement ??
+      campaignAnalytics.engagement;
 
-  const draftPosts =
-    safePosts.filter(
-      (post) =>
-        post.status === "draft"
-    ).length;
+    const engagement =
+      engagementFromAPI !== undefined
+        ? numberValue(engagementFromAPI)
+        : likes + comments + shares + clicks;
 
-  const publishedPosts =
-    safePosts.filter(
-      (post) =>
-        post.status === "published"
-    ).length;
+    let engagementRate = numberValue(
+      campaignAnalytics.engagementRate ??
+        campaignAnalytics.engagement_rate
+    );
 
-  const pendingSchedules =
-    safeScheduledPosts.filter(
-      (schedule) =>
-        schedule.status === "pending"
-    ).length;
+    if (
+      engagementRate === 0 &&
+      reach > 0 &&
+      engagement > 0
+    ) {
+      engagementRate =
+        (engagement / reach) * 100;
+    }
 
-  const pendingQueuePosts =
-    safePublishingQueue.filter(
-      (queue) =>
-        queue.status === "pending" ||
-        queue.status === "processing"
-    ).length;
+    return {
+      impressions,
+      reach,
+      likes,
+      comments,
+      shares,
+      clicks,
+      engagement,
+      engagementRate,
+    };
+  }, [campaignAnalytics]);
 
-  const failedQueuePosts =
-    safePublishingQueue.filter(
-      (queue) =>
-        queue.status === "failed"
-    ).length;
+  /* =======================================================
+     ENGAGEMENT CHART
+  ======================================================= */
 
-  const publishedQueuePosts =
-    safePublishingQueue.filter(
-      (queue) =>
-        queue.status === "published"
-    ).length;
+  const engagementChartData = useMemo(() => {
+    return [
+      {
+        name: "Likes",
+        value: campaignTotals.likes,
+      },
+      {
+        name: "Comments",
+        value: campaignTotals.comments,
+      },
+      {
+        name: "Shares",
+        value: campaignTotals.shares,
+      },
+      {
+        name: "Clicks",
+        value: campaignTotals.clicks,
+      },
+    ];
+  }, [campaignTotals]);
 
-  /* =====================================================
+  /* =======================================================
+     AUDIENCE CHART
+  ======================================================= */
+
+  const audienceChartData = useMemo(() => {
+    return audienceRows.map((item) => {
+      const start = numberValue(
+        item.followers_start ??
+          item.followersStart ??
+          item.start
+      );
+
+      const end = numberValue(
+        item.followers_end ??
+          item.followersEnd ??
+          item.end
+      );
+
+      const growth = numberValue(
+        item.follower_growth ??
+          item.followers_growth ??
+          item.followerGrowth ??
+          item.growth
+      );
+
+      return {
+        platform:
+          item.platform || "Platform",
+        start,
+        end,
+        growth,
+      };
+    });
+  }, [audienceRows]);
+
+  /* =======================================================
      LOGIN SCREEN
-  ===================================================== */
+  ======================================================= */
 
   if (!token) {
     return (
       <div className="login-container">
-        <div className="login-glow glow-one"></div>
-        <div className="login-glow glow-two"></div>
-
         <div className="login-card">
-          <div className="brand-mark">
-            ✦
+          <div className="login-glow"></div>
+
+          <div className="brand-icon">
+            SM
           </div>
 
-          <span className="login-label">
-            CONTENT OPERATIONS
-          </span>
-
           <h1>
-            Social Media
-            <br />
-            Management
+            Social Media Platform
           </h1>
 
-          <p>
-            Schedule, manage and publish
-            content across multiple
-            social platforms.
+          <p className="login-subtitle">
+            Intelligent Social Media Scheduling
+            and Multi-Platform Campaign Management
           </p>
 
           <form onSubmit={handleLogin}>
-            <label>
-              Email
-            </label>
+            <div className="form-group">
+              <label className="login-label">
+                Email
+              </label>
 
-            <input
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) =>
-                setEmail(e.target.value)
-              }
-              required
-            />
+              <input
+                type="email"
+                value={loginEmail}
+                onChange={(event) =>
+                  setLoginEmail(
+                    event.target.value
+                  )
+                }
+                placeholder="Enter email"
+                required
+              />
+            </div>
 
-            <label>
-              Password
-            </label>
+            <div className="form-group">
+              <label className="login-label">
+                Password
+              </label>
 
-            <input
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) =>
-                setPassword(e.target.value)
-              }
-              required
-            />
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={(event) =>
+                  setLoginPassword(
+                    event.target.value
+                  )
+                }
+                placeholder="Enter password"
+                required
+              />
+            </div>
+
+            {loginError && (
+              <div className="login-error">
+                {loginError}
+              </div>
+            )}
 
             <button
               type="submit"
-              disabled={loading}
+              className="primary-button"
+              disabled={loginLoading}
             >
-              {loading
-                ? "Signing in..."
-                : "Sign in →"}
+              {loginLoading
+                ? "Logging in..."
+                : "Login"}
             </button>
           </form>
-
-          {loginError && (
-            <div className="login-error">
-              {loginError}
-            </div>
-          )}
         </div>
       </div>
     );
   }
 
-  /* =====================================================
-     MAIN APPLICATION
-  ===================================================== */
+  /* =======================================================
+     DASHBOARD
+  ======================================================= */
 
-  return (
-    <div className="app-container">
-
-      {/* =================================================
-          SIDEBAR
-      ================================================= */}
-
-      <aside className="sidebar">
-
-        <div className="sidebar-brand">
-
-          <div className="brand-icon">
-            ✦
-          </div>
-
-          <div>
-            <strong>
-              SocialFlow
-            </strong>
-
-            <span>
-              Content Platform
-            </span>
-          </div>
-
-        </div>
-
-        <div className="sidebar-section">
-          <span>
-            WORKSPACE
-          </span>
-        </div>
-
-        <button
-          className={
-            currentPage === "dashboard"
-              ? "nav-button active"
-              : "nav-button"
-          }
-          onClick={() =>
-            setCurrentPage("dashboard")
-          }
-        >
-          <span>⌂</span>
-          Dashboard
-        </button>
-
-        <button
-          className={
-            currentPage === "calendar"
-              ? "nav-button active"
-              : "nav-button"
-          }
-          onClick={() =>
-            setCurrentPage("calendar")
-          }
-        >
-          <span>◷</span>
-          Publishing Calendar
-        </button>
-
-        <button
-          className={
-            currentPage === "campaigns"
-              ? "nav-button active"
-              : "nav-button"
-          }
-          onClick={() =>
-            setCurrentPage("campaigns")
-          }
-        >
-          <span>▣</span>
-          Campaigns
-        </button>
-
-        <button
-          className={
-            currentPage ===
-            "social-accounts"
-              ? "nav-button active"
-              : "nav-button"
-          }
-          onClick={() =>
-            setCurrentPage(
-              "social-accounts"
-            )
-          }
-        >
-          <span>◎</span>
-          Social Accounts
-        </button>
-
-        <button
-          className={
-            currentPage === "posts"
-              ? "nav-button active"
-              : "nav-button"
-          }
-          onClick={() =>
-            setCurrentPage("posts")
-          }
-        >
-          <span>✎</span>
-          Posts
-        </button>
-
-        <button
-          className={
-            currentPage ===
-            "scheduled-posts"
-              ? "nav-button active"
-              : "nav-button"
-          }
-          onClick={() =>
-            setCurrentPage(
-              "scheduled-posts"
-            )
-          }
-        >
-          <span>⌁</span>
-          Scheduled Posts
-        </button>
-
-        <div className="sidebar-bottom">
-
-          <div className="milestone-box">
-
-            <span>
-              PROJECT PROGRESS
+  const renderDashboard = () => {
+    return (
+      <section className="dashboard-page">
+        <div className="dashboard-hero">
+          <div className="hero-content">
+            <span className="hero-label">
+              MILESTONE 3
             </span>
 
-            <strong>
-              Milestone 1 + 2
-            </strong>
-
-            <small>
-              Content scheduling & publishing
-            </small>
-
-          </div>
-
-          <button
-            className="logout-button"
-            onClick={handleLogout}
-          >
-            <span>↪</span>
-            Logout
-          </button>
-
-        </div>
-
-      </aside>
-
-      {/* =================================================
-          MAIN CONTENT
-      ================================================= */}
-
-      <main className="main-content">
-
-        <header className="topbar">
-
-          <div>
-
-            <span className="topbar-kicker">
-              SOCIAL MEDIA OPERATIONS
-            </span>
-
-            <h2>
-              {currentPage === "dashboard"
-                ? "Overview"
-                : currentPage === "calendar"
-                ? "Publishing Calendar"
-                : currentPage === "campaigns"
-                ? "Campaign Management"
-                : currentPage ===
-                  "social-accounts"
-                ? "Social Accounts"
-                : currentPage === "posts"
-                ? "Content Management"
-                : "Publishing Queue"}
-            </h2>
-
-          </div>
-
-          <button
-            className="refresh-button"
-            onClick={fetchAllData}
-          >
-            ↻ Refresh
-          </button>
-
-        </header>
-
-        {message && (
-          <div className="success-message">
-            <span>✓</span>
-            {message}
-          </div>
-        )}
-
-        {error && (
-          <div className="error-message">
-            <span>!</span>
-            {error}
-          </div>
-        )}
-
-        {loading && (
-          <div className="loading-bar">
-            Loading workspace...
-          </div>
-        )}
-
-        {/* =================================================
-            DASHBOARD
-        ================================================= */}
-
-        {currentPage === "dashboard" && (
-          <section className="dashboard-page">
-
-            <div className="dashboard-hero">
-
-              <div className="hero-content">
-
-                <span className="hero-label">
-                  ✦ CONTENT OPERATIONS
-                </span>
-
-                <h1>
-                  Plan.
-                  <br />
-                  Publish.
-                  <br />
-                  Grow.
-                </h1>
-
-                <p>
-                  Manage campaigns, schedule
-                  content, and publish across
-                  multiple social platforms
-                  from one workspace.
-                </p>
-
-                <div className="hero-actions">
-
-                  <button
-                    onClick={() =>
-                      setCurrentPage("posts")
-                    }
-                  >
-                    ＋ Create Post
-                  </button>
-
-                  <button
-                    className="secondary-action"
-                    onClick={() =>
-                      setCurrentPage(
-                        "calendar"
-                      )
-                    }
-                  >
-                    ◷ View Calendar
-                  </button>
-
-                </div>
-
-              </div>
-
-              <div
-                className="hero-visual"
-                aria-hidden="true"
-              >
-
-                <div className="orb orb-one"></div>
-                <div className="orb orb-two"></div>
-                <div className="orb orb-three"></div>
-
-                <div className="floating-card card-one">
-
-                  <span>
-                    POSTS
-                  </span>
-
-                  <strong>
-                    {safePosts.length}
-                  </strong>
-
-                </div>
-
-                <div className="floating-card card-two">
-
-                  <span>
-                    QUEUED
-                  </span>
-
-                  <strong>
-                    {pendingQueuePosts}
-                  </strong>
-
-                </div>
-
-                <div className="hero-ring">
-                  ✦
-                </div>
-
-              </div>
-
-            </div>
-
-            <div className="dashboard-cards">
-
-              <div className="dashboard-card campaign-card">
-
-                <div className="card-top">
-
-                  <div className="card-icon">
-                    ▣
-                  </div>
-
-                  <span className="card-arrow">
-                    →
-                  </span>
-
-                </div>
-
-                <h3>
-                  Campaigns
-                </h3>
-
-                <p>
-                  {safeCampaigns.length}
-                </p>
-
-                <small>
-                  {activeCampaigns} active campaigns
-                </small>
-
-              </div>
-
-              <div className="dashboard-card account-card">
-
-                <div className="card-top">
-
-                  <div className="card-icon">
-                    ◎
-                  </div>
-
-                  <span className="card-arrow">
-                    →
-                  </span>
-
-                </div>
-
-                <h3>
-                  Social Accounts
-                </h3>
-
-                <p>
-                  {safeSocialAccounts.length}
-                </p>
-
-                <small>
-                  Connected platforms
-                </small>
-
-              </div>
-
-              <div className="dashboard-card post-card">
-
-                <div className="card-top">
-
-                  <div className="card-icon">
-                    ✎
-                  </div>
-
-                  <span className="card-arrow">
-                    →
-                  </span>
-
-                </div>
-
-                <h3>
-                  Total Posts
-                </h3>
-
-                <p>
-                  {safePosts.length}
-                </p>
-
-                <small>
-                  {publishedPosts} published ·{" "}
-                  {draftPosts} drafts
-                </small>
-
-              </div>
-
-              <div className="dashboard-card schedule-card">
-
-                <div className="card-top">
-
-                  <div className="card-icon">
-                    ◷
-                  </div>
-
-                  <span className="card-arrow">
-                    →
-                  </span>
-
-                </div>
-
-                <h3>
-                  Scheduled
-                </h3>
-
-                <p>
-                  {safeScheduledPosts.length}
-                </p>
-
-                <small>
-                  {pendingSchedules} waiting to publish
-                </small>
-
-              </div>
-
-            </div>
-
-            <div className="dashboard-grid">
-
-              <div className="dashboard-panel workflow-panel">
-
-                <div className="panel-heading">
-
-                  <div>
-
-                    <span className="panel-kicker">
-                      WORKFLOW
-                    </span>
-
-                    <h2>
-                      Publishing workflow
-                    </h2>
-
-                  </div>
-
-                  <span className="panel-symbol">
-                    ⌁
-                  </span>
-
-                </div>
-
-                <div className="workflow-steps">
-
-                  <button
-                    onClick={() =>
-                      setCurrentPage(
-                        "campaigns"
-                      )
-                    }
-                  >
-
-                    <span className="step-number">
-                      01
-                    </span>
-
-                    <span className="step-icon">
-                      ▣
-                    </span>
-
-                    <div>
-
-                      <strong>
-                        Create campaign
-                      </strong>
-
-                      <small>
-                        Organize your content goals
-                      </small>
-
-                    </div>
-
-                    <span className="step-arrow">
-                      →
-                    </span>
-
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      setCurrentPage("posts")
-                    }
-                  >
-
-                    <span className="step-number">
-                      02
-                    </span>
-
-                    <span className="step-icon">
-                      ✎
-                    </span>
-
-                    <div>
-
-                      <strong>
-                        Prepare content
-                      </strong>
-
-                      <small>
-                        Write, edit and save drafts
-                      </small>
-
-                    </div>
-
-                    <span className="step-arrow">
-                      →
-                    </span>
-
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      setCurrentPage(
-                        "scheduled-posts"
-                      )
-                    }
-                  >
-
-                    <span className="step-number">
-                      03
-                    </span>
-
-                    <span className="step-icon">
-                      ◷
-                    </span>
-
-                    <div>
-
-                      <strong>
-                        Schedule publishing
-                      </strong>
-
-                      <small>
-                        Choose date and time
-                      </small>
-
-                    </div>
-
-                    <span className="step-arrow">
-                      →
-                    </span>
-
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      setCurrentPage(
-                        "social-accounts"
-                      )
-                    }
-                  >
-
-                    <span className="step-number">
-                      04
-                    </span>
-
-                    <span className="step-icon">
-                      ◎
-                    </span>
-
-                    <div>
-
-                      <strong>
-                        Connect platforms
-                      </strong>
-
-                      <small>
-                        Manage publishing destinations
-                      </small>
-
-                    </div>
-
-                    <span className="step-arrow">
-                      →
-                    </span>
-
-                  </button>
-
-                </div>
-
-              </div>
-
-              <div className="dashboard-panel status-panel">
-
-                <div className="panel-heading">
-
-                  <div>
-
-                    <span className="panel-kicker">
-                      SYSTEM STATUS
-                    </span>
-
-                    <h2>
-                      Publishing health
-                    </h2>
-
-                  </div>
-
-                  <span className="health-indicator">
-                    ●
-                  </span>
-
-                </div>
-
-                <div className="health-summary">
-
-                  <div>
-
-                    <strong>
-                      Operational
-                    </strong>
-
-                    <span>
-                      Workspace is ready
-                    </span>
-
-                  </div>
-
-                </div>
-
-                <div className="status-row">
-
-                  <span>
-                    Connected accounts
-                  </span>
-
-                  <strong>
-                    {safeSocialAccounts.length}
-                  </strong>
-
-                </div>
-
-                <div className="status-row">
-
-                  <span>
-                    Queued posts
-                  </span>
-
-                  <strong>
-                    {pendingQueuePosts}
-                  </strong>
-
-                </div>
-
-                <div className="status-row">
-
-                  <span>
-                    Failed queue items
-                  </span>
-
-                  <strong>
-                    {failedQueuePosts}
-                  </strong>
-
-                </div>
-
-                <div className="status-row">
-
-                  <span>
-                    Draft content
-                  </span>
-
-                  <strong>
-                    {draftPosts}
-                  </strong>
-
-                </div>
-
-                <div className="status-row">
-
-                  <span>
-                    Published content
-                  </span>
-
-                  <strong>
-                    {publishedPosts}
-                  </strong>
-
-                </div>
-
-                <button
-                  className="panel-link"
-                  onClick={() =>
-                    setCurrentPage(
-                      "scheduled-posts"
-                    )
-                  }
-                >
-                  Manage publishing queue →
-                </button>
-
-              </div>
-
-            </div>
-
-            <div className="calendar-section dashboard-calendar">
-
-              <div className="panel-heading">
-
-                <div>
-
-                  <span className="panel-kicker">
-                    CONTENT PLANNER
-                  </span>
-
-                  <h2>
-                    Publishing calendar
-                  </h2>
-
-                </div>
-
-                <button
-                  className="panel-link"
-                  onClick={() =>
-                    setCurrentPage("calendar")
-                  }
-                >
-                  Open full calendar →
-                </button>
-
-              </div>
-
-              <FullCalendar
-                plugins={[
-                  dayGridPlugin,
-                  interactionPlugin,
-                ]}
-                initialView="dayGridMonth"
-                events={calendarEvents}
-                dateClick={handleDateClick}
-                eventClick={
-                  handleCalendarEventClick
-                }
-                height="600px"
-              />
-
-            </div>
-
-          </section>
-        )}
-
-        {/* =================================================
-            FULL CALENDAR
-        ================================================= */}
-
-        {currentPage === "calendar" && (
-          <section className="page-section">
-
-            <div className="page-heading">
-
-              <div>
-
-                <span className="panel-kicker">
-                  MILESTONE 2
-                </span>
-
-                <h1>
-                  Publishing Calendar
-                </h1>
-
-                <p>
-                  View and manage all scheduled
-                  content from one calendar.
-                </p>
-
-              </div>
-
+            <h1>
+              Campaign Management & Analytics
+            </h1>
+
+            <p>
+              Manage campaigns, schedule social media
+              posts, monitor publishing activity and
+              analyze campaign performance.
+            </p>
+
+            <div className="hero-actions">
               <button
+                type="button"
                 className="primary-button"
                 onClick={() =>
-                  setCurrentPage(
-                    "scheduled-posts"
-                  )
+                  setPage("campaigns")
                 }
               >
-                ＋ Schedule Post
+                Manage Campaigns
               </button>
 
-            </div>
-
-            <div className="calendar-section full-calendar">
-
-              <FullCalendar
-                plugins={[
-                  dayGridPlugin,
-                  interactionPlugin,
-                ]}
-                initialView="dayGridMonth"
-                events={calendarEvents}
-                dateClick={handleDateClick}
-                eventClick={
-                  handleCalendarEventClick
-                }
-                height="720px"
-              />
-
-            </div>
-
-          </section>
-        )}
-
-        {/* =================================================
-            CAMPAIGNS
-        ================================================= */}
-
-        {currentPage === "campaigns" && (
-          <section className="page-section">
-
-            <div className="page-heading">
-
-              <div>
-
-                <span className="panel-kicker">
-                  MILESTONE 1
-                </span>
-
-                <h1>
-                  Campaign Management
-                </h1>
-
-                <p>
-                  Create and manage your marketing
-                  campaigns.
-                </p>
-
-              </div>
-
-            </div>
-
-            <div className="form-card">
-
-              <div className="form-heading">
-
-                <div className="form-icon">
-                  ▣
-                </div>
-
-                <div>
-
-                  <span>
-                    CAMPAIGN
-                  </span>
-
-                  <h2>
-                    {editingCampaignId
-                      ? "Edit Campaign"
-                      : "Create Campaign"}
-                  </h2>
-
-                </div>
-
-              </div>
-
-              <form
-                onSubmit={
-                  handleCampaignSubmit
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() =>
+                  setPage("analytics")
                 }
               >
+                View Analytics
+              </button>
+            </div>
+          </div>
 
-                <label>
-                  Campaign Name
-                </label>
+          <div className="hero-visual">
+            <div className="floating-card">
+              <strong>
+                {dashboardStats.campaigns}
+              </strong>
+              <span>Campaigns</span>
+            </div>
+
+            <div className="floating-card">
+              <strong>
+                {dashboardStats.posts}
+              </strong>
+              <span>Posts</span>
+            </div>
+
+            <div className="floating-card">
+              <strong>
+                {dashboardStats.published}
+              </strong>
+              <span>Published</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="dashboard-cards">
+          <div className="dashboard-card">
+            <div className="card-icon">📢</div>
+            <span>Campaigns</span>
+            <strong>
+              {dashboardStats.campaigns}
+            </strong>
+          </div>
+
+          <div className="dashboard-card">
+            <div className="card-icon">👥</div>
+            <span>Social Accounts</span>
+            <strong>
+              {dashboardStats.socialAccounts}
+            </strong>
+          </div>
+
+          <div className="dashboard-card">
+            <div className="card-icon">📝</div>
+            <span>Posts</span>
+            <strong>
+              {dashboardStats.posts}
+            </strong>
+          </div>
+
+          <div className="dashboard-card">
+            <div className="card-icon">📅</div>
+            <span>Scheduled</span>
+            <strong>
+              {dashboardStats.scheduled}
+            </strong>
+          </div>
+
+          <div className="dashboard-card">
+            <div className="card-icon">✓</div>
+            <span>Published</span>
+            <strong>
+              {dashboardStats.published}
+            </strong>
+          </div>
+
+          <div className="dashboard-card">
+            <div className="card-icon">⏳</div>
+            <span>Pending</span>
+            <strong>
+              {dashboardStats.pending}
+            </strong>
+          </div>
+        </div>
+
+        <div className="dashboard-grid">
+          <div className="dashboard-panel">
+            <h3>Workflow</h3>
+
+            <div className="workflow-steps">
+              <div className="workflow-step">
+                <strong>1</strong>
+                <span>Create Campaign</span>
+              </div>
+
+              <div className="workflow-step">
+                <strong>2</strong>
+                <span>Create Post</span>
+              </div>
+
+              <div className="workflow-step">
+                <strong>3</strong>
+                <span>Schedule Post</span>
+              </div>
+
+              <div className="workflow-step">
+                <strong>4</strong>
+                <span>Publish</span>
+              </div>
+
+              <div className="workflow-step">
+                <strong>5</strong>
+                <span>Analyze</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="dashboard-panel">
+            <h3>System Status</h3>
+
+            <div className="status-row">
+              <span>Backend</span>
+              <span className="health-indicator">
+                ● {serverHealth}
+              </span>
+            </div>
+
+            <div className="status-row">
+              <span>API</span>
+              <span>http://localhost:5000</span>
+            </div>
+
+            <div className="status-row">
+              <span>Database</span>
+              <span>PostgreSQL</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="dashboard-calendar">
+          <div className="content-card">
+            <h3>Publishing Calendar</h3>
+
+            <FullCalendar
+              plugins={[
+                dayGridPlugin,
+                interactionPlugin,
+              ]}
+              initialView="dayGridMonth"
+              height="auto"
+              events={calendarEvents}
+              eventClick={(info) => {
+                const scheduleId =
+                  info.event.extendedProps
+                    .scheduleId;
+
+                if (scheduleId) {
+                  setPage("scheduled");
+                }
+              }}
+            />
+          </div>
+        </div>
+      </section>
+    );
+  };
+
+  /* =======================================================
+     CAMPAIGNS
+  ======================================================= */
+
+  const renderCampaigns = () => {
+    return (
+      <section className="page-section">
+        <div className="page-heading">
+          <div>
+            <h1>Campaigns</h1>
+            <p>
+              Create and manage your social media
+              campaigns.
+            </p>
+          </div>
+        </div>
+
+        <div className="form-card">
+          <h3>Create Campaign</h3>
+
+          <form onSubmit={handleCreateCampaign}>
+            <div className="form-group">
+              <label>Campaign Name</label>
+
+              <input
+                type="text"
+                value={campaignName}
+                onChange={(event) =>
+                  setCampaignName(
+                    event.target.value
+                  )
+                }
+                placeholder="Enter campaign name"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Description</label>
+
+              <textarea
+                value={campaignDescription}
+                onChange={(event) =>
+                  setCampaignDescription(
+                    event.target.value
+                  )
+                }
+                placeholder="Enter campaign description"
+                rows="4"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Status</label>
+
+              <select
+                value={campaignStatus}
+                onChange={(event) =>
+                  setCampaignStatus(
+                    event.target.value
+                  )
+                }
+                required
+              >
+                <option value="draft">
+                  Draft
+                </option>
+
+                <option value="active">
+                  Active
+                </option>
+
+                <option value="completed">
+                  Completed
+                </option>
+              </select>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Start Date</label>
 
                 <input
-                  type="text"
-                  placeholder="Enter campaign name"
-                  value={campaignName}
-                  onChange={(e) =>
-                    setCampaignName(
-                      e.target.value
+                  type="date"
+                  value={campaignStartDate}
+                  onChange={(event) =>
+                    setCampaignStartDate(
+                      event.target.value
                     )
                   }
                   required
                 />
+              </div>
 
-                <label>
-                  Description
-                </label>
+              <div className="form-group">
+                <label>End Date</label>
 
-                <textarea
-                  placeholder="Describe your campaign"
-                  value={
-                    campaignDescription
+                <input
+                  type="date"
+                  value={campaignEndDate}
+                  min={
+                    campaignStartDate ||
+                    undefined
                   }
-                  onChange={(e) =>
-                    setCampaignDescription(
-                      e.target.value
+                  onChange={(event) =>
+                    setCampaignEndDate(
+                      event.target.value
                     )
                   }
+                  required
                 />
-
-                <div className="form-row">
-
-                  <div>
-
-                    <label>
-                      Start Date
-                    </label>
-
-                    <input
-                      type="date"
-                      value={
-                        campaignStartDate
-                      }
-                      onChange={(e) =>
-                        setCampaignStartDate(
-                          e.target.value
-                        )
-                      }
-                      required
-                    />
-
-                  </div>
-
-                  <div>
-
-                    <label>
-                      End Date
-                    </label>
-
-                    <input
-                      type="date"
-                      value={
-                        campaignEndDate
-                      }
-                      onChange={(e) =>
-                        setCampaignEndDate(
-                          e.target.value
-                        )
-                      }
-                      required
-                    />
-
-                  </div>
-
-                </div>
-
-                <label>
-                  Status
-                </label>
-
-                <select
-                  value={
-                    campaignStatus
-                  }
-                  onChange={(e) =>
-                    setCampaignStatus(
-                      e.target.value
-                    )
-                  }
-                >
-
-                  <option value="draft">
-                    Draft
-                  </option>
-
-                  <option value="active">
-                    Active
-                  </option>
-
-                  <option value="completed">
-                    Completed
-                  </option>
-
-                </select>
-
-                <div className="form-actions">
-
-                  <button
-                    className="primary-button"
-                    type="submit"
-                  >
-                    {editingCampaignId
-                      ? "Update Campaign"
-                      : "Create Campaign"}
-                  </button>
-
-                  {editingCampaignId && (
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={
-                        resetCampaignForm
-                      }
-                    >
-                      Cancel
-                    </button>
-                  )}
-
-                </div>
-
-              </form>
-
+              </div>
             </div>
 
-            <div className="list-section">
+            <button
+              type="submit"
+              className="primary-button"
+              disabled={loading}
+            >
+              {loading
+                ? "Creating..."
+                : "Create Campaign"}
+            </button>
+          </form>
+        </div>
 
-              <div className="list-heading">
+        <div className="content-card">
+          <div className="section-header">
+            <h3>Your Campaigns</h3>
 
-                <div>
+            <span>
+              {campaigns.length} campaign
+              {campaigns.length !== 1
+                ? "s"
+                : ""}
+            </span>
+          </div>
 
-                  <span className="panel-kicker">
-                    CAMPAIGNS
-                  </span>
+          {campaigns.length === 0 ? (
+            <div className="empty-state">
+              <h3>No campaigns found</h3>
+              <p>
+                Create your first campaign above.
+              </p>
+            </div>
+          ) : (
+            <div className="data-grid">
+              {campaigns.map((campaign) => (
+                <div
+                  className="campaign-card"
+                  key={campaign.campaign_id}
+                >
+                  <div className="data-card">
+                    <div className="card-top">
+                      <h3>
+                        {campaign.campaign_name ||
+                          "Unnamed Campaign"}
+                      </h3>
 
-                  <h2>
-                    Campaign List
-                  </h2>
+                      <span
+                        className={getStatusClass(
+                          campaign.status
+                        )}
+                      >
+                        {campaign.status ||
+                          "draft"}
+                      </span>
+                    </div>
 
-                </div>
+                    <p>
+                      {campaign.description ||
+                        "No description provided."}
+                    </p>
 
-                <span className="count-badge">
-                  {safeCampaigns.length}
-                </span>
+                    <div className="campaign-details">
+                      <div className="campaign-detail-item">
+                        <strong>
+                          Start Date
+                        </strong>
 
-              </div>
+                        <span>
+                          {formatCampaignDate(
+                            campaign.start_date
+                          )}
+                        </span>
+                      </div>
 
-              {safeCampaigns.length === 0 ? (
+                      <div className="campaign-detail-item">
+                        <strong>
+                          End Date
+                        </strong>
 
-                <div className="empty-state">
+                        <span>
+                          {formatCampaignDate(
+                            campaign.end_date
+                          )}
+                        </span>
+                      </div>
+                    </div>
 
-                  <div>
-                    ▣
-                  </div>
+                    <div className="card-actions">
+                      <button
+                        type="button"
+                        className="primary-button"
+                        onClick={() => {
+                          setSelectedCampaign(
+                            String(
+                              campaign.campaign_id
+                            )
+                          );
 
-                  <h3>
-                    No campaigns found
-                  </h3>
-
-                  <p>
-                    Create your first campaign
-                    above.
-                  </p>
-
-                </div>
-
-              ) : (
-
-                <div className="data-grid">
-
-                  {safeCampaigns.map(
-                    (campaign) => {
-
-                      const displayName =
-                        campaign.campaign_name ||
-                        campaign.name ||
-                        "Unnamed Campaign";
-
-                      return (
-                        <div
-                          className="data-card"
-                          key={
+                          loadAnalytics(
                             campaign.campaign_id
-                          }
-                        >
+                          );
+                        }}
+                      >
+                        Analytics
+                      </button>
 
-                          <div className="data-card-top">
-
-                            <div className="mini-icon">
-                              ▣
-                            </div>
-
-                            <span
-                              className={getStatusClass(
-                                campaign.status
-                              )}
-                            >
-                              {campaign.status}
-                            </span>
-
-                          </div>
-
-                          <h3>
-                            {displayName}
-                          </h3>
-
-                          <p>
-                            {campaign.description ||
-                              "No description provided."}
-                          </p>
-
-                          <div className="meta-row">
-
-                            <span>
-                              Start
-                            </span>
-
-                            <strong>
-                              {campaign.start_date
-                                ?.substring(
-                                  0,
-                                  10
-                                )}
-                            </strong>
-
-                          </div>
-
-                          <div className="meta-row">
-
-                            <span>
-                              End
-                            </span>
-
-                            <strong>
-                              {campaign.end_date
-                                ?.substring(
-                                  0,
-                                  10
-                                )}
-                            </strong>
-
-                          </div>
-
-                          <div className="action-buttons">
-
-                            <button
-                              onClick={() =>
-                                editCampaign(
-                                  campaign
-                                )
-                              }
-                            >
-                              Edit
-                            </button>
-
-                            <button
-                              className="delete-button"
-                              onClick={() =>
-                                deleteCampaign(
-                                  campaign.campaign_id
-                                )
-                              }
-                            >
-                              Delete
-                            </button>
-
-                            <button
-                              className="publish-button"
-                              onClick={() =>
-                                publishCampaign(
-                                  campaign
-                                )
-                              }
-                              disabled={
-                                campaign.status ===
-                                "active"
-                              }
-                            >
-                              {campaign.status ===
-                              "active"
-                                ? "Active"
-                                : "Publish"}
-                            </button>
-
-                          </div>
-
-                        </div>
-                      );
-                    }
-                  )}
-
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() =>
+                          handleDeleteCampaign(
+                            campaign.campaign_id
+                          )
+                        }
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
                 </div>
-
-              )}
-
+              ))}
             </div>
+          )}
+        </div>
+      </section>
+    );
+  };
 
-          </section>
-        )}
+  /* =======================================================
+     SOCIAL ACCOUNTS
+  ======================================================= */
 
-        {/* =================================================
-            SOCIAL ACCOUNTS
-        ================================================= */}
+  const renderSocialAccounts = () => {
+    return (
+      <section className="page-section">
+        <div className="page-heading">
+          <div>
+            <h1>Social Accounts</h1>
+            <p>
+              Connect social platforms for publishing.
+            </p>
+          </div>
+        </div>
 
-        {currentPage ===
-          "social-accounts" && (
+        <div className="form-card">
+          <h3>Add Social Account</h3>
 
-          <section className="page-section">
-
-            <div className="page-heading">
-
-              <div>
-
-                <span className="panel-kicker">
-                  MILESTONE 1 + 2
-                </span>
-
-                <h1>
-                  Social Accounts
-                </h1>
-
-                <p>
-                  Manage your publishing destinations.
-                </p>
-
-              </div>
-
-            </div>
-
-            <div className="form-card">
-
-              <div className="form-heading">
-
-                <div className="form-icon">
-                  ◎
-                </div>
-
-                <div>
-
-                  <span>
-                    PLATFORM CONNECTION
-                  </span>
-
-                  <h2>
-                    {editingAccountId
-                      ? "Edit Social Account"
-                      : "Add Social Account"}
-                  </h2>
-
-                </div>
-
-              </div>
-
-              <form
-                onSubmit={
-                  handleAccountSubmit
-                }
-              >
-
-                <label>
-                  Platform
-                </label>
+          <form
+            onSubmit={
+              handleCreateSocialAccount
+            }
+          >
+            <div className="form-row">
+              <div className="form-group">
+                <label>Platform</label>
 
                 <select
-                  value={
-                    accountPlatform
-                  }
-                  onChange={(e) =>
-                    setAccountPlatform(
-                      e.target.value
+                  value={socialPlatform}
+                  onChange={(event) =>
+                    setSocialPlatform(
+                      event.target.value
                     )
                   }
                 >
-
                   <option value="Instagram">
                     Instagram
                   </option>
@@ -3063,1372 +2035,1552 @@ function App() {
                   <option value="LinkedIn">
                     LinkedIn
                   </option>
-
                 </select>
+              </div>
 
-                <label>
-                  Username
-                </label>
+              <div className="form-group">
+                <label>Username</label>
 
                 <input
                   type="text"
-                  placeholder="@username or account name"
-                  value={accountName}
-                  onChange={(e) =>
-                    setAccountName(
-                      e.target.value
+                  value={socialUsername}
+                  onChange={(event) =>
+                    setSocialUsername(
+                      event.target.value
                     )
                   }
+                  placeholder="@username"
                   required
                 />
+              </div>
+            </div>
 
-                <div className="form-actions">
+            <button
+              type="submit"
+              className="primary-button"
+              disabled={loading}
+            >
+              Add Account
+            </button>
+          </form>
+        </div>
 
-                  <button
-                    className="primary-button"
-                    type="submit"
-                  >
-                    {editingAccountId
-                      ? "Update Account"
-                      : "Connect Account"}
-                  </button>
+        <div className="content-card">
+          <h3>Connected Accounts</h3>
 
-                  {editingAccountId && (
+          {socialAccounts.length === 0 ? (
+            <div className="empty-state">
+              <h3>No social accounts</h3>
+              <p>
+                Add a social account above.
+              </p>
+            </div>
+          ) : (
+            <div className="data-grid">
+              {socialAccounts.map((account) => (
+                <div
+                  className="account-card"
+                  key={account.account_id}
+                >
+                  <div className="data-card">
+                    <h3>
+                      {account.platform ||
+                        "Social Platform"}
+                    </h3>
+
+                    <p>
+                      {account.username ||
+                        account.account_name ||
+                        "No username"}
+                    </p>
+
                     <button
-                      className="secondary-button"
                       type="button"
-                      onClick={
-                        resetAccountForm
+                      className="secondary-button"
+                      onClick={() =>
+                        handleDeleteSocialAccount(
+                          account.account_id
+                        )
                       }
                     >
-                      Cancel
+                      Delete
                     </button>
-                  )}
-
-                </div>
-
-              </form>
-
-            </div>
-
-            <div className="list-section">
-
-              <div className="list-heading">
-
-                <div>
-
-                  <span className="panel-kicker">
-                    PLATFORMS
-                  </span>
-
-                  <h2>
-                    Connected Accounts
-                  </h2>
-
-                </div>
-
-                <span className="count-badge">
-                  {safeSocialAccounts.length}
-                </span>
-
-              </div>
-
-              {safeSocialAccounts.length ===
-              0 ? (
-
-                <div className="empty-state">
-
-                  <div>
-                    ◎
                   </div>
-
-                  <h3>
-                    No social accounts
-                  </h3>
-
-                  <p>
-                    Add a platform to enable
-                    content publishing.
-                  </p>
-
                 </div>
-
-              ) : (
-
-                <div className="data-grid">
-
-                  {safeSocialAccounts.map(
-                    (account) => {
-
-                      const username =
-                        account.username ||
-                        account.account_name ||
-                        account.accountName ||
-                        "";
-
-                      return (
-                        <div
-                          className="data-card"
-                          key={
-                            account.account_id
-                          }
-                        >
-
-                          <div className="data-card-top">
-
-                            <div className="mini-icon platform-icon">
-
-                              {account.platform ===
-                              "Instagram"
-                                ? "◎"
-                                : account.platform ===
-                                  "Facebook"
-                                ? "f"
-                                : account.platform ===
-                                  "LinkedIn"
-                                ? "in"
-                                : "𝕏"}
-
-                            </div>
-
-                            <span
-                              className={getStatusClass(
-                                account.status ||
-                                  "configured"
-                              )}
-                            >
-                              {account.status ||
-                                "configured"}
-                            </span>
-
-                          </div>
-
-                          <h3>
-                            {account.platform}
-                          </h3>
-
-                          <p>
-                            {username}
-                          </p>
-
-                          <div className="action-buttons">
-
-                            <button
-                              onClick={() =>
-                                editAccount(
-                                  account
-                                )
-                              }
-                            >
-                              Edit
-                            </button>
-
-                            <button
-                              className="delete-button"
-                              onClick={() =>
-                                deleteAccount(
-                                  account.account_id
-                                )
-                              }
-                            >
-                              Delete
-                            </button>
-
-                            <button
-                              className="publish-button"
-                              onClick={() =>
-                                activateAccount(
-                                  account
-                                )
-                              }
-                              disabled={
-                                account.status ===
-                                "connected"
-                              }
-                            >
-                              {account.status ===
-                              "connected"
-                                ? "Active"
-                                : "Activate"}
-                            </button>
-
-                          </div>
-
-                        </div>
-                      );
-                    }
-                  )}
-
-                </div>
-
-              )}
-
+              ))}
             </div>
+          )}
+        </div>
+      </section>
+    );
+  };
 
-          </section>
-        )}
+  /* =======================================================
+     POSTS
+  ======================================================= */
 
-        {/* =================================================
-            POSTS
-        ================================================= */}
+  const renderPosts = () => {
+    return (
+      <section className="page-section">
+        <div className="page-heading">
+          <div>
+            <h1>Posts</h1>
+            <p>
+              Create posts and associate them with
+              campaigns.
+            </p>
+          </div>
+        </div>
 
-        {currentPage === "posts" && (
+        <div className="form-card">
+          <h3>Create Post</h3>
 
-          <section className="page-section">
+          <form onSubmit={handleCreatePost}>
+            <div className="form-group">
+              <label>Campaign</label>
 
-            <div className="page-heading">
-
-              <div>
-
-                <span className="panel-kicker">
-                  MILESTONE 2
-                </span>
-
-                <h1>
-                  Content Management
-                </h1>
-
-                <p>
-                  Create drafts, prepare content,
-                  and publish posts.
-                </p>
-
-              </div>
-
-            </div>
-
-            <div className="form-card">
-
-              <div className="form-heading">
-
-                <div className="form-icon">
-                  ✎
-                </div>
-
-                <div>
-
-                  <span>
-                    CONTENT CREATION
-                  </span>
-
-                  <h2>
-                    {editingPostId
-                      ? "Edit Post"
-                      : "Create Post"}
-                  </h2>
-
-                </div>
-
-              </div>
-
-              <form
-                onSubmit={
-                  handlePostSubmit
+              <select
+                value={postCampaignId}
+                onChange={(event) =>
+                  setPostCampaignId(
+                    event.target.value
+                  )
                 }
+                required
               >
+                <option value="">
+                  Select campaign
+                </option>
 
-                <label>
-                  Campaign
-                </label>
+                {campaigns.map((campaign) => (
+                  <option
+                    key={campaign.campaign_id}
+                    value={
+                      campaign.campaign_id
+                    }
+                  >
+                    {campaign.campaign_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Post Content</label>
+
+              <textarea
+                value={postContent}
+                onChange={(event) =>
+                  setPostContent(
+                    event.target.value
+                  )
+                }
+                placeholder="Write your post..."
+                rows="6"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="primary-button"
+              disabled={loading}
+            >
+              Create Post
+            </button>
+          </form>
+        </div>
+
+        <div className="content-card">
+          <h3>Posts</h3>
+
+          {posts.length === 0 ? (
+            <div className="empty-state">
+              <h3>No posts found</h3>
+              <p>Create a post above.</p>
+            </div>
+          ) : (
+            <div className="post-grid">
+              {posts.map((post) => (
+                <div
+                  className="post-card"
+                  key={post.post_id}
+                >
+                  <div className="data-card">
+                    <div className="card-top">
+                      <span>
+                        Post #{post.post_id}
+                      </span>
+
+                      <span className="status-badge">
+                        {post.status || "Draft"}
+                      </span>
+                    </div>
+
+                    <p>
+                      {post.content ||
+                        "No content"}
+                    </p>
+
+                    <p className="muted-text">
+                      Campaign ID:{" "}
+                      {post.campaign_id || "-"}
+                    </p>
+
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() =>
+                        handleDeletePost(
+                          post.post_id
+                        )
+                      }
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  };
+
+  /* =======================================================
+     CALENDAR
+  ======================================================= */
+
+  const renderCalendar = () => {
+    return (
+      <section className="page-section">
+        <div className="page-heading">
+          <div>
+            <h1>Publishing Calendar</h1>
+            <p>
+              View scheduled posts by date.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={loadScheduledPosts}
+          >
+            Refresh
+          </button>
+        </div>
+
+        <div className="calendar-card content-card">
+          <FullCalendar
+            plugins={[
+              dayGridPlugin,
+              interactionPlugin,
+            ]}
+            initialView="dayGridMonth"
+            height="auto"
+            events={calendarEvents}
+            eventClick={(info) => {
+              const scheduleId =
+                info.event.extendedProps
+                  .scheduleId;
+
+              if (scheduleId) {
+                setPage("scheduled");
+              }
+            }}
+          />
+        </div>
+      </section>
+    );
+  };
+
+  /* =======================================================
+     SCHEDULED POSTS
+  ======================================================= */
+
+  const renderScheduledPosts = () => {
+    return (
+      <section className="page-section">
+        <div className="page-heading">
+          <div>
+            <h1>Scheduled Posts</h1>
+            <p>
+              Schedule posts for publishing.
+            </p>
+          </div>
+        </div>
+
+        <div className="form-card">
+          <h3>Schedule Post</h3>
+
+          <form onSubmit={handleSchedulePost}>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Post</label>
 
                 <select
-                  value={
-                    postCampaignId
-                  }
-                  onChange={(e) =>
-                    setPostCampaignId(
-                      e.target.value
+                  value={schedulePostId}
+                  onChange={(event) =>
+                    setSchedulePostId(
+                      event.target.value
                     )
                   }
                   required
                 >
-
                   <option value="">
-                    Select Campaign
+                    Select post
                   </option>
 
-                  {safeCampaigns.map(
-                    (campaign) => (
-
-                      <option
-                        key={
-                          campaign.campaign_id
-                        }
-                        value={
-                          campaign.campaign_id
-                        }
-                      >
-                        {campaign.campaign_name ||
-                          campaign.name}
-                      </option>
-
-                    )
-                  )}
-
+                  {posts.map((post) => (
+                    <option
+                      key={post.post_id}
+                      value={post.post_id}
+                    >
+                      #{post.post_id} -{" "}
+                      {(post.content || "").slice(
+                        0,
+                        60
+                      )}
+                    </option>
+                  ))}
                 </select>
+              </div>
 
-                <label>
-                  Social Account
-                </label>
+              <div className="form-group">
+                <label>Social Account</label>
 
                 <select
-                  value={
-                    postAccountId
-                  }
-                  onChange={(e) =>
-                    setPostAccountId(
-                      e.target.value
+                  value={scheduleAccountId}
+                  onChange={(event) =>
+                    setScheduleAccountId(
+                      event.target.value
                     )
                   }
-                  required
                 >
-
                   <option value="">
-                    Select Account
+                    Select account
                   </option>
 
-                  {safeSocialAccounts.map(
+                  {socialAccounts.map(
                     (account) => (
-
                       <option
-                        key={
-                          account.account_id
-                        }
+                        key={account.account_id}
                         value={
                           account.account_id
                         }
                       >
                         {account.platform} -{" "}
-                        {account.username ||
-                          account.account_name ||
-                          account.accountName}
+                        {account.username}
                       </option>
-
                     )
                   )}
-
                 </select>
-
-                <label>
-                  Content
-                </label>
-
-                <textarea
-                  className="content-textarea"
-                  placeholder="Write your social media content..."
-                  value={postContent}
-                  onChange={(e) =>
-                    setPostContent(
-                      e.target.value
-                    )
-                  }
-                  required
-                />
-
-                <label>
-                  Media URL
-                </label>
-
-                <input
-                  type="url"
-                  placeholder="https://example.com/image.jpg"
-                  value={postMediaUrl}
-                  onChange={(e) =>
-                    setPostMediaUrl(
-                      e.target.value
-                    )
-                  }
-                />
-
-                <div className="form-row">
-
-                  <div>
-
-                    <label>
-                      Scheduled Time
-                    </label>
-
-                    <input
-                      type="datetime-local"
-                      value={
-                        postScheduledTime
-                      }
-                      onChange={(e) =>
-                        setPostScheduledTime(
-                          e.target.value
-                        )
-                      }
-                    />
-
-                  </div>
-
-                  <div>
-
-                    <label>
-                      Content Status
-                    </label>
-
-                    <select
-                      value={
-                        postStatus
-                      }
-                      onChange={(e) =>
-                        setPostStatus(
-                          e.target.value
-                        )
-                      }
-                    >
-
-                      <option value="draft">
-                        Draft
-                      </option>
-
-                      <option value="scheduled">
-                        Scheduled
-                      </option>
-
-                      <option value="published">
-                        Published
-                      </option>
-
-                    </select>
-
-                  </div>
-
-                </div>
-
-                <div className="form-actions">
-
-                  <button
-                    className="primary-button"
-                    type="submit"
-                  >
-                    {editingPostId
-                      ? "Update Post"
-                      : "Create Post"}
-                  </button>
-
-                  {editingPostId && (
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={
-                        resetPostForm
-                      }
-                    >
-                      Cancel
-                    </button>
-                  )}
-
-                </div>
-
-              </form>
-
+              </div>
             </div>
 
-            <div className="list-section">
+            <div className="form-group">
+              <label>
+                Scheduled Date & Time
+              </label>
 
-              <div className="list-heading">
+              <input
+                type="datetime-local"
+                value={scheduleDateTime}
+                onChange={(event) =>
+                  setScheduleDateTime(
+                    event.target.value
+                  )
+                }
+                required
+              />
+            </div>
 
-                <div>
+            <button
+              type="submit"
+              className="primary-button"
+              disabled={loading}
+            >
+              Schedule Post
+            </button>
+          </form>
+        </div>
 
-                  <span className="panel-kicker">
-                    CONTENT LIBRARY
-                  </span>
+        <div className="content-card">
+          <div className="section-header">
+            <h3>Scheduled Posts</h3>
 
-                  <h2>
-                    Post List
-                  </h2>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={
+                loadScheduledPosts
+              }
+            >
+              Refresh
+            </button>
+          </div>
 
-                </div>
-
-                <span className="count-badge">
-                  {safePosts.length}
-                </span>
-
-              </div>
-
-              {safePosts.length === 0 ? (
-
-                <div className="empty-state">
-
-                  <div>
-                    ✎
-                  </div>
-
-                  <h3>
-                    No posts found
-                  </h3>
-
-                  <p>
-                    Create your first post above.
-                  </p>
-
-                </div>
-
-              ) : (
-
-                <div className="data-grid">
-
-                  {safePosts.map(
-                    (post) => (
-
-                      <div
-                        className="data-card post-data-card"
-                        key={
-                          post.post_id
-                        }
-                      >
-
-                        <div className="data-card-top">
-
-                          <div className="mini-icon">
-                            ✎
-                          </div>
-
-                          <span
-                            className={getStatusClass(
-                              post.status
-                            )}
-                          >
-                            {post.status}
-                          </span>
-
-                        </div>
-
+          {scheduledPosts.length === 0 ? (
+            <div className="empty-state">
+              <h3>No scheduled posts</h3>
+              <p>
+                Schedule a post using the form above.
+              </p>
+            </div>
+          ) : (
+            <div className="scheduled-grid">
+              {scheduledPosts.map(
+                (schedule) => (
+                  <div
+                    className="scheduled-card"
+                    key={
+                      schedule.schedule_id ||
+                      schedule.id
+                    }
+                  >
+                    <div className="data-card">
+                      <div className="card-top">
                         <h3>
-                          Post #{post.post_id}
+                          Schedule #
+                          {schedule.schedule_id}
                         </h3>
 
-                        <p className="post-preview">
-                          {post.content}
-                        </p>
-
-                        <div className="meta-row">
-
-                          <span>
-                            Campaign
-                          </span>
-
-                          <strong>
-                            #{post.campaign_id}
-                          </strong>
-
-                        </div>
-
-                        <div className="meta-row">
-
-                          <span>
-                            Account
-                          </span>
-
-                          <strong>
-                            #{post.account_id}
-                          </strong>
-
-                        </div>
-
-                        {post.scheduled_time && (
-                          <div className="meta-row">
-
-                            <span>
-                              Scheduled
-                            </span>
-
-                            <strong>
-                              {formatDate(
-                                post.scheduled_time
-                              )}
-                            </strong>
-
-                          </div>
-                        )}
-
-                        <div className="action-buttons">
-
-                          <button
-                            onClick={() =>
-                              editPost(post)
-                            }
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            className="delete-button"
-                            onClick={() =>
-                              deletePost(
-                                post.post_id
-                              )
-                            }
-                          >
-                            Delete
-                          </button>
-
-                          <button
-                            className="publish-button"
-                            onClick={() =>
-                              publishPost(post)
-                            }
-                            disabled={
-                              post.status ===
-                              "published"
-                            }
-                          >
-                            {post.status ===
-                            "published"
-                              ? "Published"
-                              : "Publish"}
-                          </button>
-
-                        </div>
-
+                        <span
+                          className={getStatusClass(
+                            schedule.status
+                          )}
+                        >
+                          {schedule.status ||
+                            "pending"}
+                        </span>
                       </div>
 
-                    )
-                  )}
-
-                </div>
-
-              )}
-
-            </div>
-
-          </section>
-        )}
-
-        {/* =================================================
-            SCHEDULED POSTS / PUBLISHING QUEUE
-        ================================================= */}
-
-        {currentPage ===
-          "scheduled-posts" && (
-
-          <section className="page-section">
-
-            <div className="page-heading">
-
-              <div>
-
-                <span className="panel-kicker">
-                  MILESTONE 2
-                </span>
-
-                <h1>
-                  Publishing Queue
-                </h1>
-
-                <p>
-                  Schedule and manage content
-                  waiting for publication.
-                </p>
-
-              </div>
-
-              <button
-                className="primary-button"
-                onClick={() => {
-                  resetScheduleForm();
-
-                  window.scrollTo({
-                    top: 0,
-                    behavior: "smooth",
-                  });
-                }}
-              >
-                ＋ New Schedule
-              </button>
-
-            </div>
-
-            <div className="dashboard-cards">
-
-              <div className="dashboard-card schedule-card">
-
-                <div className="card-top">
-
-                  <div className="card-icon">
-                    ◷
-                  </div>
-
-                </div>
-
-                <h3>
-                  Pending Queue
-                </h3>
-
-                <p>
-                  {pendingQueuePosts}
-                </p>
-
-                <small>
-                  Waiting for publishing
-                </small>
-
-              </div>
-
-              <div className="dashboard-card campaign-card">
-
-                <div className="card-top">
-
-                  <div className="card-icon">
-                    ✓
-                  </div>
-
-                </div>
-
-                <h3>
-                  Published Queue
-                </h3>
-
-                <p>
-                  {publishedQueuePosts}
-                </p>
-
-                <small>
-                  Successfully processed
-                </small>
-
-              </div>
-
-              <div className="dashboard-card post-card">
-
-                <div className="card-top">
-
-                  <div className="card-icon">
-                    !
-                  </div>
-
-                </div>
-
-                <h3>
-                  Failed Queue
-                </h3>
-
-                <p>
-                  {failedQueuePosts}
-                </p>
-
-                <small>
-                  Items requiring retry
-                </small>
-
-              </div>
-
-              <div className="dashboard-card account-card">
-
-                <div className="card-top">
-
-                  <div className="card-icon">
-                    ◷
-                  </div>
-
-                </div>
-
-                <h3>
-                  Scheduled Posts
-                </h3>
-
-                <p>
-                  {safeScheduledPosts.length}
-                </p>
-
-                <small>
-                  Scheduling records
-                </small>
-
-              </div>
-
-            </div>
-
-            <div className="form-card">
-
-              <div className="form-heading">
-
-                <div className="form-icon">
-                  ◷
-                </div>
-
-                <div>
-
-                  <span>
-                    PUBLISHING QUEUE
-                  </span>
-
-                  <h2>
-                    {editingScheduleId
-                      ? "Edit Schedule"
-                      : "Schedule Post"}
-                  </h2>
-
-                </div>
-
-              </div>
-
-              <form
-                onSubmit={
-                  handleScheduleSubmit
-                }
-              >
-
-                <label>
-                  Select Post
-                </label>
-
-                <select
-                  value={
-                    schedulePostId
-                  }
-                  onChange={(e) =>
-                    setSchedulePostId(
-                      e.target.value
-                    )
-                  }
-                  required
-                >
-
-                  <option value="">
-                    Select Post
-                  </option>
-
-                  {safePosts.map(
-                    (post) => (
-
-                      <option
-                        key={
-                          post.post_id
-                        }
-                        value={
-                          post.post_id
-                        }
-                      >
-                        #{post.post_id} -{" "}
-                        {post.content?.substring(
-                          0,
-                          70
+                      <p>
+                        {getPostContent(
+                          schedule.post_id,
+                          posts
                         )}
-                      </option>
+                      </p>
 
-                    )
-                  )}
+                      <p>
+                        <strong>
+                          Scheduled:
+                        </strong>{" "}
+                        {formatDateTime(
+                          schedule.scheduled_at
+                        )}
+                      </p>
 
-                </select>
+                      {schedule.published_at && (
+                        <p>
+                          <strong>
+                            Published:
+                          </strong>{" "}
+                          {formatDateTime(
+                            schedule.published_at
+                          )}
+                        </p>
+                      )}
 
-                <label>
-                  Scheduled Date & Time
-                </label>
+                      <div className="card-actions">
+                        <button
+                          type="button"
+                          className="primary-button"
+                          onClick={() =>
+                            handlePublishNow(
+                              schedule.schedule_id
+                            )
+                          }
+                          disabled={
+                            String(
+                              schedule.status || ""
+                            ).toLowerCase() ===
+                            "published"
+                          }
+                        >
+                          Publish Now
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  };
 
-                <input
-                  type="datetime-local"
-                  value={
-                    scheduleDateTime
-                  }
-                  onChange={(e) =>
-                    setScheduleDateTime(
-                      e.target.value
-                    )
-                  }
-                  required
-                />
+  /* =======================================================
+     QUEUE
+  ======================================================= */
 
-                <label>
-                  Queue Status
-                </label>
+  const renderQueue = () => {
+    const pendingCount =
+      publishingQueue.filter(
+        (item) =>
+          String(item.status || "")
+            .toLowerCase() === "pending"
+      ).length;
 
-                <select
-                  value={
-                    scheduleStatus
-                  }
-                  onChange={(e) =>
-                    setScheduleStatus(
-                      e.target.value
-                    )
-                  }
-                >
+    const publishedCount =
+      publishingQueue.filter(
+        (item) =>
+          String(item.status || "")
+            .toLowerCase() === "published"
+      ).length;
 
-                  <option value="pending">
-                    Pending
-                  </option>
+    return (
+      <section className="page-section">
+        <div className="page-heading">
+          <div>
+            <h1>Publishing Queue</h1>
+            <p>
+              Monitor posts waiting for publishing.
+            </p>
+          </div>
 
-                  <option value="published">
-                    Published
-                  </option>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={
+              loadPublishingQueue
+            }
+          >
+            Refresh
+          </button>
+        </div>
 
-                  <option value="failed">
-                    Failed
-                  </option>
+        <div className="queue-summary">
+          <div className="stat-card">
+            <span>Total Queue Items</span>
+            <strong>
+              {publishingQueue.length}
+            </strong>
+          </div>
 
-                </select>
+          <div className="stat-card">
+            <span>Pending</span>
+            <strong>{pendingCount}</strong>
+          </div>
 
-                <div className="form-actions">
+          <div className="stat-card">
+            <span>Published</span>
+            <strong>{publishedCount}</strong>
+          </div>
+        </div>
 
-                  <button
-                    className="primary-button"
-                    type="submit"
-                  >
-                    {editingScheduleId
-                      ? "Update Schedule"
-                      : "Schedule Post"}
-                  </button>
+        <div className="table-container">
+          {publishingQueue.length === 0 ? (
+            <div className="empty-state">
+              <h3>No queue items</h3>
+              <p>
+                The publishing queue is currently
+                empty.
+              </p>
+            </div>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Queue ID</th>
+                  <th>Post</th>
+                  <th>Platform</th>
+                  <th>Scheduled Time</th>
+                  <th>Status</th>
+                  <th>Priority</th>
+                  <th>Retry Count</th>
+                </tr>
+              </thead>
 
-                  {editingScheduleId && (
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={
-                        resetScheduleForm
+              <tbody>
+                {publishingQueue.map(
+                  (item) => (
+                    <tr
+                      key={
+                        item.queue_id ||
+                        item.id
                       }
                     >
-                      Cancel
-                    </button>
-                  )}
+                      <td>
+                        {item.queue_id ||
+                          item.id}
+                      </td>
 
-                </div>
+                      <td>
+                        {getPostContent(
+                          item.post_id,
+                          posts
+                        )}
+                      </td>
 
-              </form>
+                      <td>
+                        {item.platform || "-"}
+                      </td>
 
+                      <td>
+                        {formatDateTime(
+                          item.scheduled_time
+                        )}
+                      </td>
+
+                      <td>
+                        <span
+                          className={getStatusClass(
+                            item.status
+                          )}
+                        >
+                          {item.status ||
+                            "pending"}
+                        </span>
+                      </td>
+
+                      <td>
+                        {item.priority ?? 1}
+                      </td>
+
+                      <td>
+                        {item.retry_count ?? 0}
+                      </td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </section>
+    );
+  };
+
+  /* =======================================================
+     PUBLISHING LOGS
+  ======================================================= */
+
+  const renderPublishingLogs = () => {
+    return (
+      <section className="page-section">
+        <div className="page-heading">
+          <div>
+            <h1>Publishing Logs</h1>
+            <p>
+              Track publishing results and errors.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={
+              loadPublishingLogs
+            }
+          >
+            Refresh
+          </button>
+        </div>
+
+        <div className="table-container">
+          {publishingLogs.length === 0 ? (
+            <div className="empty-state">
+              <h3>No publishing logs</h3>
+              <p>
+                Publishing activity will appear here.
+              </p>
+            </div>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Log ID</th>
+                  <th>Post ID</th>
+                  <th>Platform</th>
+                  <th>Status</th>
+                  <th>Published At</th>
+                  <th>Retry Count</th>
+                  <th>Error</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {publishingLogs.map((log) => (
+                  <tr
+                    key={
+                      log.log_id || log.id
+                    }
+                  >
+                    <td>
+                      {log.log_id || log.id}
+                    </td>
+
+                    <td>
+                      {log.post_id || "-"}
+                    </td>
+
+                    <td>
+                      {log.platform || "-"}
+                    </td>
+
+                    <td>
+                      <span
+                        className={getStatusClass(
+                          log.status
+                        )}
+                      >
+                        {log.status || "-"}
+                      </span>
+                    </td>
+
+                    <td>
+                      {formatDateTime(
+                        log.published_at
+                      )}
+                    </td>
+
+                    <td>
+                      {log.retry_count ?? 0}
+                    </td>
+
+                    <td>
+                      {log.error_message || "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </section>
+    );
+  };
+
+  /* =======================================================
+     ANALYTICS
+  ======================================================= */
+
+  const renderAnalytics = () => {
+    return (
+      <section className="page-section">
+        <div className="page-heading">
+          <div>
+            <h1>Campaign Analytics</h1>
+            <p>
+              Analyze campaign engagement, audience
+              growth and ROI.
+            </p>
+          </div>
+        </div>
+
+        <div className="form-card">
+          <h3>Select Campaign</h3>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Campaign</label>
+
+              <select
+                value={selectedCampaign}
+                onChange={(event) => {
+                  setSelectedCampaign(
+                    event.target.value
+                  );
+
+                  setCampaignAnalytics(null);
+                  setAudienceAnalytics(null);
+                  setExpenseAnalytics(null);
+                }}
+              >
+                <option value="">
+                  Select campaign
+                </option>
+
+                {campaigns.map((campaign) => (
+                  <option
+                    key={campaign.campaign_id}
+                    value={
+                      campaign.campaign_id
+                    }
+                  >
+                    {campaign.campaign_name}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <div className="list-section">
+            <div className="form-group">
+              <label>&nbsp;</label>
 
-              <div className="list-heading">
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() =>
+                  loadAnalytics(
+                    selectedCampaign
+                  )
+                }
+                disabled={
+                  analyticsLoading ||
+                  !selectedCampaign
+                }
+              >
+                {analyticsLoading
+                  ? "Loading..."
+                  : "Load Analytics"}
+              </button>
+            </div>
+          </div>
+        </div>
 
-                <div>
+        {!campaignAnalytics &&
+        !audienceAnalytics &&
+        !expenseAnalytics ? (
+          <div className="empty-state">
+            <h3>No analytics loaded</h3>
+            <p>
+              Select a campaign and click Load
+              Analytics.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* =================================================
+                ANALYTICS SUMMARY
+            ================================================= */}
 
-                  <span className="panel-kicker">
-                    SCHEDULED POSTS
-                  </span>
+            <div className="stats-grid">
+              <div className="stat-card">
+                <span>Impressions</span>
+                <strong>
+                  {formatNumber(
+                    campaignTotals.impressions
+                  )}
+                </strong>
+              </div>
 
-                  <h2>
-                    Scheduling Records
-                  </h2>
+              <div className="stat-card">
+                <span>Reach</span>
+                <strong>
+                  {formatNumber(
+                    campaignTotals.reach
+                  )}
+                </strong>
+              </div>
 
-                </div>
+              <div className="stat-card">
+                <span>Likes</span>
+                <strong>
+                  {formatNumber(
+                    campaignTotals.likes
+                  )}
+                </strong>
+              </div>
 
-                <div className="queue-summary">
+              <div className="stat-card">
+                <span>Comments</span>
+                <strong>
+                  {formatNumber(
+                    campaignTotals.comments
+                  )}
+                </strong>
+              </div>
 
-                  <span>
-                    Pending:{" "}
-                    <strong>
-                      {pendingSchedules}
-                    </strong>
-                  </span>
+              <div className="stat-card">
+                <span>Shares</span>
+                <strong>
+                  {formatNumber(
+                    campaignTotals.shares
+                  )}
+                </strong>
+              </div>
 
-                  <span>
-                    Total:{" "}
-                    <strong>
-                      {
-                        safeScheduledPosts.length
+              <div className="stat-card">
+                <span>Clicks</span>
+                <strong>
+                  {formatNumber(
+                    campaignTotals.clicks
+                  )}
+                </strong>
+              </div>
+
+              <div className="stat-card">
+                <span>Engagement</span>
+                <strong>
+                  {formatNumber(
+                    campaignTotals.engagement
+                  )}
+                </strong>
+              </div>
+
+              <div className="stat-card">
+                <span>Engagement Rate</span>
+                <strong>
+                  {formatPercent(
+                    campaignTotals.engagementRate
+                  )}
+                </strong>
+              </div>
+            </div>
+
+            {/* =================================================
+                ENGAGEMENT CHARTS
+            ================================================= */}
+
+            <div className="dashboard-grid">
+              <div className="content-card">
+                <h3>Engagement Analytics</h3>
+
+                <div
+                  style={{
+                    width: "100%",
+                    height: 350,
+                  }}
+                >
+                  <ResponsiveContainer>
+                    <BarChart
+                      data={
+                        engagementChartData
                       }
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                      />
+
+                      <XAxis dataKey="name" />
+
+                      <YAxis />
+
+                      <Tooltip />
+
+                      <Legend />
+
+                      <Bar
+                        dataKey="value"
+                        name="Engagement"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="content-card">
+                <h3>
+                  Engagement Distribution
+                </h3>
+
+                <div
+                  style={{
+                    width: "100%",
+                    height: 350,
+                  }}
+                >
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie
+                        data={
+                          engagementChartData
+                        }
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={110}
+                        label
+                      >
+                        {engagementChartData.map(
+                          (entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                            />
+                          )
+                        )}
+                      </Pie>
+
+                      <Tooltip />
+
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            {/* =================================================
+                AUDIENCE GROWTH
+            ================================================= */}
+
+            <div className="content-card">
+              <h3>Audience Growth</h3>
+
+              {audienceRows.length === 0 ? (
+                <div className="empty-state">
+                  <p>
+                    No audience growth data
+                    available.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      width: "100%",
+                      height: 350,
+                    }}
+                  >
+                    <ResponsiveContainer>
+                      <LineChart
+                        data={
+                          audienceChartData
+                        }
+                      >
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                        />
+
+                        <XAxis
+                          dataKey="platform"
+                        />
+
+                        <YAxis />
+
+                        <Tooltip />
+
+                        <Legend />
+
+                        <Line
+                          type="monotone"
+                          dataKey="start"
+                          name="Followers Start"
+                        />
+
+                        <Line
+                          type="monotone"
+                          dataKey="end"
+                          name="Followers End"
+                        />
+
+                        <Line
+                          type="monotone"
+                          dataKey="growth"
+                          name="Growth"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="table-container">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Platform</th>
+                          <th>
+                            Followers Start
+                          </th>
+                          <th>
+                            Followers End
+                          </th>
+                          <th>Growth</th>
+                          <th>Growth %</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {audienceRows.map(
+                          (item, index) => {
+                            const start =
+                              numberValue(
+                                item.followers_start ??
+                                  item.followersStart ??
+                                  item.start
+                              );
+
+                            const end =
+                              numberValue(
+                                item.followers_end ??
+                                  item.followersEnd ??
+                                  item.end
+                              );
+
+                            const growth =
+                              numberValue(
+                                item.follower_growth ??
+                                  item.followers_growth ??
+                                  item.followerGrowth ??
+                                  item.growth
+                              );
+
+                            const percentage =
+                              start > 0
+                                ? (growth / start) *
+                                  100
+                                : 0;
+
+                            return (
+                              <tr
+                                key={`${item.platform}-${index}`}
+                              >
+                                <td>
+                                  {item.platform ||
+                                    "-"}
+                                </td>
+
+                                <td>
+                                  {formatNumber(
+                                    start
+                                  )}
+                                </td>
+
+                                <td>
+                                  {formatNumber(
+                                    end
+                                  )}
+                                </td>
+
+                                <td>
+                                  {formatNumber(
+                                    growth
+                                  )}
+                                </td>
+
+                                <td>
+                                  {formatPercent(
+                                    percentage
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          }
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* =================================================
+                ROI
+            ================================================= */}
+
+            <div className="content-card">
+              <h3>Campaign ROI</h3>
+
+              {expenseData ? (
+                <div className="stats-grid">
+                  <div className="stat-card">
+                    <span>Budget</span>
+
+                    <strong>
+                      ₹
+                      {formatNumber(
+                        expenseData.budget
+                      )}
                     </strong>
-                  </span>
-
-                </div>
-
-              </div>
-
-              {safeScheduledPosts.length ===
-              0 ? (
-
-                <div className="empty-state">
-
-                  <div>
-                    ◷
                   </div>
 
-                  <h3>
-                    No scheduled posts
-                  </h3>
+                  <div className="stat-card">
+                    <span>Amount Spent</span>
 
-                  <p>
-                    Schedule a post to add it
-                    to the publishing workflow.
-                  </p>
-
-                </div>
-
-              ) : (
-
-                <div className="data-grid">
-
-                  {safeScheduledPosts.map(
-                    (schedule) => {
-
-                      const post =
-                        safePosts.find(
-                          (p) =>
-                            Number(
-                              p.post_id
-                            ) ===
-                            Number(
-                              schedule.post_id
-                            )
-                        );
-
-                      return (
-                        <div
-                          className="data-card"
-                          key={
-                            schedule.schedule_id
-                          }
-                        >
-
-                          <div className="data-card-top">
-
-                            <div className="mini-icon">
-                              ◷
-                            </div>
-
-                            <span
-                              className={getStatusClass(
-                                schedule.status
-                              )}
-                            >
-                              {
-                                schedule.status
-                              }
-                            </span>
-
-                          </div>
-
-                          <h3>
-                            Schedule #
-                            {
-                              schedule.schedule_id
-                            }
-                          </h3>
-
-                          {post && (
-                            <p className="post-preview">
-                              {post.content}
-                            </p>
-                          )}
-
-                          <div className="meta-row">
-
-                            <span>
-                              Post
-                            </span>
-
-                            <strong>
-                              #
-                              {
-                                schedule.post_id
-                              }
-                            </strong>
-
-                          </div>
-
-                          <div className="meta-row">
-
-                            <span>
-                              Scheduled
-                            </span>
-
-                            <strong>
-                              {formatDate(
-                                schedule.scheduled_at
-                              )}
-                            </strong>
-
-                          </div>
-
-                          {schedule.published_at && (
-                            <div className="meta-row">
-
-                              <span>
-                                Published
-                              </span>
-
-                              <strong>
-                                {formatDate(
-                                  schedule.published_at
-                                )}
-                              </strong>
-
-                            </div>
-                          )}
-
-                          {schedule.error_message && (
-                            <div className="schedule-error">
-                              {
-                                schedule.error_message
-                              }
-                            </div>
-                          )}
-
-                          <div className="action-buttons">
-
-                            <button
-                              onClick={() =>
-                                editSchedule(
-                                  schedule
-                                )
-                              }
-                            >
-                              Edit
-                            </button>
-
-                            <button
-                              className="delete-button"
-                              onClick={() =>
-                                deleteSchedule(
-                                  schedule.schedule_id
-                                )
-                              }
-                            >
-                              Delete
-                            </button>
-
-                            <button
-                              className="publish-button"
-                              onClick={() =>
-                                publishSchedule(
-                                  schedule
-                                )
-                              }
-                              disabled={
-                                schedule.status ===
-                                "published"
-                              }
-                            >
-                              {schedule.status ===
-                              "published"
-                                ? "Published"
-                                : "Publish"}
-                            </button>
-
-                          </div>
-
-                        </div>
-                      );
-                    }
-                  )}
-
-                </div>
-
-              )}
-
-            </div>
-
-            <div className="list-section">
-
-              <div className="list-heading">
-
-                <div>
-
-                  <span className="panel-kicker">
-                    MILESTONE 2
-                  </span>
-
-                  <h2>
-                    Publishing Queue Engine
-                  </h2>
-
-                </div>
-
-                <span className="count-badge">
-                  {
-                    safePublishingQueue.length
-                  }
-                </span>
-
-              </div>
-
-              {safePublishingQueue.length ===
-              0 ? (
-
-                <div className="empty-state">
-
-                  <div>
-                    ⌁
+                    <strong>
+                      ₹
+                      {formatNumber(
+                        expenseData.amountSpent ??
+                          expenseData.amount_spent
+                      )}
+                    </strong>
                   </div>
 
-                  <h3>
-                    Publishing queue is empty
-                  </h3>
+                  <div className="stat-card">
+                    <span>
+                      Revenue Generated
+                    </span>
 
-                  <p>
-                    Queue items will appear here
-                    when content is ready for
-                    automated publishing.
-                  </p>
+                    <strong>
+                      ₹
+                      {formatNumber(
+                        expenseData.revenueGenerated ??
+                          expenseData.revenue_generated
+                      )}
+                    </strong>
+                  </div>
 
+                  <div className="stat-card">
+                    <span>Profit</span>
+
+                    <strong>
+                      ₹
+                      {formatNumber(
+                        expenseData.profit
+                      )}
+                    </strong>
+                  </div>
+
+                  <div className="stat-card">
+                    <span>ROI</span>
+
+                    <strong>
+                      {formatPercent(
+                        expenseData.roi
+                      )}
+                    </strong>
+                  </div>
                 </div>
-
               ) : (
-
-                <div className="data-grid">
-
-                  {safePublishingQueue.map(
-                    (queue) => {
-
-                      const post =
-                        safePosts.find(
-                          (p) =>
-                            Number(
-                              p.post_id
-                            ) ===
-                            Number(
-                              queue.post_id
-                            )
-                        );
-
-                      const account =
-                        post
-                          ? safeSocialAccounts.find(
-                              (a) =>
-                                Number(
-                                  a.account_id
-                                ) ===
-                                Number(
-                                  post.account_id
-                                )
-                            )
-                          : null;
-
-                      return (
-                        <div
-                          className="data-card"
-                          key={
-                            queue.queue_id
-                          }
-                        >
-
-                          <div className="data-card-top">
-
-                            <div className="mini-icon">
-                              ⌁
-                            </div>
-
-                            <span
-                              className={getStatusClass(
-                                queue.status
-                              )}
-                            >
-                              {
-                                queue.status
-                              }
-                            </span>
-
-                          </div>
-
-                          <h3>
-                            Queue #
-                            {
-                              queue.queue_id
-                            }
-                          </h3>
-
-                          {post && (
-                            <p className="post-preview">
-                              {post.content}
-                            </p>
-                          )}
-
-                          <div className="meta-row">
-
-                            <span>
-                              Post
-                            </span>
-
-                            <strong>
-                              #
-                              {
-                                queue.post_id
-                              }
-                            </strong>
-
-                          </div>
-
-                          <div className="meta-row">
-
-                            <span>
-                              Platform
-                            </span>
-
-                            <strong>
-                              {
-                                queue.platform ||
-                                account?.platform ||
-                                "Unknown"
-                              }
-                            </strong>
-
-                          </div>
-
-                          <div className="meta-row">
-
-                            <span>
-                              Scheduled
-                            </span>
-
-                            <strong>
-                              {formatDate(
-                                queue.scheduled_time
-                              )}
-                            </strong>
-
-                          </div>
-
-                          <div className="meta-row">
-
-                            <span>
-                              Priority
-                            </span>
-
-                            <strong>
-                              {
-                                queue.priority ??
-                                1
-                              }
-                            </strong>
-
-                          </div>
-
-                          <div className="meta-row">
-
-                            <span>
-                              Retry Count
-                            </span>
-
-                            <strong>
-                              {
-                                queue.retry_count ??
-                                0
-                              }
-                            </strong>
-
-                          </div>
-
-                          {queue.status ===
-                            "failed" && (
-                            <div className="schedule-error">
-                              Publishing failed.
-                              Retry will be handled
-                              by the publishing
-                              processor.
-                            </div>
-                          )}
-
-                        </div>
-                      );
-                    }
-                  )}
-
+                <div className="empty-state">
+                  <p>
+                    No expense/ROI data
+                    available.
+                  </p>
                 </div>
-
               )}
-
             </div>
 
-          </section>
+            {/* =================================================
+                PLATFORM ANALYTICS
+            ================================================= */}
+
+            <div className="content-card">
+              <h3>Platform Analytics</h3>
+
+              {campaignAnalyticsRows.length ===
+              0 ? (
+                <div className="empty-state">
+                  <p>
+                    No platform analytics data
+                    available.
+                  </p>
+                </div>
+              ) : (
+                <div className="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Platform</th>
+                        <th>Impressions</th>
+                        <th>Reach</th>
+                        <th>Likes</th>
+                        <th>Comments</th>
+                        <th>Shares</th>
+                        <th>Clicks</th>
+                        <th>
+                          Engagement Rate
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {campaignAnalyticsRows.map(
+                        (item, index) => (
+                          <tr
+                            key={`${item.platform}-${index}`}
+                          >
+                            <td>
+                              {item.platform ||
+                                "-"}
+                            </td>
+
+                            <td>
+                              {formatNumber(
+                                item.impressions
+                              )}
+                            </td>
+
+                            <td>
+                              {formatNumber(
+                                item.reach
+                              )}
+                            </td>
+
+                            <td>
+                              {formatNumber(
+                                item.likes
+                              )}
+                            </td>
+
+                            <td>
+                              {formatNumber(
+                                item.comments
+                              )}
+                            </td>
+
+                            <td>
+                              {formatNumber(
+                                item.shares
+                              )}
+                            </td>
+
+                            <td>
+                              {formatNumber(
+                                item.clicks
+                              )}
+                            </td>
+
+                            <td>
+                              {formatPercent(
+                                item.engagement_rate ??
+                                  item.engagementRate
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </section>
+    );
+  };
+
+  /* =======================================================
+     MAIN PAGE ROUTER
+  ======================================================= */
+
+  const renderPage = () => {
+    switch (page) {
+      case "campaigns":
+        return renderCampaigns();
+
+      case "social":
+        return renderSocialAccounts();
+
+      case "posts":
+        return renderPosts();
+
+      case "calendar":
+        return renderCalendar();
+
+      case "scheduled":
+        return renderScheduledPosts();
+
+      case "queue":
+        return renderQueue();
+
+      case "logs":
+        return renderPublishingLogs();
+
+      case "analytics":
+        return renderAnalytics();
+
+      case "dashboard":
+      default:
+        return renderDashboard();
+    }
+  };
+
+  /* =======================================================
+     PAGE TITLE
+  ======================================================= */
+
+  const pageTitles = {
+    dashboard: "Dashboard",
+    campaigns: "Campaign Management",
+    social: "Social Accounts",
+    posts: "Posts",
+    calendar: "Publishing Calendar",
+    scheduled: "Scheduled Posts",
+    queue: "Publishing Queue",
+    logs: "Publishing Logs",
+    analytics: "Campaign Analytics",
+  };
+
+  /* =======================================================
+     MAIN APP
+  ======================================================= */
+
+  return (
+    <div className="app-container">
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <div className="brand-icon">
+            SM
+          </div>
+
+          <div>
+            <h2>Social Media</h2>
+
+            <span>
+              Management Platform
+            </span>
+          </div>
+        </div>
+
+        <nav>
+          <button
+            type="button"
+            className={`nav-button ${
+              page === "dashboard"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              setPage("dashboard")
+            }
+          >
+            📊 Dashboard
+          </button>
+
+          <button
+            type="button"
+            className={`nav-button ${
+              page === "campaigns"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              setPage("campaigns")
+            }
+          >
+            📢 Campaigns
+          </button>
+
+          <button
+            type="button"
+            className={`nav-button ${
+              page === "social"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              setPage("social")
+            }
+          >
+            🔗 Social Accounts
+          </button>
+
+          <button
+            type="button"
+            className={`nav-button ${
+              page === "posts"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              setPage("posts")
+            }
+          >
+            📝 Posts
+          </button>
+
+          <button
+            type="button"
+            className={`nav-button ${
+              page === "calendar"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              setPage("calendar")
+            }
+          >
+            📅 Publishing Calendar
+          </button>
+
+          <button
+            type="button"
+            className={`nav-button ${
+              page === "scheduled"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              setPage("scheduled")
+            }
+          >
+            ⏰ Scheduled Posts
+          </button>
+
+          <button
+            type="button"
+            className={`nav-button ${
+              page === "queue"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              setPage("queue")
+            }
+          >
+            📋 Publishing Queue
+          </button>
+
+          <button
+            type="button"
+            className={`nav-button ${
+              page === "logs"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              setPage("logs")
+            }
+          >
+            📜 Publishing Logs
+          </button>
+
+          <button
+            type="button"
+            className={`nav-button ${
+              page === "analytics"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              setPage("analytics")
+            }
+          >
+            📈 Analytics
+          </button>
+        </nav>
+
+        <button
+          type="button"
+          className="logout-button"
+          onClick={handleLogout}
+        >
+          Logout
+        </button>
+      </aside>
+
+      <main className="main-content">
+        <header className="topbar">
+          <div>
+            <h2>
+              {pageTitles[page] ||
+                "Dashboard"}
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            className="refresh-button"
+            onClick={loadAllData}
+            disabled={loading}
+          >
+            {loading
+              ? "Refreshing..."
+              : "↻ Refresh"}
+          </button>
+        </header>
+
+        {globalMessage && (
+          <div className="global-message success-message">
+            {globalMessage}
+          </div>
         )}
 
+        {errorMessage && (
+          <div className="global-message error-message">
+            {errorMessage}
+          </div>
+        )}
+
+        {renderPage()}
       </main>
     </div>
   );
 }
-
-export default App;
-

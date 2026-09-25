@@ -1,108 +1,67 @@
 const express = require("express");
 const router = express.Router();
-
 const pool = require("../config/db");
-const authenticateToken = require("../middleware/auth");
 
-/*
-=========================================================
-POST ROUTES
-=========================================================
-
-Supported operations:
-
-1. GET    /api/posts
-2. GET    /api/posts/:id
-3. POST   /api/posts
-4. PUT    /api/posts/:id
-5. DELETE /api/posts/:id
-
-6. POST   /api/posts/:id/draft
-7. POST   /api/posts/:id/schedule
-8. POST   /api/posts/:id/publish
-
-Database tables used:
-
-posts
-social_accounts
-scheduled_posts
-publishing_queue
-publishing_logs
-recurring_posts
-
-Publishing flow:
-
-POST
- ↓
-scheduled_posts
- ↓
-publishing_queue
- ↓
-queueProcessor.js
- ↓
-publishing_logs
- ↓
-published
-=========================================================
-*/
-
-
-/* =====================================================
-   GET ALL POSTS
-   ===================================================== */
-
-router.get("/", authenticateToken, async (req, res) => {
+// =====================================================
+// GET ALL POSTS
+// GET /api/posts
+// =====================================================
+router.get("/", async (req, res) => {
     try {
-        const result = await pool.query(
-            `
+        const result = await pool.query(`
             SELECT
                 p.post_id,
                 p.campaign_id,
                 p.account_id,
                 p.content,
                 p.media_url,
+                p.scheduled_time,
                 p.status,
                 p.created_at,
+
+                c.campaign_name,
 
                 sa.platform,
                 sa.username
 
             FROM posts p
 
+            LEFT JOIN campaigns c
+                ON p.campaign_id = c.campaign_id
+
             LEFT JOIN social_accounts sa
                 ON p.account_id = sa.account_id
 
-            ORDER BY p.post_id DESC
-            `
-        );
+            ORDER BY p.created_at DESC
+        `);
 
         res.json(result.rows);
 
     } catch (error) {
-        console.error("GET POSTS ERROR:", error.message);
+        console.error("GET /api/posts error:", error);
 
         res.status(500).json({
-            error: "Failed to fetch posts",
-            details: error.message
+            message: "Failed to fetch posts",
+            error: error.message
         });
     }
 });
 
 
-/* =====================================================
-   GET SINGLE POST
-   ===================================================== */
-
-router.get("/:id", authenticateToken, async (req, res) => {
-    const postId = Number(req.params.id);
-
-    if (!Number.isInteger(postId) || postId <= 0) {
-        return res.status(400).json({
-            error: "Invalid post ID"
-        });
-    }
-
+// =====================================================
+// GET SINGLE POST
+// GET /api/posts/:id
+// =====================================================
+router.get("/:id", async (req, res) => {
     try {
+        const postId = Number(req.params.id);
+
+        if (!Number.isInteger(postId) || postId <= 0) {
+            return res.status(400).json({
+                message: "Invalid post ID"
+            });
+        }
+
         const result = await pool.query(
             `
             SELECT
@@ -111,13 +70,19 @@ router.get("/:id", authenticateToken, async (req, res) => {
                 p.account_id,
                 p.content,
                 p.media_url,
+                p.scheduled_time,
                 p.status,
                 p.created_at,
+
+                c.campaign_name,
 
                 sa.platform,
                 sa.username
 
             FROM posts p
+
+            LEFT JOIN campaigns c
+                ON p.campaign_id = c.campaign_id
 
             LEFT JOIN social_accounts sa
                 ON p.account_id = sa.account_id
@@ -129,64 +94,126 @@ router.get("/:id", authenticateToken, async (req, res) => {
 
         if (result.rows.length === 0) {
             return res.status(404).json({
-                error: "Post not found"
+                message: "Post not found"
             });
         }
 
         res.json(result.rows[0]);
 
     } catch (error) {
-        console.error("GET POST ERROR:", error.message);
+        console.error("GET /api/posts/:id error:", error);
 
         res.status(500).json({
-            error: "Failed to fetch post",
-            details: error.message
+            message: "Failed to fetch post",
+            error: error.message
         });
     }
 });
 
 
-/* =====================================================
-   CREATE POST
-   ===================================================== */
-
-router.post("/", authenticateToken, async (req, res) => {
-
-    const {
-        campaign_id,
-        account_id,
-        content,
-        media_url
-    } = req.body;
-
-    if (!content || !content.trim()) {
-        return res.status(400).json({
-            error: "Post content is required"
-        });
-    }
-
-    if (!account_id) {
-        return res.status(400).json({
-            error: "Social account is required"
-        });
-    }
-
-    const accountId = Number(account_id);
-
-    if (!Number.isInteger(accountId) || accountId <= 0) {
-        return res.status(400).json({
-            error: "Invalid account ID"
-        });
-    }
-
+// =====================================================
+// CREATE POST
+// POST /api/posts
+// =====================================================
+router.post("/", async (req, res) => {
     try {
+        const {
+            campaign_id,
+            account_id,
+            content,
+            media_url,
+            scheduled_time,
+            status
+        } = req.body;
 
-        /* Verify social account */
 
+        // -------------------------------------------------
+        // Validate content
+        // -------------------------------------------------
+        if (!content || !content.trim()) {
+            return res.status(400).json({
+                message: "Post content is required"
+            });
+        }
+
+
+        // -------------------------------------------------
+        // Validate campaign
+        // -------------------------------------------------
+        if (
+            campaign_id === undefined ||
+            campaign_id === null ||
+            campaign_id === ""
+        ) {
+            return res.status(400).json({
+                message: "Please select a campaign"
+            });
+        }
+
+        const campaignId = Number(campaign_id);
+
+        if (!Number.isInteger(campaignId) || campaignId <= 0) {
+            return res.status(400).json({
+                message: "Invalid campaign_id"
+            });
+        }
+
+
+        // -------------------------------------------------
+        // Validate social account
+        // -------------------------------------------------
+        if (
+            account_id === undefined ||
+            account_id === null ||
+            account_id === ""
+        ) {
+            return res.status(400).json({
+                message: "Please select a social account"
+            });
+        }
+
+        const accountId = Number(account_id);
+
+        if (!Number.isInteger(accountId) || accountId <= 0) {
+            return res.status(400).json({
+                message: "Invalid account_id"
+            });
+        }
+
+
+        // -------------------------------------------------
+        // Check campaign exists
+        // -------------------------------------------------
+        const campaignResult = await pool.query(
+            `
+            SELECT
+                campaign_id,
+                user_id,
+                campaign_name,
+                status
+            FROM campaigns
+            WHERE campaign_id = $1
+            `,
+            [campaignId]
+        );
+
+        if (campaignResult.rows.length === 0) {
+            return res.status(404).json({
+                message: "Campaign not found"
+            });
+        }
+
+        const campaign = campaignResult.rows[0];
+
+
+        // -------------------------------------------------
+        // Check social account exists
+        // -------------------------------------------------
         const accountResult = await pool.query(
             `
             SELECT
                 account_id,
+                user_id,
                 platform,
                 username
             FROM social_accounts
@@ -196,14 +223,93 @@ router.post("/", authenticateToken, async (req, res) => {
         );
 
         if (accountResult.rows.length === 0) {
-            return res.status(400).json({
-                error: "Social account not found"
+            return res.status(404).json({
+                message: "Social account not found"
+            });
+        }
+
+        const account = accountResult.rows[0];
+
+
+        // -------------------------------------------------
+        // Check that campaign and account belong
+        // to the same user
+        // -------------------------------------------------
+        if (campaign.user_id !== account.user_id) {
+            return res.status(403).json({
+                message:
+                    "The selected campaign and social account belong to different users"
             });
         }
 
 
-        /* Create post */
+        // -------------------------------------------------
+        // Get logged-in user
+        //
+        // Your JWT middleware should provide:
+        // req.user.user_id
+        // -------------------------------------------------
+        let loggedInUserId = null;
 
+        if (req.user && req.user.user_id) {
+            loggedInUserId = Number(req.user.user_id);
+        }
+
+
+        // -------------------------------------------------
+        // If authentication information is available,
+        // make sure campaign belongs to logged-in user
+        // -------------------------------------------------
+        if (
+            loggedInUserId !== null &&
+            campaign.user_id !== loggedInUserId
+        ) {
+            return res.status(403).json({
+                message:
+                    "You cannot create a post for another user's campaign"
+            });
+        }
+
+
+        // -------------------------------------------------
+        // If authentication information is available,
+        // make sure account belongs to logged-in user
+        // -------------------------------------------------
+        if (
+            loggedInUserId !== null &&
+            account.user_id !== loggedInUserId
+        ) {
+            return res.status(403).json({
+                message:
+                    "You cannot use another user's social account"
+            });
+        }
+
+
+        // -------------------------------------------------
+        // Validate status
+        // -------------------------------------------------
+        const allowedStatuses = [
+            "draft",
+            "scheduled",
+            "published",
+            "failed",
+            "cancelled"
+        ];
+
+        const postStatus = status || "scheduled";
+
+        if (!allowedStatuses.includes(postStatus)) {
+            return res.status(400).json({
+                message: "Invalid post status",
+                allowed_statuses: allowedStatuses
+            });
+        }
+
+
+        // -------------------------------------------------
+        // Create post
+        // -------------------------------------------------
         const result = await pool.query(
             `
             INSERT INTO posts
@@ -212,69 +318,87 @@ router.post("/", authenticateToken, async (req, res) => {
                 account_id,
                 content,
                 media_url,
+                scheduled_time,
                 status
             )
-            VALUES
-            (
-                $1,
-                $2,
-                $3,
-                $4,
-                'draft'
-            )
-            RETURNING *
+            VALUES ($1, $2, $3, $4, $5, $6)
+
+            RETURNING
+                post_id,
+                campaign_id,
+                account_id,
+                content,
+                media_url,
+                scheduled_time,
+                status,
+                created_at
             `,
             [
-                campaign_id || null,
+                campaignId,
                 accountId,
                 content.trim(),
-                media_url || null
+                media_url || null,
+                scheduled_time || null,
+                postStatus
             ]
         );
 
+
+        // -------------------------------------------------
+        // Send complete post information
+        // -------------------------------------------------
+        const createdPost = result.rows[0];
+
         res.status(201).json({
             message: "Post created successfully",
-            post: result.rows[0]
+
+            post: {
+                ...createdPost,
+                campaign_name: campaign.campaign_name,
+                platform: account.platform,
+                username: account.username
+            }
         });
 
     } catch (error) {
-        console.error("CREATE POST ERROR:", error.message);
+        console.error("POST /api/posts error:", error);
 
         res.status(500).json({
-            error: "Failed to create post",
-            details: error.message
+            message: "Failed to create post",
+            error: error.message
         });
     }
 });
 
 
-/* =====================================================
-   UPDATE POST
-   ===================================================== */
-
-router.put("/:id", authenticateToken, async (req, res) => {
-
-    const postId = Number(req.params.id);
-
-    if (!Number.isInteger(postId) || postId <= 0) {
-        return res.status(400).json({
-            error: "Invalid post ID"
-        });
-    }
-
-    const {
-        campaign_id,
-        account_id,
-        content,
-        media_url,
-        status
-    } = req.body;
-
+// =====================================================
+// UPDATE POST
+// PUT /api/posts/:id
+// =====================================================
+router.put("/:id", async (req, res) => {
     try {
+        const postId = Number(req.params.id);
 
-        /* Check post */
+        if (!Number.isInteger(postId) || postId <= 0) {
+            return res.status(400).json({
+                message: "Invalid post ID"
+            });
+        }
 
-        const postCheck = await pool.query(
+        const {
+            campaign_id,
+            account_id,
+            content,
+            media_url,
+            scheduled_time,
+            status
+        } = req.body;
+
+
+        // -------------------------------------------------
+        // Find existing post
+        // -------------------------------------------------
+        const existing = await pool.query(
             `
             SELECT *
             FROM posts
@@ -283,788 +407,341 @@ router.put("/:id", authenticateToken, async (req, res) => {
             [postId]
         );
 
-        if (postCheck.rows.length === 0) {
+        if (existing.rows.length === 0) {
             return res.status(404).json({
-                error: "Post not found"
+                message: "Post not found"
             });
         }
 
+        const current = existing.rows[0];
 
-        /* Validate content */
 
-        if (content !== undefined && (!content || !content.trim())) {
+        // -------------------------------------------------
+        // Use old values when fields are not supplied
+        // -------------------------------------------------
+        const updatedCampaignId =
+            campaign_id !== undefined
+                ? Number(campaign_id)
+                : current.campaign_id;
+
+        const updatedAccountId =
+            account_id !== undefined
+                ? Number(account_id)
+                : current.account_id;
+
+        const updatedContent =
+            content !== undefined
+                ? content
+                : current.content;
+
+        const updatedMediaUrl =
+            media_url !== undefined
+                ? media_url
+                : current.media_url;
+
+        const updatedScheduledTime =
+            scheduled_time !== undefined
+                ? scheduled_time
+                : current.scheduled_time;
+
+        const updatedStatus =
+            status !== undefined
+                ? status
+                : current.status;
+
+
+        // -------------------------------------------------
+        // Validate campaign
+        // -------------------------------------------------
+        if (
+            !Number.isInteger(updatedCampaignId) ||
+            updatedCampaignId <= 0
+        ) {
             return res.status(400).json({
-                error: "Post content cannot be empty"
+                message: "Invalid campaign_id"
             });
         }
 
 
-        /* Validate account */
+        // -------------------------------------------------
+        // Validate account
+        // -------------------------------------------------
+        if (
+            !Number.isInteger(updatedAccountId) ||
+            updatedAccountId <= 0
+        ) {
+            return res.status(400).json({
+                message: "Invalid account_id"
+            });
+        }
 
-        if (account_id !== undefined && account_id !== null) {
 
-            const accountId = Number(account_id);
+        // -------------------------------------------------
+        // Validate content
+        // -------------------------------------------------
+        if (!updatedContent || !updatedContent.trim()) {
+            return res.status(400).json({
+                message: "Post content is required"
+            });
+        }
 
-            if (!Number.isInteger(accountId) || accountId <= 0) {
-                return res.status(400).json({
-                    error: "Invalid account ID"
+
+        // -------------------------------------------------
+        // Validate status
+        // -------------------------------------------------
+        const allowedStatuses = [
+            "draft",
+            "scheduled",
+            "published",
+            "failed",
+            "cancelled"
+        ];
+
+        if (!allowedStatuses.includes(updatedStatus)) {
+            return res.status(400).json({
+                message: "Invalid post status",
+                allowed_statuses: allowedStatuses
+            });
+        }
+
+
+        // -------------------------------------------------
+        // Check campaign
+        // -------------------------------------------------
+        const campaignResult = await pool.query(
+            `
+            SELECT
+                campaign_id,
+                user_id,
+                campaign_name
+            FROM campaigns
+            WHERE campaign_id = $1
+            `,
+            [updatedCampaignId]
+        );
+
+        if (campaignResult.rows.length === 0) {
+            return res.status(404).json({
+                message: "Campaign not found"
+            });
+        }
+
+        const campaign = campaignResult.rows[0];
+
+
+        // -------------------------------------------------
+        // Check social account
+        // -------------------------------------------------
+        const accountResult = await pool.query(
+            `
+            SELECT
+                account_id,
+                user_id,
+                platform,
+                username
+            FROM social_accounts
+            WHERE account_id = $1
+            `,
+            [updatedAccountId]
+        );
+
+        if (accountResult.rows.length === 0) {
+            return res.status(404).json({
+                message: "Social account not found"
+            });
+        }
+
+        const account = accountResult.rows[0];
+
+
+        // -------------------------------------------------
+        // Make sure campaign and account belong
+        // to the same user
+        // -------------------------------------------------
+        if (campaign.user_id !== account.user_id) {
+            return res.status(403).json({
+                message:
+                    "Campaign and social account belong to different users"
+            });
+        }
+
+
+        // -------------------------------------------------
+        // Check logged-in user if JWT exists
+        // -------------------------------------------------
+        if (req.user && req.user.user_id) {
+            const loggedInUserId = Number(req.user.user_id);
+
+            if (campaign.user_id !== loggedInUserId) {
+                return res.status(403).json({
+                    message:
+                        "You cannot update another user's post"
                 });
             }
 
-            const accountCheck = await pool.query(
-                `
-                SELECT account_id
-                FROM social_accounts
-                WHERE account_id = $1
-                `,
-                [accountId]
-            );
-
-            if (accountCheck.rows.length === 0) {
-                return res.status(400).json({
-                    error: "Social account not found"
+            if (account.user_id !== loggedInUserId) {
+                return res.status(403).json({
+                    message:
+                        "You cannot use another user's social account"
                 });
             }
         }
 
 
-        /* Update */
-
+        // -------------------------------------------------
+        // Update post
+        // -------------------------------------------------
         const result = await pool.query(
             `
             UPDATE posts
             SET
-                campaign_id = COALESCE($1, campaign_id),
-                account_id = COALESCE($2, account_id),
-                content = COALESCE($3, content),
-                media_url = COALESCE($4, media_url),
-                status = COALESCE($5, status)
-            WHERE post_id = $6
-            RETURNING *
+                campaign_id = $1,
+                account_id = $2,
+                content = $3,
+                media_url = $4,
+                scheduled_time = $5,
+                status = $6
+
+            WHERE post_id = $7
+
+            RETURNING
+                post_id,
+                campaign_id,
+                account_id,
+                content,
+                media_url,
+                scheduled_time,
+                status,
+                created_at
             `,
             [
-                campaign_id !== undefined ? campaign_id : null,
-                account_id !== undefined ? account_id : null,
-                content !== undefined ? content.trim() : null,
-                media_url !== undefined ? media_url : null,
-                status !== undefined ? status : null,
+                updatedCampaignId,
+                updatedAccountId,
+                updatedContent.trim(),
+                updatedMediaUrl || null,
+                updatedScheduledTime || null,
+                updatedStatus,
                 postId
             ]
         );
 
+
         res.json({
             message: "Post updated successfully",
-            post: result.rows[0]
+
+            post: {
+                ...result.rows[0],
+                campaign_name: campaign.campaign_name,
+                platform: account.platform,
+                username: account.username
+            }
         });
 
     } catch (error) {
-        console.error("UPDATE POST ERROR:", error.message);
+        console.error("PUT /api/posts/:id error:", error);
 
         res.status(500).json({
-            error: "Failed to update post",
-            details: error.message
+            message: "Failed to update post",
+            error: error.message
         });
     }
 });
 
 
-/* =====================================================
-   DELETE POST
-   =====================================================
-
-   IMPORTANT:
-
-   publishing_logs references publishing_queue.
-
-   Therefore deletion order must be:
-
-   publishing_logs
-        ↓
-   recurring_posts
-        ↓
-   scheduled_posts
-        ↓
-   publishing_queue
-        ↓
-   posts
-   ===================================================== */
-
-router.delete("/:id", authenticateToken, async (req, res) => {
-
-    const postId = Number(req.params.id);
-
-    if (!Number.isInteger(postId) || postId <= 0) {
-        return res.status(400).json({
-            error: "Invalid post ID"
-        });
-    }
-
-    const client = await pool.connect();
-
+// =====================================================
+// DELETE POST
+// DELETE /api/posts/:id
+// =====================================================
+router.delete("/:id", async (req, res) => {
     try {
+        const postId = Number(req.params.id);
 
-        await client.query("BEGIN");
-
-
-        /* Check post */
-
-        const postCheck = await client.query(
-            `
-            SELECT post_id
-            FROM posts
-            WHERE post_id = $1
-            `,
-            [postId]
-        );
-
-        if (postCheck.rows.length === 0) {
-
-            await client.query("ROLLBACK");
-
-            return res.status(404).json({
-                error: "Post not found"
+        if (!Number.isInteger(postId) || postId <= 0) {
+            return res.status(400).json({
+                message: "Invalid post ID"
             });
         }
 
 
-        /* Delete publishing logs first */
-
-        await client.query(
+        // -------------------------------------------------
+        // Check post exists and get owner
+        // -------------------------------------------------
+        const postResult = await pool.query(
             `
-            DELETE FROM publishing_logs
-            WHERE post_id = $1
+            SELECT
+                p.post_id,
+                c.user_id
+            FROM posts p
+
+            LEFT JOIN campaigns c
+                ON p.campaign_id = c.campaign_id
+
+            WHERE p.post_id = $1
             `,
             [postId]
         );
 
-
-        /* Delete recurring posts */
-
-        await client.query(
-            `
-            DELETE FROM recurring_posts
-            WHERE post_id = $1
-            `,
-            [postId]
-        );
+        if (postResult.rows.length === 0) {
+            return res.status(404).json({
+                message: "Post not found"
+            });
+        }
 
 
-        /* Delete scheduled posts */
+        // -------------------------------------------------
+        // Check logged-in user
+        // -------------------------------------------------
+        if (req.user && req.user.user_id) {
+            const loggedInUserId = Number(req.user.user_id);
+            const postOwnerId = Number(postResult.rows[0].user_id);
 
-        await client.query(
-            `
-            DELETE FROM scheduled_posts
-            WHERE post_id = $1
-            `,
-            [postId]
-        );
-
-
-        /* Delete publishing queue */
-
-        await client.query(
-            `
-            DELETE FROM publishing_queue
-            WHERE post_id = $1
-            `,
-            [postId]
-        );
+            if (postOwnerId !== loggedInUserId) {
+                return res.status(403).json({
+                    message:
+                        "You cannot delete another user's post"
+                });
+            }
+        }
 
 
-        /* Finally delete post */
-
-        await client.query(
+        // -------------------------------------------------
+        // Delete post
+        // -------------------------------------------------
+        const result = await pool.query(
             `
             DELETE FROM posts
             WHERE post_id = $1
+            RETURNING post_id
             `,
             [postId]
         );
 
-
-        await client.query("COMMIT");
 
         res.json({
-            message: "Post deleted successfully"
+            message: "Post deleted successfully",
+            post_id: result.rows[0].post_id
         });
 
     } catch (error) {
+        console.error("DELETE /api/posts/:id error:", error);
 
-        await client.query("ROLLBACK");
 
-        console.error("DELETE POST ERROR:", error.message);
-
-        res.status(500).json({
-            error: "Failed to delete post",
-            details: error.message
-        });
-
-    } finally {
-        client.release();
-    }
-});
-
-
-/* =====================================================
-   SAVE AS DRAFT
-   ===================================================== */
-
-router.post("/:id/draft", authenticateToken, async (req, res) => {
-
-    const postId = Number(req.params.id);
-
-    if (!Number.isInteger(postId) || postId <= 0) {
-        return res.status(400).json({
-            error: "Invalid post ID"
-        });
-    }
-
-    try {
-
-        const postCheck = await pool.query(
-            `
-            SELECT post_id
-            FROM posts
-            WHERE post_id = $1
-            `,
-            [postId]
-        );
-
-        if (postCheck.rows.length === 0) {
-            return res.status(404).json({
-                error: "Post not found"
-            });
-        }
-
-
-        /* Cancel pending queue entries */
-
-        await pool.query(
-            `
-            DELETE FROM publishing_logs
-            WHERE queue_id IN
-            (
-                SELECT queue_id
-                FROM publishing_queue
-                WHERE post_id = $1
-                  AND status IN ('pending', 'failed')
-            )
-            `,
-            [postId]
-        );
-
-        await pool.query(
-            `
-            DELETE FROM publishing_queue
-            WHERE post_id = $1
-              AND status IN ('pending', 'failed')
-            `,
-            [postId]
-        );
-
-
-        /* Update scheduled post */
-
-        await pool.query(
-            `
-            UPDATE scheduled_posts
-            SET status = 'cancelled'
-            WHERE post_id = $1
-              AND status = 'pending'
-            `,
-            [postId]
-        );
-
-
-        /* Update post */
-
-        const result = await pool.query(
-            `
-            UPDATE posts
-            SET status = 'draft'
-            WHERE post_id = $1
-            RETURNING *
-            `,
-            [postId]
-        );
-
-        res.json({
-            message: "Post saved as draft",
-            post: result.rows[0]
-        });
-
-    } catch (error) {
-
-        console.error("DRAFT POST ERROR:", error.message);
-
-        res.status(500).json({
-            error: "Failed to save post as draft",
-            details: error.message
-        });
-    }
-});
-
-
-/* =====================================================
-   SCHEDULE POST
-   ===================================================== */
-
-router.post("/:id/schedule", authenticateToken, async (req, res) => {
-
-    const postId = Number(req.params.id);
-
-    const {
-        scheduled_at,
-        priority
-    } = req.body;
-
-    if (!Number.isInteger(postId) || postId <= 0) {
-        return res.status(400).json({
-            error: "Invalid post ID"
-        });
-    }
-
-    if (!scheduled_at) {
-        return res.status(400).json({
-            error: "scheduled_at is required"
-        });
-    }
-
-
-    const scheduledDate = new Date(scheduled_at);
-
-    if (Number.isNaN(scheduledDate.getTime())) {
-        return res.status(400).json({
-            error: "Invalid scheduled_at date"
-        });
-    }
-
-    const client = await pool.connect();
-
-    try {
-
-        await client.query("BEGIN");
-
-
-        /* Get post and social account */
-
-        const postResult = await client.query(
-            `
-            SELECT
-                p.post_id,
-                p.account_id,
-                p.content,
-                p.status,
-                sa.platform,
-                sa.username
-
-            FROM posts p
-
-            LEFT JOIN social_accounts sa
-                ON p.account_id = sa.account_id
-
-            WHERE p.post_id = $1
-            `,
-            [postId]
-        );
-
-        if (postResult.rows.length === 0) {
-
-            await client.query("ROLLBACK");
-
-            return res.status(404).json({
-                error: "Post not found"
-            });
-        }
-
-        const post = postResult.rows[0];
-
-
-        if (!post.account_id) {
-
-            await client.query("ROLLBACK");
-
-            return res.status(400).json({
-                error: "No social media account is assigned to this post"
-            });
-        }
-
-
-        if (!post.platform) {
-
-            await client.query("ROLLBACK");
-
-            return res.status(400).json({
-                error: "Social media platform not found for this post"
-            });
-        }
-
-
-        /* Prevent scheduling in the past */
-
-        if (scheduledDate.getTime() <= Date.now()) {
-
-            await client.query("ROLLBACK");
-
-            return res.status(400).json({
-                error: "Scheduled time must be in the future"
-            });
-        }
-
-
-        const queuePriority =
-            priority !== undefined
-                ? Number(priority)
-                : 1;
-
-        if (
-            !Number.isInteger(queuePriority) ||
-            queuePriority < 1
-        ) {
-
-            await client.query("ROLLBACK");
-
-            return res.status(400).json({
-                error: "Priority must be a positive integer"
-            });
-        }
-
-
-        /* =================================================
-           CHECK DUPLICATE SCHEDULE
-           ================================================= */
-
-        const duplicate = await client.query(
-            `
-            SELECT
-                sp.schedule_id
-            FROM scheduled_posts sp
-            WHERE sp.post_id = $1
-              AND sp.scheduled_at = $2
-              AND sp.status = 'pending'
-            `,
-            [postId, scheduled_at]
-        );
-
-        if (duplicate.rows.length > 0) {
-
-            await client.query("ROLLBACK");
-
+        // -------------------------------------------------
+        // Foreign key dependency
+        // -------------------------------------------------
+        if (error.code === "23503") {
             return res.status(409).json({
-                error: "This post is already scheduled for this time"
+                message:
+                    "Cannot delete this post because it is used by scheduled posts, publishing queue, recurring posts, or publishing logs.",
+                error: error.detail
             });
         }
 
-
-        /* =================================================
-           CREATE SCHEDULED POST
-           ================================================= */
-
-        const scheduledResult = await client.query(
-            `
-            INSERT INTO scheduled_posts
-            (
-                post_id,
-                scheduled_at,
-                status
-            )
-            VALUES
-            (
-                $1,
-                $2,
-                'pending'
-            )
-            RETURNING *
-            `,
-            [
-                postId,
-                scheduled_at
-            ]
-        );
-
-
-        /* =================================================
-           CREATE PUBLISHING QUEUE ITEM
-           ================================================= */
-
-        const queueResult = await client.query(
-            `
-            INSERT INTO publishing_queue
-            (
-                post_id,
-                platform,
-                scheduled_time,
-                status,
-                priority,
-                retry_count
-            )
-            VALUES
-            (
-                $1,
-                $2,
-                $3,
-                'pending',
-                $4,
-                0
-            )
-            RETURNING *
-            `,
-            [
-                postId,
-                post.platform,
-                scheduled_at,
-                queuePriority
-            ]
-        );
-
-
-        /* =================================================
-           UPDATE POST STATUS
-           ================================================= */
-
-        const updatedPost = await client.query(
-            `
-            UPDATE posts
-            SET status = 'scheduled'
-            WHERE post_id = $1
-            RETURNING *
-            `,
-            [postId]
-        );
-
-
-        await client.query("COMMIT");
-
-
-        res.status(201).json({
-            message: "Post scheduled successfully",
-
-            post: updatedPost.rows[0],
-
-            scheduled_post: scheduledResult.rows[0],
-
-            queue: queueResult.rows[0]
-        });
-
-    } catch (error) {
-
-        await client.query("ROLLBACK");
-
-        console.error("SCHEDULE POST ERROR:", error.message);
 
         res.status(500).json({
-            error: "Failed to schedule post",
-            details: error.message
+            message: "Failed to delete post",
+            error: error.message
         });
-
-    } finally {
-        client.release();
-    }
-});
-
-
-/* =====================================================
-   PUBLISH NOW
-   =====================================================
-
-   IMPORTANT:
-
-   We DO NOT directly mark the post as published.
-
-   Instead:
-
-   Publish button
-        ↓
-   queue item with CURRENT_TIMESTAMP
-        ↓
-   queueProcessor.js
-        ↓
-   simulated publishing
-        ↓
-   publishing_logs
-        ↓
-   post = published
-   ===================================================== */
-
-router.post("/:id/publish", authenticateToken, async (req, res) => {
-
-    const postId = Number(req.params.id);
-
-    if (!Number.isInteger(postId) || postId <= 0) {
-        return res.status(400).json({
-            error: "Invalid post ID"
-        });
-    }
-
-    const client = await pool.connect();
-
-    try {
-
-        await client.query("BEGIN");
-
-
-        /* Get post */
-
-        const postResult = await client.query(
-            `
-            SELECT
-                p.post_id,
-                p.account_id,
-                p.content,
-                p.status,
-                sa.platform,
-                sa.username,
-                sa.access_token
-
-            FROM posts p
-
-            LEFT JOIN social_accounts sa
-                ON p.account_id = sa.account_id
-
-            WHERE p.post_id = $1
-            `,
-            [postId]
-        );
-
-
-        if (postResult.rows.length === 0) {
-
-            await client.query("ROLLBACK");
-
-            return res.status(404).json({
-                error: "Post not found"
-            });
-        }
-
-        const post = postResult.rows[0];
-
-
-        if (!post.account_id) {
-
-            await client.query("ROLLBACK");
-
-            return res.status(400).json({
-                error: "No social media account is assigned to this post"
-            });
-        }
-
-
-        if (!post.platform) {
-
-            await client.query("ROLLBACK");
-
-            return res.status(400).json({
-                error: "Social media platform is missing"
-            });
-        }
-
-
-        if (!post.access_token) {
-
-            await client.query("ROLLBACK");
-
-            return res.status(400).json({
-                error: `No access token configured for ${post.platform}`
-            });
-        }
-
-
-        /* Check whether already queued */
-
-        const existingQueue = await client.query(
-            `
-            SELECT queue_id
-            FROM publishing_queue
-            WHERE post_id = $1
-              AND status IN ('pending', 'processing')
-            LIMIT 1
-            `,
-            [postId]
-        );
-
-        if (existingQueue.rows.length > 0) {
-
-            await client.query("ROLLBACK");
-
-            return res.status(409).json({
-                error: "Post is already waiting for publishing",
-                queue_id: existingQueue.rows[0].queue_id
-            });
-        }
-
-
-        /* =================================================
-           CREATE IMMEDIATE QUEUE ITEM
-           ================================================= */
-
-        const queueResult = await client.query(
-            `
-            INSERT INTO publishing_queue
-            (
-                post_id,
-                platform,
-                scheduled_time,
-                status,
-                priority,
-                retry_count
-            )
-            VALUES
-            (
-                $1,
-                $2,
-                CURRENT_TIMESTAMP,
-                'pending',
-                10,
-                0
-            )
-            RETURNING *
-            `,
-            [
-                postId,
-                post.platform
-            ]
-        );
-
-
-        /* Update post status */
-
-        const updatedPost = await client.query(
-            `
-            UPDATE posts
-            SET status = 'scheduled'
-            WHERE post_id = $1
-            RETURNING *
-            `,
-            [postId]
-        );
-
-
-        await client.query("COMMIT");
-
-
-        res.status(201).json({
-            message: "Post added to publishing queue",
-
-            post: updatedPost.rows[0],
-
-            queue: queueResult.rows[0],
-
-            note: "The publishing queue processor will publish this post automatically."
-        });
-
-    } catch (error) {
-
-        await client.query("ROLLBACK");
-
-        console.error("PUBLISH POST ERROR:", error.message);
-
-        res.status(500).json({
-            error: "Failed to add post to publishing queue",
-            details: error.message
-        });
-
-    } finally {
-        client.release();
     }
 });
 
