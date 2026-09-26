@@ -98,8 +98,6 @@ class User(Base):
         default=datetime.utcnow
     )
 
-    # IMPORTANT:
-    # Your PostgreSQL users table has this column as NOT NULL.
     updated_at = Column(
         DateTime,
         nullable=False,
@@ -137,6 +135,12 @@ class User(Base):
 
     posts = relationship(
         "Post",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+
+    campaigns = relationship(
+        "Campaign",
         back_populates="user",
         cascade="all, delete-orphan"
     )
@@ -531,6 +535,20 @@ class Post(Base):
         nullable=True
     )
 
+    # --------------------------------------------------------
+    # Milestone 3
+    # --------------------------------------------------------
+
+    campaign_id = Column(
+        Integer,
+        ForeignKey(
+            "campaigns.id",
+            ondelete="SET NULL"
+        ),
+        nullable=True,
+        index=True
+    )
+
     created_at = Column(
         DateTime,
         default=datetime.utcnow
@@ -545,4 +563,222 @@ class Post(Base):
     user = relationship(
         "User",
         back_populates="posts"
+    )
+
+    campaign = relationship(
+        "Campaign",
+        back_populates="posts"
+    )
+
+
+# ============================================================
+# CAMPAIGN
+# ============================================================
+
+class Campaign(Base):
+    __tablename__ = "campaigns"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE"
+        ),
+        nullable=False,
+        index=True
+    )
+
+    name = Column(
+        String(150),
+        nullable=False
+    )
+
+    description = Column(
+        Text,
+        nullable=True
+    )
+
+    platform = Column(
+        String(100),
+        nullable=False
+    )
+
+    status = Column(
+        String(30),
+        nullable=False,
+        default="draft"
+    )
+
+    start_date = Column(
+        DateTime,
+        nullable=True
+    )
+
+    end_date = Column(
+        DateTime,
+        nullable=True
+    )
+
+    budget = Column(
+        Float,
+        nullable=True
+    )
+
+    spent = Column(
+        Float,
+        nullable=True
+    )
+
+    currency = Column(
+        String(10),
+        nullable=True
+    )
+
+    objectives = Column(
+        String(255),
+        nullable=True
+    )
+
+    target_audience = Column(
+        String(255),
+        nullable=True
+    )
+
+    target_reach = Column(
+        Integer,
+        nullable=True
+    )
+
+    target_engagement = Column(
+        Float,
+        nullable=True
+    )
+
+    target_clicks = Column(
+        Integer,
+        nullable=True
+    )
+
+    actual_reach = Column(
+        Integer,
+        nullable=True
+    )
+
+    actual_engagement = Column(
+        Float,
+        nullable=True
+    )
+
+    actual_clicks = Column(
+        Integer,
+        nullable=True
+    )
+
+    roi = Column(
+        Float,
+        nullable=True
+    )
+
+    color = Column(
+        String(30),
+        nullable=True
+    )
+
+    tags = Column(
+        String(255),
+        nullable=True
+    )
+
+    metadata_json = Column(
+        JSON,
+        nullable=True
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    user = relationship(
+        "User",
+        back_populates="campaigns"
+    )
+
+    posts = relationship(
+        "Post",
+        back_populates="campaign"
+    )
+
+    performance_history = relationship(
+        "CampaignPerformanceHistory",
+        back_populates="campaign",
+        cascade="all, delete-orphan"
+    )
+
+
+# ============================================================
+# CAMPAIGN PERFORMANCE HISTORY
+# ============================================================
+
+class CampaignPerformanceHistory(Base):
+    __tablename__ = "campaign_performance_history"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    campaign_id = Column(
+        Integer,
+        ForeignKey(
+            "campaigns.id",
+            ondelete="CASCADE"
+        ),
+        nullable=False,
+        index=True
+    )
+
+    recorded_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+        index=True
+    )
+
+    reach = Column(
+        Integer,
+        nullable=True
+    )
+
+    engagement = Column(
+        Float,
+        nullable=True
+    )
+
+    clicks = Column(
+        Integer,
+        nullable=True
+    )
+
+    roi = Column(
+        Float,
+        nullable=True
+    )
+
+    campaign = relationship(
+        "Campaign",
+        back_populates="performance_history"
     )

@@ -47,6 +47,7 @@ from linkedin_publisher import (
     publish_linkedin_text_post
 )
 
+
 from mongo import mongo_db
 
 from email_service import (
@@ -56,7 +57,7 @@ from email_service import (
 from oauth_linkedin import (
     router as linkedin_router
 )
-
+from routes.campaigns import router as campaigns_router
 
 # ============================================================
 # CREATE FASTAPI APP
@@ -83,7 +84,9 @@ app = FastAPI(
 app.include_router(
     linkedin_router
 )
-
+app.include_router(
+    campaigns_router
+)
 
 # ============================================================
 # CORS
