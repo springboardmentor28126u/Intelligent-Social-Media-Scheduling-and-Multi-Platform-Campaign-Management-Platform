@@ -186,7 +186,7 @@ const DashboardPage = () => {
 
           <button
             className="nav-item"
-            onClick={() => alert("Campaigns page coming soon")}
+            onClick={() => navigate("/campaigns")}
           >
             <span>📢</span>
             Campaigns
@@ -194,11 +194,11 @@ const DashboardPage = () => {
 
           <button
             className="nav-item"
-            onClick={() => alert("Analytics page coming soon")}
+            onClick={() => navigate("/analytics")}
           >
-            <span>📈</span>
+            <span>📊</span>
             Analytics
-          </button>
+</button>
 
           <button
             className="nav-item"
