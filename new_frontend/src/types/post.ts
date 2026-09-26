@@ -15,6 +15,7 @@ export interface PostOut {
   title?: string | null;
   content: string;
   media_urls?: string[] | null;
+  post_as_short?: boolean;
   scheduled_time?: string | null;
   status: string;
   created_at: string;
@@ -22,6 +23,7 @@ export interface PostOut {
   recurrence_pattern?: 'daily' | 'weekly' | 'monthly' | null;
   recurrence_end_date?: string | null;
   platform_posts: PostPlatformOut[];
+  campaign_id?: number | null;
 }
 
 export interface PublishLogOut {

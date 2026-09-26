@@ -21,6 +21,7 @@ import {
   Trash2,
   Film,
   Check,
+  FolderKanban,
 } from 'lucide-react';
 import PageHeader from '@/components/common/PageHeader';
 import Card from '@/components/common/Card';
@@ -36,6 +37,8 @@ import {
   toLocalISOStringWithOffset,
   toEndDateISOWithOffset,
 } from '@/types/post';
+import type { CampaignOut } from '@/types/campaign';
+import { getCampaigns } from '@/services/campaigns';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -45,6 +48,13 @@ function formatBytes(bytes?: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+type UploadedMediaType = 'image' | 'video';
+
+function getMediaTypeFromUrl(url?: string): UploadedMediaType {
+  const extension = url?.split('?')[0].split('.').pop()?.toLowerCase();
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension || '') ? 'image' : 'video';
 }
 
 interface SocialAccountData {
@@ -59,7 +69,9 @@ export default function CreatePost() {
   const location = useLocation();
   const token = localStorage.getItem('token');
 
-  const locationState = location.state as { editPost?: PostOut; initialVideoUrl?: string } | undefined;
+  const locationState = location.state as
+    | { editPost?: PostOut; initialVideoUrl?: string; initialCampaignId?: number }
+    | undefined;
   const editPost = locationState?.editPost;
   const isEditMode = Boolean(editPost);
 
@@ -71,6 +83,19 @@ export default function CreatePost() {
 
   const [accounts, setAccounts] = useState<SocialAccountData[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
+
+  // Campaigns list and selected campaign state
+  const [campaigns, setCampaigns] = useState<CampaignOut[]>([]);
+  const [loadingCampaigns, setLoadingCampaigns] = useState(true);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<number | ''>(() => {
+    if (editPost?.campaign_id !== undefined && editPost.campaign_id !== null) {
+      return editPost.campaign_id;
+    }
+    if (locationState?.initialCampaignId) {
+      return locationState.initialCampaignId;
+    }
+    return '';
+  });
 
   // Intent / Action selection: 'draft' | 'schedule' | 'publish_now'
   const [action, setAction] = useState<PostAction>(() => {
@@ -91,22 +116,33 @@ export default function CreatePost() {
   const [content, setContent] = useState(editPost?.content || '');
   const [title, setTitle] = useState(editPost?.title || '');
   const [videoUrl, setVideoUrl] = useState(editPost?.media_urls?.[0] || locationState?.initialVideoUrl || '');
-  const [uploadedVideoMeta, setUploadedVideoMeta] = useState<{ filename: string; size_bytes?: number } | null>(null);
+  const [uploadedMediaType, setUploadedMediaType] = useState<UploadedMediaType | null>(() =>
+    videoUrl ? getMediaTypeFromUrl(videoUrl) : null
+  );
+  const [uploadedVideoMeta, setUploadedVideoMeta] = useState<{
+    filename: string;
+    size_bytes?: number;
+    media_type: UploadedMediaType;
+  } | null>(null);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [postAsShort, setPostAsShort] = useState(Boolean(editPost?.post_as_short));
+  const [shortsError, setShortsError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (file: File) => {
     if (!token) {
-      setUploadError('You must be logged in to upload video files.');
+      setUploadError('You must be logged in to upload media files.');
       return;
     }
 
-    const allowedExts = ['.mp4', '.mov', '.avi', '.webm'];
+    const allowedExts = ['.mp4', '.mov', '.avi', '.webm', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     if (!allowedExts.includes(ext)) {
-      setUploadError(`Unsupported file type "${ext}". Allowed types: .mp4, .mov, .avi, .webm`);
+      setUploadError(
+        `Unsupported file type "${ext}". Allowed types: .mp4, .mov, .avi, .webm, .jpg, .jpeg, .png, .gif, .webp`
+      );
       return;
     }
 
@@ -133,18 +169,20 @@ export default function CreatePost() {
       const data = await response.json();
 
       if (!response.ok) {
-        setUploadError(data.detail || 'Failed to upload video.');
+        setUploadError(data.detail || 'Failed to upload media.');
         return;
       }
 
       setVideoUrl(data.url);
+      setUploadedMediaType(data.media_type);
       setUploadedVideoMeta({
         filename: file.name,
         size_bytes: data.size_bytes || file.size,
+        media_type: data.media_type,
       });
     } catch (err: any) {
-      console.error('Error uploading video:', err);
-      setUploadError(err.message || 'An error occurred during video upload.');
+      console.error('Error uploading media:', err);
+      setUploadError(err.message || 'An error occurred during media upload.');
     } finally {
       setUploadingVideo(false);
     }
@@ -178,7 +216,10 @@ export default function CreatePost() {
 
   const handleRemoveVideo = () => {
     setVideoUrl('');
+    setUploadedMediaType(null);
     setUploadedVideoMeta(null);
+    setPostAsShort(false);
+    setShortsError(null);
     setUploadError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -262,6 +303,25 @@ export default function CreatePost() {
     fetchAccounts();
   }, [token, editPost]);
 
+  useEffect(() => {
+    const fetchCampaignList = async () => {
+      if (!token) {
+        setLoadingCampaigns(false);
+        return;
+      }
+      try {
+        const data = await getCampaigns();
+        setCampaigns(data);
+      } catch (err) {
+        console.error('Failed to load campaigns:', err);
+      } finally {
+        setLoadingCampaigns(false);
+      }
+    };
+
+    fetchCampaignList();
+  }, [token]);
+
   const toggleAccount = (id: number) => {
     setSelectedAccountIds((prev) =>
       prev.includes(id) ? prev.filter((accId) => accId !== id) : [...prev, id]
@@ -272,9 +332,12 @@ export default function CreatePost() {
   const hasYouTube = selectedAccounts.some((a) =>
     a.platform.toLowerCase().includes('youtube')
   );
+  const attachedMediaIsVideo = videoUrl.trim() !== '' && (uploadedMediaType === 'video' || getMediaTypeFromUrl(videoUrl) === 'video');
+  const canPostAsShort = hasYouTube && attachedMediaIsVideo;
 
   const handleSubmit = async (overrideAction?: PostAction) => {
     setError(null);
+    setShortsError(null);
     const effectiveAction = overrideAction || action;
 
     if (!isStatusEditable) {
@@ -355,12 +418,14 @@ export default function CreatePost() {
         title: hasYouTube && title.trim() ? title.trim() : null,
         content: content.trim(),
         media_urls: videoUrl.trim() ? [videoUrl.trim()] : null,
+        post_as_short: canPostAsShort && postAsShort,
         scheduled_time,
         social_account_ids: selectedAccountIds,
         action: effectiveAction,
         is_recurring: postIsRecurring,
         recurrence_pattern: postRecurrencePattern,
         recurrence_end_date: postRecurrenceEndDate,
+        campaign_id: selectedCampaignId !== '' ? Number(selectedCampaignId) : null,
       };
 
       const url = isEditMode ? `${API_BASE}/posts/${editPost!.id}` : `${API_BASE}/posts/`;
@@ -378,7 +443,11 @@ export default function CreatePost() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.detail || `Failed to ${isEditMode ? 'update' : 'create'} post. Please try again.`);
+        const detail = data.detail || `Failed to ${isEditMode ? 'update' : 'create'} post. Please try again.`;
+        if (typeof detail === 'string' && detail.toLowerCase().includes('not eligible for youtube shorts')) {
+          setShortsError(detail);
+        }
+        setError(detail);
         return;
       }
 
@@ -643,16 +712,16 @@ export default function CreatePost() {
             </Card>
           )}
 
-          {/* Video Attachment for all selected platforms (LinkedIn, YouTube, etc.) */}
+          {/* Media Attachment for all selected platforms (LinkedIn, YouTube, etc.) */}
           {selectedAccountIds.length > 0 && (
             <Card className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <Film className="h-5 w-5 text-ink-700" />
                   <div>
-                    <h3 className="text-base font-semibold text-ink-900">Attach video (optional)</h3>
+                    <h3 className="text-base font-semibold text-ink-900">Attach photo or video (optional)</h3>
                     <p className="text-xs text-ink-400">
-                      Upload an MP4, MOV, AVI, or WebM video to publish on your selected accounts.
+                      Upload an image or video to publish on your selected accounts.
                     </p>
                   </div>
                 </div>
@@ -675,7 +744,7 @@ export default function CreatePost() {
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileInputChange}
-                accept="video/mp4,video/quicktime,video/x-msvideo,video/webm,.mp4,.mov,.avi,.webm"
+                accept="video/mp4,video/quicktime,video/x-msvideo,video/webm,image/jpeg,image/png,image/gif,image/webp"
                 className="hidden"
                 disabled={!isStatusEditable || uploadingVideo}
               />
@@ -697,8 +766,8 @@ export default function CreatePost() {
                           <Film className="h-6 w-6" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-ink-900 truncate">
-                            {uploadedVideoMeta?.filename || videoUrl.split('/').pop() || 'Uploaded video'}
+                              <p className="text-sm font-semibold text-ink-900 truncate">
+                                {uploadedVideoMeta?.filename || videoUrl.split('/').pop() || 'Uploaded media'}
                           </p>
                           <p className="text-xs text-ink-400">
                             {uploadedVideoMeta?.size_bytes ? formatBytes(uploadedVideoMeta.size_bytes) + ' • ' : ''}
@@ -730,15 +799,60 @@ export default function CreatePost() {
                       </div>
                     </div>
 
-                    {/* Video preview player */}
-                    <div className="mt-3 overflow-hidden rounded-lg border border-ink-200 bg-black">
-                      <video
-                        src={videoUrl}
-                        controls
-                        className="max-h-56 w-full object-contain"
-                        preload="metadata"
-                      />
-                    </div>
+                    {uploadedMediaType === 'image' ? (
+                      <div className="mt-3 overflow-hidden rounded-lg border border-ink-200 bg-white">
+                        <img src={videoUrl} alt="Uploaded media preview" className="max-h-56 w-full object-contain" />
+                      </div>
+                    ) : (
+                      <div className="mt-3 overflow-hidden rounded-lg border border-ink-200 bg-black">
+                        <video
+                          src={videoUrl}
+                          controls
+                          className="max-h-56 w-full object-contain"
+                          preload="metadata"
+                        />
+                      </div>
+                    )}
+
+                    {hasYouTube && uploadedMediaType === 'image' && (
+                      <div className="mt-3 flex items-start gap-2 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-xs text-warning-800">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning-600" />
+                        <span>
+                          YouTube posts require a video &mdash; this image will only be used for other selected platforms.
+                        </span>
+                      </div>
+                    )}
+
+                    {hasYouTube && (
+                      <div className="mt-4 border-t border-ink-100 pt-4">
+                        <label className="flex cursor-pointer items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={postAsShort}
+                            onChange={(e) => {
+                              setPostAsShort(e.target.checked);
+                              setShortsError(null);
+                            }}
+                            disabled={!isStatusEditable || !attachedMediaIsVideo}
+                            className="mt-0.5 h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
+                          />
+                          <span>
+                            <span className="block text-sm font-semibold text-ink-900">Post as YouTube Short</span>
+                            <span className="mt-0.5 block text-xs text-ink-400">
+                              {attachedMediaIsVideo
+                                ? 'Video must be 3 minutes or shorter and vertical/square (not horizontal).'
+                                : 'Attach a video to enable YouTube Shorts.'}
+                            </span>
+                          </span>
+                        </label>
+                        {shortsError && (
+                          <div className="mt-3 flex items-start gap-2 rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-xs text-danger-700">
+                            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger-600" />
+                            <span>{shortsError}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div
@@ -757,10 +871,10 @@ export default function CreatePost() {
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-ink-800">
-                        Click to browse or drag and drop video
+                        Click to browse or drag and drop a photo or video
                       </p>
                       <p className="mt-1 text-xs text-ink-400">
-                        MP4, MOV, AVI, WebM (up to 200MB)
+                        MP4, MOV, AVI, WebM, JPG, PNG, GIF, WebP (up to 200MB)
                       </p>
                     </div>
                   </div>
@@ -792,6 +906,49 @@ export default function CreatePost() {
             <div className="mt-2 flex items-center justify-between text-xs text-ink-400">
               <span>{content.length} characters</span>
               <span>Required for all post types</span>
+            </div>
+          </Card>
+
+          {/* Campaign Selection (Optional) */}
+          <Card className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <FolderKanban className="h-5 w-5 text-brand-600" />
+                <div>
+                  <h3 className="text-base font-semibold text-ink-900">Campaign</h3>
+                  <p className="text-xs text-ink-400">
+                    Optionally assign this post to a campaign for organized tracking.
+                  </p>
+                </div>
+              </div>
+              <Badge variant="neutral" size="sm">Optional</Badge>
+            </div>
+
+            <div className="mt-4">
+              <select
+                disabled={!isStatusEditable || loadingCampaigns}
+                value={selectedCampaignId}
+                onChange={(e) =>
+                  setSelectedCampaignId(e.target.value === '' ? '' : Number(e.target.value))
+                }
+                className="w-full rounded-xl border border-ink-100 bg-ink-50/30 px-3.5 py-2.5 text-sm text-ink-800 transition-all focus:border-brand-300 focus:bg-white focus:ring-2 focus:ring-brand-500/10 focus:outline-none disabled:bg-ink-50 disabled:text-ink-400"
+              >
+                <option value="">None (General / Unassigned)</option>
+                {campaigns.map((camp) => (
+                  <option key={camp.id} value={camp.id}>
+                    {camp.name} ({camp.status})
+                  </option>
+                ))}
+              </select>
+
+              {selectedCampaignId !== '' && (
+                <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-brand-50/60 p-3 text-xs text-brand-800 border border-brand-100">
+                  <Sparkles className="h-4 w-4 text-brand-600 shrink-0" />
+                  <span>
+                    Post will be assigned to <strong>"{campaigns.find((c) => c.id === Number(selectedCampaignId))?.name || `Campaign #${selectedCampaignId}`}"</strong>.
+                  </span>
+                </div>
+              )}
             </div>
           </Card>
 

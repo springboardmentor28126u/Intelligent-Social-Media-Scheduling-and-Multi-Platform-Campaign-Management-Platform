@@ -3,6 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 from auth import get_current_user
+from config import MEDIA_DIR
+from video_utils import validate_youtube_short
 import models, schemas
 
 router = APIRouter(prefix="/posts", tags=["posts"])
@@ -18,6 +20,19 @@ def _validate_accounts(db, current_user, social_account_ids):
     if len(accounts) != len(social_account_ids):
         raise HTTPException(status_code=400, detail="One or more social accounts not found or not yours")
     return accounts
+
+
+def _check_short_eligibility(post_as_short, media_urls, accounts):
+    if not post_as_short:
+        return
+    targets_youtube = any(a.platform.lower() == "youtube" for a in accounts)
+    if not targets_youtube:
+        return
+    if not media_urls:
+        raise HTTPException(status_code=400, detail="A video is required to post as a YouTube Short")
+    is_eligible, reason = validate_youtube_short(media_urls[0], MEDIA_DIR)
+    if not is_eligible:
+        raise HTTPException(status_code=400, detail=f"Video not eligible for YouTube Shorts: {reason}")
 
 
 @router.post("/", response_model=schemas.PostOut)
@@ -52,6 +67,9 @@ def create_post(
     else:
         raise HTTPException(status_code=400, detail=f"Invalid action '{action}'. Must be draft, schedule, or publish_now")
 
+    if action != "draft":
+        _check_short_eligibility(post_data.post_as_short, post_data.media_urls, accounts)
+
     post = models.Post(
         user_id=current_user.id,
         title=post_data.title,
@@ -62,6 +80,8 @@ def create_post(
         is_recurring=post_data.is_recurring,
         recurrence_pattern=post_data.recurrence_pattern if post_data.is_recurring else None,
         recurrence_end_date=post_data.recurrence_end_date if post_data.is_recurring else None,
+        post_as_short=post_data.post_as_short,
+        campaign_id=post_data.campaign_id,
     )
     db.add(post)
     db.flush()
@@ -160,6 +180,10 @@ def update_post(
         post.recurrence_pattern = post_data.recurrence_pattern
     if post_data.recurrence_end_date is not None:
         post.recurrence_end_date = post_data.recurrence_end_date
+    if post_data.post_as_short is not None:
+        post.post_as_short = post_data.post_as_short
+    if post_data.campaign_id is not None:
+        post.campaign_id = post_data.campaign_id
 
     if post.is_recurring and post.recurrence_pattern not in VALID_PATTERNS:
         raise HTTPException(status_code=400, detail=f"recurrence_pattern must be one of {VALID_PATTERNS}")
@@ -202,6 +226,10 @@ def update_post(
     elif action == "draft":
         post.status = "draft"
 
+    if action != "draft" and post.status != "draft":
+        current_accounts = [pp.social_account for pp in post.platform_posts]
+        _check_short_eligibility(post.post_as_short, post.media_urls, current_accounts)
+
     db.commit()
     db.refresh(post)
 
@@ -229,4 +257,3 @@ def delete_post(
     db.delete(post)
     db.commit()
     return {"message": "Post deleted"}
-

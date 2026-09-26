@@ -73,9 +73,13 @@ export default function SocialAccounts() {
   useEffect(() => {
     fetchAccounts();
 
-    // Check if redirect query parameters exist from OAuth redirect callback (e.g. ?linkedin=connected or ?youtube=connected)
+    // Check if redirect query parameters exist from OAuth redirect callback (e.g. ?linkedin=connected, ?youtube=connected, ?instagram=connected)
     const params = new URLSearchParams(window.location.search);
-    if (params.get('linkedin') === 'connected' || params.get('youtube') === 'connected') {
+    if (
+      params.get('linkedin') === 'connected' ||
+      params.get('youtube') === 'connected' ||
+      params.get('instagram') === 'connected'
+    ) {
       // Clear query params from the browser address bar
       window.history.replaceState({}, document.title, window.location.pathname);
       fetchAccounts();
@@ -115,17 +119,18 @@ export default function SocialAccounts() {
 
   const handleConnectClick = (platformKey: PlatformKey) => {
     if (!token) return;
-    if (platformKey === 'linkedin' || platformKey === 'youtube') {
+    if (platformKey === 'linkedin' || platformKey === 'youtube' || platformKey === 'instagram') {
       if (platformKey === 'linkedin') {
         window.location.href = `${API_BASE}/auth/linkedin/login?token=${token}`;
-      } else {
+      } else if (platformKey === 'youtube') {
         window.location.href = `${API_BASE}/auth/youtube/login?token=${token}`;
+      } else if (platformKey === 'instagram') {
+        window.location.href = `${API_BASE}/auth/instagram/login?token=${token}`;
       }
     } else {
       setModalPlatform(platformKey);
     }
   };
-
   const handleDisconnect = async (id: number) => {
     if (!token) return;
     setDisconnectingId(id);

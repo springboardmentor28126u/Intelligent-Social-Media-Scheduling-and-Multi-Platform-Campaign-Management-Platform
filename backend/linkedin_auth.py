@@ -1,14 +1,18 @@
 import os
+from dotenv import load_dotenv
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from database import get_db
 import models, auth
+
+load_dotenv()
 router = APIRouter()
 LINKEDIN_CLIENT_ID = os.getenv("LINKEDIN_CLIENT_ID")
 LINKEDIN_CLIENT_SECRET = os.getenv("LINKEDIN_CLIENT_SECRET")
 LINKEDIN_REDIRECT_URI = os.getenv("LINKEDIN_REDIRECT_URI")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 AUTHORIZATION_URL = "https://www.linkedin.com/oauth/v2/authorization"
 TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken"
 PROFILE_URL = "https://api.linkedin.com/v2/userinfo"
@@ -76,4 +80,4 @@ async def linkedin_callback(code: str, state: str, db: Session = Depends(get_db)
         )
         db.add(new_account)
     db.commit()
-    return RedirectResponse("http://localhost:5173/app/accounts?linkedin=connected")
+    return RedirectResponse(f"{FRONTEND_URL}/app/accounts?linkedin=connected")

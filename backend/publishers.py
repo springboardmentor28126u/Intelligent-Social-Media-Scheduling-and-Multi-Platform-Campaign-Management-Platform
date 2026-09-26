@@ -3,11 +3,18 @@ import json
 import tempfile
 import httpx
 from datetime import datetime, timedelta, timezone
+from urllib.parse import quote
+from dotenv import load_dotenv
+
+load_dotenv()
 
 LINKEDIN_POST_URL = "https://api.linkedin.com/rest/posts"
 LINKEDIN_VIDEOS_URL = "https://api.linkedin.com/rest/videos"
+LINKEDIN_IMAGES_URL = "https://api.linkedin.com/rest/images"
 LINKEDIN_API_VERSION = "202607"
+LINKEDIN_SOCIAL_ACTIONS_URL = "https://api.linkedin.com/rest/socialActions"
 DOWNLOAD_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SocialPilotBot/1.0"}
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
 
 def _linkedin_headers(access_token):
@@ -17,17 +24,72 @@ def _linkedin_headers(access_token):
         "X-Restli-Protocol-Version": "2.0.0",
         "LinkedIn-Version": LINKEDIN_API_VERSION,
     }
+def get_linkedin_post_stats(access_token: str, post_urn: str):
+    """
+    Fetches likes/comments for a LinkedIn post via the socialActions API.
+    post_urn is the external_post_id stored on PostPlatform (e.g. "urn:li:share:123...").
+    Returns (success: bool, stats_dict_or_error)
+    """
+    encoded_urn = quote(post_urn, safe="")
+    response = httpx.get(
+        f"{LINKEDIN_SOCIAL_ACTIONS_URL}/{encoded_urn}",
+        headers=_linkedin_headers(access_token),
+    )
+    if response.status_code != 200:
+        return False, f"LinkedIn API error {response.status_code}: {response.text}"
+
+    data = response.json()
+    return True, {
+        "likes": data.get("likesSummary", {}).get("totalLikes", 0),
+        "comments": data.get("commentsSummary", {}).get("totalFirstLevelComments", 0),
+    }
 
 
-def _upload_linkedin_video(access_token, person_urn, video_url):
-    with httpx.stream("GET", video_url, timeout=120, follow_redirects=True, headers=DOWNLOAD_HEADERS) as resp:
+def _download_to_temp(url, suffix):
+    with httpx.stream("GET", url, timeout=120, follow_redirects=True, headers=DOWNLOAD_HEADERS) as resp:
         if resp.status_code != 200:
-            return None, f"Failed to download video from URL: {resp.status_code}"
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+            return None, f"Failed to download media from URL: {resp.status_code}"
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
         for chunk in resp.iter_bytes(chunk_size=1024 * 1024):
             tmp.write(chunk)
         tmp.close()
-        video_path = tmp.name
+        return tmp.name, None
+
+
+def _upload_linkedin_image(access_token, person_urn, image_url):
+    ext = os.path.splitext(image_url.split("?")[0])[1].lower() or ".jpg"
+    image_path, error = _download_to_temp(image_url, ext)
+    if error:
+        return None, error
+
+    init_resp = httpx.post(
+        f"{LINKEDIN_IMAGES_URL}?action=initializeUpload",
+        headers=_linkedin_headers(access_token),
+        json={"initializeUploadRequest": {"owner": f"urn:li:person:{person_urn}"}},
+    )
+    if init_resp.status_code != 200:
+        os.remove(image_path)
+        return None, f"LinkedIn image init error {init_resp.status_code}: {init_resp.text}"
+
+    init_data = init_resp.json()["value"]
+    image_urn = init_data["image"]
+    upload_url = init_data["uploadUrl"]
+
+    with open(image_path, "rb") as f:
+        put_resp = httpx.put(upload_url, content=f.read(), timeout=120)
+
+    os.remove(image_path)
+
+    if put_resp.status_code not in (200, 201):
+        return None, f"LinkedIn image upload failed {put_resp.status_code}: {put_resp.text}"
+
+    return image_urn, None
+
+
+def _upload_linkedin_video(access_token, person_urn, video_url):
+    video_path, error = _download_to_temp(video_url, ".mp4")
+    if error:
+        return None, error
 
     file_size = os.path.getsize(video_path)
 
@@ -87,8 +149,8 @@ def _upload_linkedin_video(access_token, person_urn, video_url):
 
 def publish_linkedin(access_token: str, person_urn: str, content: str, video_url: str = None):
     """
-    Publishes a post to LinkedIn on behalf of the connected member.
-    If video_url is provided, uploads and attaches it as a video post.
+    Publishes a post to LinkedIn. If video_url points to an image file, uploads as an image;
+    if it points to a video file, uploads as a video. Detected by file extension.
     Returns (success: bool, external_post_id_or_error: str)
     """
     payload = {
@@ -105,13 +167,18 @@ def publish_linkedin(access_token: str, person_urn: str, content: str, video_url
     }
 
     if video_url:
-        video_urn, error = _upload_linkedin_video(access_token, person_urn, video_url)
+        ext = os.path.splitext(video_url.split("?")[0])[1].lower()
+        if ext in IMAGE_EXTENSIONS:
+            asset_urn, error = _upload_linkedin_image(access_token, person_urn, video_url)
+        else:
+            asset_urn, error = _upload_linkedin_video(access_token, person_urn, video_url)
+
         if error:
             return False, error
         payload["content"] = {
             "media": {
-                "id": video_urn,
-                "title": "Video",
+                "id": asset_urn,
+                "title": "Media",
             }
         }
 
@@ -128,7 +195,7 @@ YOUTUBE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 YOUTUBE_UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos"
 YOUTUBE_CLIENT_ID = os.getenv("YOUTUBE_CLIENT_ID")
 YOUTUBE_CLIENT_SECRET = os.getenv("YOUTUBE_CLIENT_SECRET")
-
+YOUTUBE_VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
 
 def refresh_youtube_token(db, social_account):
     response = httpx.post(
@@ -158,8 +225,33 @@ def get_valid_youtube_token(db, social_account):
         return refresh_youtube_token(db, social_account)
     return social_account.access_token
 
+def get_youtube_video_stats(db, social_account, video_id: str):
+    """
+    Fetches view/like/comment counts for a YouTube video.
+    Returns (success: bool, stats_dict_or_error)
+    """
+    access_token = get_valid_youtube_token(db, social_account)
 
-def publish_youtube(db, social_account, video_url: str, title: str, description: str):
+    response = httpx.get(
+        YOUTUBE_VIDEOS_URL,
+        params={"part": "statistics", "id": video_id},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    if response.status_code != 200:
+        return False, f"YouTube API error {response.status_code}: {response.text}"
+
+    items = response.json().get("items", [])
+    if not items:
+        return False, "Video not found or stats unavailable"
+
+    stats = items[0]["statistics"]
+    return True, {
+        "views": int(stats.get("viewCount", 0)),
+        "likes": int(stats.get("likeCount", 0)),
+        "comments": int(stats.get("commentCount", 0)),
+    }
+
+def publish_youtube(db, social_account, video_url: str, title: str, description: str, is_short: bool = False):
     access_token = get_valid_youtube_token(db, social_account)
 
     try:
@@ -174,9 +266,13 @@ def publish_youtube(db, social_account, video_url: str, title: str, description:
     except Exception as e:
         return False, f"Video download error: {e}"
 
+    final_title = title or "Untitled"
+    if is_short and "#Shorts" not in final_title:
+        final_title = final_title + " #Shorts"
+
     metadata = {
         "snippet": {
-            "title": title or "Untitled",
+            "title": final_title,
             "description": description or "",
             "categoryId": "22",
         },
@@ -206,3 +302,4 @@ def publish_youtube(db, social_account, video_url: str, title: str, description:
         return True, video_id
     else:
         return False, f"YouTube API error {response.status_code}: {response.text}"
+

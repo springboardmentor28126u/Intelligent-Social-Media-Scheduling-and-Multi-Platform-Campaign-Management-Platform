@@ -1,7 +1,11 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Float, DateTime, Text, JSON
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from database import Base
-from sqlalchemy import DateTime, Text, JSON
+import enum
+
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -9,12 +13,14 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     role = Column(String, default="Content Creator")
+
     social_accounts = relationship("SocialAccount", back_populates="owner")
     posts = relationship("Post", back_populates="user", cascade="all, delete-orphan")
+    campaigns = relationship("Campaign", back_populates="owner")
+
 
 class SocialAccount(Base):
     __tablename__ = "social_accounts"
-
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     platform = Column(String, nullable=False)
@@ -26,6 +32,34 @@ class SocialAccount(Base):
     status = Column(String, default="connected")
 
     owner = relationship("User", back_populates="social_accounts")
+    platform_posts = relationship("PostPlatform", back_populates="social_account")
+
+
+class CampaignStatus(str, enum.Enum):
+    draft = "draft"
+    active = "active"
+    paused = "paused"
+    completed = "completed"
+
+
+class Campaign(Base):
+    __tablename__ = "campaigns"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    goal = Column(String, nullable=True)
+    budget = Column(Float, nullable=True)
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
+    status = Column(SQLEnum(CampaignStatus), default=CampaignStatus.draft, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    owner = relationship("User", back_populates="campaigns")
+    posts = relationship("Post", back_populates="campaign")
+
+
 class Post(Base):
     __tablename__ = "posts"
     id = Column(Integer, primary_key=True, index=True)
@@ -39,10 +73,13 @@ class Post(Base):
     is_recurring = Column(Boolean, default=False)
     recurrence_pattern = Column(String, nullable=True)
     recurrence_end_date = Column(DateTime(timezone=True), nullable=True)
+    post_as_short = Column(Boolean, default=False)
+    campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=True)
 
     user = relationship("User", back_populates="posts")
     platform_posts = relationship("PostPlatform", back_populates="post", cascade="all, delete-orphan")
     logs = relationship("PublishLog", back_populates="post", cascade="all, delete-orphan")
+    campaign = relationship("Campaign", back_populates="posts")
 
 
 class PostPlatform(Base):
@@ -57,7 +94,7 @@ class PostPlatform(Base):
     error_message = Column(Text, nullable=True)
 
     post = relationship("Post", back_populates="platform_posts")
-    social_account = relationship("SocialAccount")
+    social_account = relationship("SocialAccount", back_populates="platform_posts")
 
 
 class PublishLog(Base):
@@ -70,3 +107,4 @@ class PublishLog(Base):
     created_at = Column(DateTime(timezone=True), server_default="now()")
 
     post = relationship("Post", back_populates="logs")
+    

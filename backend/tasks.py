@@ -1,4 +1,5 @@
 from datetime import datetime, timezone, timedelta
+from dateutil.relativedelta import relativedelta
 from sqlalchemy import or_
 from celery_app import celery_app
 from database import SessionLocal
@@ -22,13 +23,7 @@ def _next_occurrence(current_time, pattern):
     elif pattern == "weekly":
         return current_time + timedelta(weeks=1)
     elif pattern == "monthly":
-        month = current_time.month + 1
-        year = current_time.year
-        if month > 12:
-            month = 1
-            year += 1
-        day = min(current_time.day, 28)
-        return current_time.replace(year=year, month=month, day=day)
+        return current_time + relativedelta(months=1)
     return None
 
 
@@ -45,6 +40,23 @@ def _spawn_next_recurrence(db, post):
     if post.recurrence_end_date and next_time > post.recurrence_end_date:
         return
 
+    # Check for idempotency: avoid spawning twice for the same post
+    existing_log = db.query(models.PublishLog).filter(
+        models.PublishLog.post_id == post.id,
+        models.PublishLog.event == "recurrence_spawned",
+    ).first()
+    if existing_log:
+        return
+
+    existing_post = db.query(models.Post).filter(
+        models.Post.user_id == post.user_id,
+        models.Post.scheduled_time == next_time,
+        models.Post.content == post.content,
+        models.Post.is_recurring == True,
+    ).first()
+    if existing_post:
+        return
+
     new_post = models.Post(
         user_id=post.user_id,
         title=post.title,
@@ -55,6 +67,8 @@ def _spawn_next_recurrence(db, post):
         is_recurring=True,
         recurrence_pattern=post.recurrence_pattern,
         recurrence_end_date=post.recurrence_end_date,
+        post_as_short=post.post_as_short,
+        campaign_id=post.campaign_id,
     )
     db.add(new_post)
     db.flush()
@@ -67,8 +81,9 @@ def _spawn_next_recurrence(db, post):
             status="pending",
         ))
 
-    db.commit()
+    _log(db, post.id, "system", "recurrence_spawned", f"Auto-generated next recurrence from post {post.id} -> post {new_post.id}")
     _log(db, new_post.id, "system", "success", f"Auto-generated next recurrence from post {post.id}")
+    db.commit()
 
 
 @celery_app.task(name="publish_post")
@@ -111,7 +126,7 @@ def publish_post(post_id: int):
                         success, result = False, "No video URL provided for YouTube post"
                     else:
                         success, result = publish_youtube(
-                            db, account, video_url, post.title, post.content,
+                            db, account, video_url, post.title, post.content, is_short=post.post_as_short,
                         )
                 else:
                     success, result = False, f"Unsupported platform: {pp.platform}"
@@ -170,3 +185,4 @@ def check_scheduled_posts():
         return f"Checked at {now.isoformat()}, triggered posts: {triggered}"
     finally:
         db.close()
+

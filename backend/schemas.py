@@ -1,6 +1,9 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Optional, List
+from pydantic import BaseModel
+from models import CampaignStatus
+
 class UserCreate(BaseModel):
     name: str
     email: EmailStr
@@ -17,6 +20,10 @@ class UserOut(BaseModel):
     role: str
     class Config:
         from_attributes = True
+
+class UserRoleUpdate(BaseModel):
+    role: str
+
 class SocialAccountCreate(BaseModel):
     platform: str
     account_name: str
@@ -47,6 +54,8 @@ class PostCreate(BaseModel):
     is_recurring: bool = False
     recurrence_pattern: Optional[str] = None
     recurrence_end_date: Optional[datetime] = None
+    post_as_short: bool = False
+    campaign_id: Optional[int] = None
 class PostUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
@@ -57,6 +66,8 @@ class PostUpdate(BaseModel):
     is_recurring: Optional[bool] = None
     recurrence_pattern: Optional[str] = None
     recurrence_end_date: Optional[datetime] = None
+    post_as_short: Optional[bool] = None
+    campaign_id: Optional[int] = None
 class PostOut(BaseModel):
     id: int
     title: Optional[str] = None
@@ -68,6 +79,8 @@ class PostOut(BaseModel):
     is_recurring: Optional[bool] = False
     recurrence_pattern: Optional[str] = None
     recurrence_end_date: Optional[datetime] = None
+    post_as_short: Optional[bool] = False
+    campaign_id: Optional[int] = None
     platform_posts: List[PostPlatformOut] = []
     class Config:
         from_attributes = True
@@ -78,5 +91,35 @@ class PublishLogOut(BaseModel):
     event: str
     message: Optional[str] = None
     created_at: datetime
+    class Config:
+        from_attributes = True
+
+class CampaignBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    goal: Optional[str] = None
+    budget: Optional[float] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    status: Optional[CampaignStatus] = CampaignStatus.draft
+
+class CampaignCreate(CampaignBase):
+    pass
+
+class CampaignUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    goal: Optional[str] = None
+    budget: Optional[float] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    status: Optional[CampaignStatus] = None
+
+class CampaignOut(CampaignBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
     class Config:
         from_attributes = True

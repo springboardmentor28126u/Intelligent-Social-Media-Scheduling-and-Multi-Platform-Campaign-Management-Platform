@@ -54,6 +54,27 @@ function getPostTimingLabel(post: PostOut): string {
   return 'Immediate publish';
 }
 
+function getPostCalendarDate(post: PostOut): string | null {
+  return (
+    post.scheduled_time ||
+    post.platform_posts
+      .map((platformPost) => platformPost.published_at)
+      .filter((publishedAt): publishedAt is string => Boolean(publishedAt))
+      .sort()
+      .at(-1) ||
+    post.created_at ||
+    null
+  );
+}
+
+function getLocalDateKey(dateString: string): string | null {
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate()
+  ).padStart(2, '0')}`;
+}
+
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function CalendarPage() {
@@ -812,13 +833,9 @@ function MonthCalendarView({
 
           const dayPosts = isCurrentMonthDay
             ? posts.filter((p) => {
-                const dateToUse = p.scheduled_time || p.created_at;
+                const dateToUse = getPostCalendarDate(p);
                 if (!dateToUse) return false;
-                const pDate = new Date(dateToUse);
-                const pDateStr = `${pDate.getFullYear()}-${String(pDate.getMonth() + 1).padStart(
-                  2,
-                  '0'
-                )}-${String(pDate.getDate()).padStart(2, '0')}`;
+                const pDateStr = getLocalDateKey(dateToUse);
                 return pDateStr === cellDateStr;
               })
             : [];

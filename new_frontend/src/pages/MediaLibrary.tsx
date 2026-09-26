@@ -146,7 +146,7 @@ export default function MediaLibrary() {
   };
 
   const handleUseInPost = (url: string) => {
-    navigate('/app/posts/create', { state: { initialVideoUrl: url } });
+    navigate('/app/create', { state: { initialVideoUrl: url } });
   };
 
   const handleDeleteItem = (id: string) => {
