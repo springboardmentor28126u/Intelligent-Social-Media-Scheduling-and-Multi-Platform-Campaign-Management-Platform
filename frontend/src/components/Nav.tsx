@@ -12,6 +12,7 @@ const navItems = [
   { name: "Create Post", href: "/create-post", icon: "✦" },
   { name: "Calendar", href: "/calender", icon: "▣" },
   { name: "Content Lab", href: "/content-lab", icon: "◒" },
+  { name: "Campaigns", href: "/campaigns", icon: "◈" },
   { name: "Audience", href: "/audience", icon: "◎" },
   { name: "Settings", href: "/settings", icon: "⚙" },
 ];

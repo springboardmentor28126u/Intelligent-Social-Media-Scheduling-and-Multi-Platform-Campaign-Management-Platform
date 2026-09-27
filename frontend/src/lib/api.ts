@@ -1,6 +1,39 @@
 const API_BASE_URL = "http://127.0.0.1:8000";
 
 /* ============================================================
+   TYPES
+============================================================ */
+
+export type UserProfile = {
+  user_id: number;
+  name: string;
+  email: string;
+  role: string;
+};
+
+export type SimpleMessageResponse = {
+  message: string;
+};
+
+export type AuthResponse = {
+  access_token?: string;
+  token?: string;
+  token_type?: string;
+  user?: UserProfile;
+  message?: string;
+  [key: string]: unknown;
+};
+
+export type PostResponse = {
+  post_id?: number;
+  id?: number;
+  message?: string;
+  content?: string;
+  status?: string;
+  [key: string]: unknown;
+};
+
+/* ============================================================
    REGISTER
 ============================================================ */
 
@@ -9,24 +42,29 @@ export async function registerUser(
   email: string,
   password: string,
   role: string
-) {
-  const response = await fetch(`${API_BASE_URL}/auth/register`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      name,
-      email,
-      password,
-      role,
-    }),
-  });
+): Promise<AuthResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/auth/register`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name,
+        email,
+        password,
+        role,
+      }),
+    }
+  );
 
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.detail || "Registration failed");
+    throw new Error(
+      data.detail || "Registration failed"
+    );
   }
 
   return data;
@@ -39,22 +77,27 @@ export async function registerUser(
 export async function loginUser(
   email: string,
   password: string
-) {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      email,
-      password,
-    }),
-  });
+): Promise<AuthResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/auth/login`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        password,
+      }),
+    }
+  );
 
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.detail || "Login failed");
+    throw new Error(
+      data.detail || "Login failed"
+    );
   }
 
   return data;
@@ -65,10 +108,19 @@ export async function loginUser(
 ============================================================ */
 
 function authHeaders(): HeadersInit {
-  const token = localStorage.getItem("access_token");
+  if (typeof window === "undefined") {
+    return {
+      "Content-Type": "application/json",
+    };
+  }
+
+  const token =
+    localStorage.getItem("access_token");
 
   if (!token) {
-    throw new Error("You are not logged in.");
+    throw new Error(
+      "You are not logged in."
+    );
   }
 
   return {
@@ -81,16 +133,20 @@ function authHeaders(): HeadersInit {
    GET CURRENT USER
 ============================================================ */
 
-export async function getMe() {
-  const response = await fetch(`${API_BASE_URL}/auth/me`, {
-    headers: authHeaders(),
-  });
+export async function getMe(): Promise<UserProfile> {
+  const response = await fetch(
+    `${API_BASE_URL}/auth/me`,
+    {
+      headers: authHeaders(),
+    }
+  );
 
   const data = await response.json();
 
   if (!response.ok) {
     throw new Error(
-      data.detail || "Failed to fetch profile"
+      data.detail ||
+        "Failed to fetch profile"
     );
   }
 
@@ -113,7 +169,8 @@ export async function getSocialAccounts() {
 
   if (!response.ok) {
     throw new Error(
-      data.detail || "Failed to fetch social accounts"
+      data.detail ||
+        "Failed to fetch social accounts"
     );
   }
 
@@ -144,7 +201,8 @@ export async function connectSocialAccount(
 
   if (!response.ok) {
     throw new Error(
-      data.detail || "Failed to connect account"
+      data.detail ||
+        "Failed to connect account"
     );
   }
 
@@ -155,7 +213,7 @@ export async function connectSocialAccount(
    LINKEDIN OAUTH
 ============================================================ */
 
-export async function getLinkedInAuthorizeUrl() {
+export async function getLinkedInAuthorizeUrl(): Promise<string> {
   const response = await fetch(
     `${API_BASE_URL}/oauth/linkedin/authorize-url`,
     {
@@ -167,7 +225,8 @@ export async function getLinkedInAuthorizeUrl() {
 
   if (!response.ok) {
     throw new Error(
-      data.detail || "Failed to start LinkedIn connection"
+      data.detail ||
+        "Failed to start LinkedIn connection"
     );
   }
 
@@ -194,7 +253,7 @@ export type CreatePostPayload = {
 
 export async function createPost(
   postData: CreatePostPayload
-) {
+): Promise<PostResponse> {
   const response = await fetch(
     `${API_BASE_URL}/posts`,
     {
@@ -208,7 +267,8 @@ export async function createPost(
 
   if (!response.ok) {
     throw new Error(
-      data.detail || "Failed to create post"
+      data.detail ||
+        "Failed to create post"
     );
   }
 
@@ -231,7 +291,8 @@ export async function getPosts() {
 
   if (!response.ok) {
     throw new Error(
-      data.detail || "Failed to fetch posts"
+      data.detail ||
+        "Failed to fetch posts"
     );
   }
 
@@ -242,7 +303,9 @@ export async function getPosts() {
    GET SINGLE POST
 ============================================================ */
 
-export async function getPost(postId: number) {
+export async function getPost(
+  postId: number
+) {
   const response = await fetch(
     `${API_BASE_URL}/posts/${postId}`,
     {
@@ -254,7 +317,8 @@ export async function getPost(postId: number) {
 
   if (!response.ok) {
     throw new Error(
-      data.detail || "Failed to fetch post"
+      data.detail ||
+        "Failed to fetch post"
     );
   }
 
@@ -296,7 +360,8 @@ export async function updatePost(
 
   if (!response.ok) {
     throw new Error(
-      data.detail || "Failed to update post"
+      data.detail ||
+        "Failed to update post"
     );
   }
 
@@ -307,7 +372,9 @@ export async function updatePost(
    DELETE POST
 ============================================================ */
 
-export async function deletePost(postId: number) {
+export async function deletePost(
+  postId: number
+): Promise<SimpleMessageResponse> {
   const response = await fetch(
     `${API_BASE_URL}/posts/${postId}`,
     {
@@ -320,7 +387,8 @@ export async function deletePost(postId: number) {
 
   if (!response.ok) {
     throw new Error(
-      data.detail || "Failed to delete post"
+      data.detail ||
+        "Failed to delete post"
     );
   }
 
@@ -333,7 +401,7 @@ export async function deletePost(postId: number) {
 
 export async function forgotPassword(
   email: string
-) {
+): Promise<SimpleMessageResponse> {
   const response = await fetch(
     `${API_BASE_URL}/auth/forgot-password`,
     {
@@ -351,7 +419,8 @@ export async function forgotPassword(
 
   if (!response.ok) {
     throw new Error(
-      data.detail || "Request failed"
+      data.detail ||
+        "Request failed"
     );
   }
 
@@ -365,7 +434,7 @@ export async function forgotPassword(
 export async function resetPassword(
   token: string,
   newPassword: string
-) {
+): Promise<SimpleMessageResponse> {
   const response = await fetch(
     `${API_BASE_URL}/auth/reset-password`,
     {
@@ -384,7 +453,8 @@ export async function resetPassword(
 
   if (!response.ok) {
     throw new Error(
-      data.detail || "Reset failed"
+      data.detail ||
+        "Reset failed"
     );
   }
 
@@ -397,14 +467,14 @@ export async function resetPassword(
 
 export async function updateProfile(
   name: string
-) {
+): Promise<UserProfile> {
   const response = await fetch(
     `${API_BASE_URL}/auth/me`,
     {
       method: "PUT",
       headers: authHeaders(),
       body: JSON.stringify({
-        name,
+        name: name.trim(),
       }),
     }
   );
@@ -413,7 +483,8 @@ export async function updateProfile(
 
   if (!response.ok) {
     throw new Error(
-      data.detail || "Failed to update profile"
+      data.detail ||
+        "Failed to update profile"
     );
   }
 
@@ -427,15 +498,17 @@ export async function updateProfile(
 export async function changePassword(
   currentPassword: string,
   newPassword: string
-) {
+): Promise<SimpleMessageResponse> {
   const response = await fetch(
     `${API_BASE_URL}/auth/change-password`,
     {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({
-        current_password: currentPassword,
-        new_password: newPassword,
+        current_password:
+          currentPassword,
+        new_password:
+          newPassword,
       }),
     }
   );
@@ -444,29 +517,26 @@ export async function changePassword(
 
   if (!response.ok) {
     throw new Error(
-      data.detail || "Failed to change password"
+      data.detail ||
+        "Failed to change password"
     );
   }
 
   return data;
 }
-// ============================================================
-// LINKEDIN PUBLISH
-// ============================================================
+
+/* ============================================================
+   LINKEDIN PUBLISH
+============================================================ */
 
 export async function publishLinkedInPost(
   content: string
-) {
+): Promise<PostResponse> {
   const response = await fetch(
     `${API_BASE_URL}/linkedin/publish`,
     {
       method: "POST",
-
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeaders(),
-      },
-
+      headers: authHeaders(),
       body: JSON.stringify({
         content,
       }),

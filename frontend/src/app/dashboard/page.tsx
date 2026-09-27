@@ -10,7 +10,6 @@ import {
   getLinkedInAuthorizeUrl,
 } from "@/lib/api";
 
-
 /* =========================================================
    TYPES
 ========================================================= */
@@ -30,7 +29,6 @@ interface SocialAccount {
   account_name?: string;
   is_connected?: boolean;
 }
-
 
 /* =========================================================
    PLATFORM DATA
@@ -69,7 +67,6 @@ const PLATFORM_DATA: Record<
   },
 };
 
-
 /* =========================================================
    DASHBOARD
 ========================================================= */
@@ -98,7 +95,6 @@ export default function DashboardPage() {
   const [message, setMessage] = useState("");
 
   const [error, setError] = useState("");
-
 
   /* =========================================================
      LOAD DASHBOARD DATA
@@ -150,7 +146,6 @@ export default function DashboardPage() {
     }
   }, [router]);
 
-
   /* =========================================================
      INITIALIZE DASHBOARD
   ========================================================= */
@@ -177,7 +172,6 @@ export default function DashboardPage() {
     };
   }, [router, loadDashboard]);
 
-
   /* =========================================================
      REFRESH SOCIAL ACCOUNTS
   ========================================================= */
@@ -195,7 +189,6 @@ export default function DashboardPage() {
       );
     }
   }
-
 
   /* =========================================================
      CONNECT PLATFORM
@@ -245,7 +238,6 @@ export default function DashboardPage() {
       }
     }
 
-
     /* -------------------------------------------------------
        OTHER PLATFORMS = EXISTING MANUAL CONNECTION
     ------------------------------------------------------- */
@@ -289,7 +281,6 @@ export default function DashboardPage() {
     }
   }
 
-
   /* =========================================================
      LOGOUT
   ========================================================= */
@@ -305,7 +296,6 @@ export default function DashboardPage() {
 
     router.push("/login");
   }
-
 
   /* =========================================================
      LINKEDIN OAUTH RESULT
@@ -329,7 +319,6 @@ export default function DashboardPage() {
   const linkedinStatus =
     getLinkedInStatus();
 
-
   /* =========================================================
      LOADING SCREEN
   ========================================================= */
@@ -352,7 +341,6 @@ export default function DashboardPage() {
     );
   }
 
-
   /* =========================================================
      DASHBOARD
   ========================================================= */
@@ -362,13 +350,11 @@ export default function DashboardPage() {
 
       <div className="flex min-h-screen">
 
-
         {/* =================================================
             SIDEBAR
         ================================================= */}
 
         <aside className="w-72 bg-white border-r border-sky-100 flex flex-col shadow-sm">
-
 
           {/* -------------------------------------------------
              LOGO
@@ -392,7 +378,6 @@ export default function DashboardPage() {
 
           </div>
 
-
           {/* -------------------------------------------------
              NAVIGATION
           ------------------------------------------------- */}
@@ -402,7 +387,6 @@ export default function DashboardPage() {
             <p className="px-3 mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
               Workspace
             </p>
-
 
             {/* COMMAND CENTER */}
 
@@ -420,7 +404,6 @@ export default function DashboardPage() {
               Command Center
             </button>
 
-
             {/* CREATE */}
 
             <button
@@ -436,7 +419,6 @@ export default function DashboardPage() {
 
               Create
             </button>
-
 
             {/* CONTENT LAB */}
 
@@ -454,7 +436,6 @@ export default function DashboardPage() {
               Content Lab
             </button>
 
-
             {/* INSIGHTS */}
 
             <button
@@ -470,7 +451,6 @@ export default function DashboardPage() {
 
               Insights
             </button>
-
 
             {/* AUDIENCE */}
 
@@ -488,7 +468,6 @@ export default function DashboardPage() {
               Audience
             </button>
 
-
             {/* PUBLISHING CALENDAR */}
 
             <button
@@ -505,18 +484,33 @@ export default function DashboardPage() {
               Publishing Calendar
             </button>
 
+            {/* =================================================
+                CAMPAIGNS
+            ================================================= */}
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push("/campaigns")
+              }
+              className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left text-base font-medium text-slate-600 hover:bg-sky-50 hover:text-sky-600 transition mb-1"
+            >
+              <span className="text-xl">
+                ◈
+              </span>
+
+              Campaigns
+            </button>
 
             {/* DIVIDER */}
 
             <div className="my-6 border-t border-sky-50" />
-
 
             {/* ACCOUNT */}
 
             <p className="px-3 mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
               Account
             </p>
-
 
             {/* SETTINGS */}
 
@@ -535,7 +529,6 @@ export default function DashboardPage() {
             </button>
 
           </nav>
-
 
           {/* -------------------------------------------------
              USER
@@ -567,7 +560,6 @@ export default function DashboardPage() {
 
             </div>
 
-
             <button
               type="button"
               onClick={handleLogout}
@@ -580,13 +572,11 @@ export default function DashboardPage() {
 
         </aside>
 
-
         {/* =================================================
             MAIN CONTENT
         ================================================= */}
 
         <section className="flex-1 min-w-0">
-
 
           {/* =================================================
               HEADER
@@ -616,7 +606,6 @@ export default function DashboardPage() {
 
               </div>
 
-
               <button
                 type="button"
                 onClick={() =>
@@ -631,13 +620,11 @@ export default function DashboardPage() {
 
           </header>
 
-
           {/* =================================================
               PAGE CONTENT
           ================================================= */}
 
           <div className="p-8">
-
 
             {/* =================================================
                 ERROR
@@ -653,7 +640,6 @@ export default function DashboardPage() {
               </div>
             )}
 
-
             {/* =================================================
                 LINKEDIN SUCCESS
             ================================================= */}
@@ -667,7 +653,6 @@ export default function DashboardPage() {
 
               </div>
             )}
-
 
             {/* =================================================
                 LINKEDIN DENIED
@@ -683,7 +668,6 @@ export default function DashboardPage() {
               </div>
             )}
 
-
             {/* =================================================
                 LINKEDIN ERROR
             ================================================= */}
@@ -698,13 +682,11 @@ export default function DashboardPage() {
               </div>
             )}
 
-
             {/* =================================================
                 METRICS
             ================================================= */}
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
-
 
               {/* TOTAL POSTS */}
 
@@ -728,7 +710,6 @@ export default function DashboardPage() {
 
               </div>
 
-
               {/* SCHEDULED */}
 
               <div className="bg-white border border-sky-100 rounded-2xl p-6 shadow-sm">
@@ -751,7 +732,6 @@ export default function DashboardPage() {
 
               </div>
 
-
               {/* CONNECTED PLATFORMS */}
 
               <div className="bg-white border border-sky-100 rounded-2xl p-6 shadow-sm">
@@ -773,7 +753,6 @@ export default function DashboardPage() {
                 </p>
 
               </div>
-
 
               {/* ENGAGEMENT */}
 
@@ -799,13 +778,11 @@ export default function DashboardPage() {
 
             </div>
 
-
             {/* =================================================
                 PERFORMANCE + AI INSIGHT
             ================================================= */}
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-
 
               {/* PERFORMANCE */}
 
@@ -832,7 +809,6 @@ export default function DashboardPage() {
 
                 </div>
 
-
                 <div className="h-64 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center">
 
                   <div className="text-center">
@@ -855,7 +831,6 @@ export default function DashboardPage() {
                 </div>
 
               </div>
-
 
               {/* AI INSIGHT */}
 
@@ -881,14 +856,12 @@ export default function DashboardPage() {
 
                 </div>
 
-
                 <p className="text-sm leading-6 text-white/90">
                   Your SocialPilot AI assistant
                   will analyze your content
                   performance and provide
                   recommendations here.
                 </p>
-
 
                 <button
                   type="button"
@@ -905,7 +878,6 @@ export default function DashboardPage() {
               </div>
 
             </div>
-
 
             {/* =================================================
                 CONTENT LAB
@@ -928,7 +900,6 @@ export default function DashboardPage() {
 
                 </div>
 
-
                 <button
                   type="button"
                   onClick={() =>
@@ -943,9 +914,7 @@ export default function DashboardPage() {
 
               </div>
 
-
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
 
                 {/* CREATE POST */}
 
@@ -974,7 +943,6 @@ export default function DashboardPage() {
 
                 </button>
 
-
                 {/* CALENDAR */}
 
                 <button
@@ -1001,7 +969,6 @@ export default function DashboardPage() {
                   </p>
 
                 </button>
-
 
                 {/* AI CONTENT LAB */}
 
@@ -1034,6 +1001,119 @@ export default function DashboardPage() {
 
             </div>
 
+            {/* =================================================
+                CAMPAIGN MANAGEMENT
+            ================================================= */}
+
+            <div className="mt-6 bg-white border border-sky-100 rounded-2xl p-6 shadow-sm">
+
+              <div className="flex items-center justify-between mb-5">
+
+                <div>
+
+                  <h2 className="text-xl font-bold text-slate-900">
+                    Campaign Management
+                  </h2>
+
+                  <p className="text-sm text-slate-500 mt-1">
+                    Create, manage, track, and analyze
+                    your social media campaigns.
+                  </p>
+
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push("/campaigns")
+                  }
+                  className="px-5 py-2.5 rounded-lg bg-sky-400 text-white text-sm font-semibold hover:bg-sky-500 transition"
+                >
+                  Open Campaigns
+                </button>
+
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                {/* CREATE CAMPAIGN */}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push("/campaigns")
+                  }
+                  className="text-left p-5 rounded-xl border border-sky-100 bg-sky-50/50 hover:bg-sky-50 hover:border-sky-200 transition"
+                >
+
+                  <div className="w-10 h-10 rounded-lg bg-white text-sky-500 flex items-center justify-center text-xl mb-3 shadow-sm">
+                    ◈
+                  </div>
+
+                  <h3 className="font-bold text-slate-800">
+                    Campaigns
+                  </h3>
+
+                  <p className="text-sm text-slate-500 mt-1">
+                    Create and manage your
+                    marketing campaigns.
+                  </p>
+
+                </button>
+
+                {/* ANALYTICS */}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push("/campaigns")
+                  }
+                  className="text-left p-5 rounded-xl border border-sky-100 bg-sky-50/50 hover:bg-sky-50 hover:border-sky-200 transition"
+                >
+
+                  <div className="w-10 h-10 rounded-lg bg-white text-sky-500 flex items-center justify-center text-xl mb-3 shadow-sm">
+                    ↗
+                  </div>
+
+                  <h3 className="font-bold text-slate-800">
+                    Campaign Analytics
+                  </h3>
+
+                  <p className="text-sm text-slate-500 mt-1">
+                    Track reach, engagement,
+                    clicks, and ROI.
+                  </p>
+
+                </button>
+
+                {/* REPORTS */}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push("/campaigns")
+                  }
+                  className="text-left p-5 rounded-xl border border-sky-100 bg-sky-50/50 hover:bg-sky-50 hover:border-sky-200 transition"
+                >
+
+                  <div className="w-10 h-10 rounded-lg bg-white text-sky-500 flex items-center justify-center text-xl mb-3 shadow-sm">
+                    ▤
+                  </div>
+
+                  <h3 className="font-bold text-slate-800">
+                    Campaign Reports
+                  </h3>
+
+                  <p className="text-sm text-slate-500 mt-1">
+                    Compare campaigns and view
+                    performance reports.
+                  </p>
+
+                </button>
+
+              </div>
+
+            </div>
 
             {/* =================================================
                 CONNECT PLATFORM
@@ -1054,9 +1134,7 @@ export default function DashboardPage() {
 
               </div>
 
-
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-
 
                 {/* PLATFORM SELECT */}
 
@@ -1096,7 +1174,6 @@ export default function DashboardPage() {
 
                 </select>
 
-
                 {/* ACCOUNT NAME */}
 
                 <input
@@ -1120,7 +1197,6 @@ export default function DashboardPage() {
                   className="border border-sky-100 rounded-xl px-4 py-3 text-sm bg-white text-slate-800 outline-none focus:ring-2 focus:ring-sky-100 focus:border-sky-400 disabled:bg-slate-50 disabled:text-slate-400"
                 />
 
-
                 {/* CONNECT BUTTON */}
 
                 <button
@@ -1143,7 +1219,6 @@ export default function DashboardPage() {
 
               </div>
 
-
               {/* MESSAGE */}
 
               {message && (
@@ -1157,7 +1232,6 @@ export default function DashboardPage() {
               )}
 
             </div>
-
 
             {/* =================================================
                 CONNECTED PLATFORMS
@@ -1185,7 +1259,6 @@ export default function DashboardPage() {
                 </span>
 
               </div>
-
 
               {socialAccounts.length === 0 ? (
 
@@ -1241,7 +1314,6 @@ export default function DashboardPage() {
 
                               </div>
 
-
                               <div>
 
                                 <p className="text-sm font-bold text-slate-800">
@@ -1258,7 +1330,6 @@ export default function DashboardPage() {
                               </div>
 
                             </div>
-
 
                             <span className="w-3 h-3 rounded-full bg-green-400" />
 
