@@ -322,7 +322,10 @@ function numberValue(
   fallback = 0
 ): number {
   const number = Number(value);
-  return Number.isFinite(number) ? number : fallback;
+
+  return Number.isFinite(number)
+    ? number
+    : fallback;
 }
 
 function stringValue(
@@ -370,22 +373,35 @@ function formatDate(
   });
 }
 
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat("en-IN").format(value);
+function formatNumber(
+  value: number
+): string {
+  return new Intl.NumberFormat(
+    "en-IN"
+  ).format(value);
 }
 
-function formatCurrency(value: number): string {
-  return `₹${new Intl.NumberFormat("en-IN").format(
-    Math.round(value)
-  )}`;
+function formatCurrency(
+  value: number
+): string {
+  return `₹${new Intl.NumberFormat(
+    "en-IN"
+  ).format(Math.round(value))}`;
 }
 
-function formatPercent(value: number): string {
+function formatPercent(
+  value: number
+): string {
   return `${numberValue(value).toFixed(2)}%`;
 }
 
-function normalizePlatform(value: unknown): string {
-  return stringValue(value, "Unknown");
+function normalizePlatform(
+  value: unknown
+): string {
+  return stringValue(
+    value,
+    "Unknown"
+  );
 }
 
 /* ============================================================
@@ -399,88 +415,117 @@ function normalizeCampaign(
   const item = asRecord(value);
 
   return {
-    id: numberValue(item.id, index + 1),
+    id: numberValue(
+      item.id,
+      index + 1
+    ),
 
     name: stringValue(
-      item.name ?? item.campaign_name,
+      item.name ??
+        item.campaign_name,
       "Untitled Campaign"
     ),
 
-    platform: normalizePlatform(item.platform),
+    platform:
+      normalizePlatform(
+        item.platform
+      ),
 
-    description: stringValue(
-      item.description,
-      ""
-    ),
+    description:
+      stringValue(
+        item.description,
+        ""
+      ),
 
-    objective: stringValue(
-      item.objective ?? item.objectives,
-      ""
-    ),
+    objective:
+      stringValue(
+        item.objective ??
+          item.objectives,
+        ""
+      ),
 
-    status: stringValue(
-      item.status,
-      "draft"
-    ),
+    status:
+      stringValue(
+        item.status,
+        "draft"
+      ),
 
-    start_date: nullableString(
-      item.start_date
-    ),
+    start_date:
+      nullableString(
+        item.start_date
+      ),
 
-    end_date: nullableString(
-      item.end_date
-    ),
+    end_date:
+      nullableString(
+        item.end_date
+      ),
 
-    budget: numberValue(
-      item.budget
-    ),
+    budget:
+      numberValue(
+        item.budget
+      ),
 
-    spent: numberValue(
-      item.spent ?? item.actual_spent
-    ),
+    spent:
+      numberValue(
+        item.spent ??
+          item.actual_spent
+      ),
 
-    target_reach: numberValue(
-      item.target_reach
-    ),
+    target_reach:
+      numberValue(
+        item.target_reach
+      ),
 
-    target_engagement: numberValue(
-      item.target_engagement
-    ),
+    target_engagement:
+      numberValue(
+        item.target_engagement
+      ),
 
-    target_clicks: numberValue(
-      item.target_clicks
-    ),
+    target_clicks:
+      numberValue(
+        item.target_clicks
+      ),
 
-    actual_reach: numberValue(
-      item.actual_reach ?? item.reach
-    ),
+    actual_reach:
+      numberValue(
+        item.actual_reach ??
+          item.reach
+      ),
 
-    actual_engagement: numberValue(
-      item.actual_engagement ?? item.engagement
-    ),
+    actual_engagement:
+      numberValue(
+        item.actual_engagement ??
+          item.engagement
+      ),
 
-    actual_clicks: numberValue(
-      item.actual_clicks ?? item.clicks
-    ),
+    actual_clicks:
+      numberValue(
+        item.actual_clicks ??
+          item.clicks
+      ),
 
-    roi: numberValue(
-      item.roi
-    ),
+    roi:
+      numberValue(
+        item.roi
+      ),
 
-    created_at: nullableString(
-      item.created_at
-    ),
+    created_at:
+      nullableString(
+        item.created_at
+      ),
 
-    updated_at: nullableString(
-      item.updated_at
-    ),
+    updated_at:
+      nullableString(
+        item.updated_at
+      ),
   };
 }
 
 function normalizeCampaigns(
   value: unknown
 ): CampaignView[] {
-  const source = asRecord(value);
+  const source =
+    asRecord(value);
 
   const raw =
     Array.isArray(value)
@@ -503,81 +548,89 @@ function normalizeSummary(
   value: unknown,
   campaigns: CampaignView[]
 ): SummaryView {
-  const item = asRecord(value);
+  const item =
+    asRecord(value);
 
   return {
-    total_campaigns: numberValue(
-      item.total_campaigns,
-      campaigns.length
-    ),
+    total_campaigns:
+      numberValue(
+        item.total_campaigns,
+        campaigns.length
+      ),
 
-    active_campaigns: numberValue(
-      item.active_campaigns,
-      campaigns.filter(
-        (campaign) =>
-          [
-            "active",
-            "running",
-            "in_progress",
-          ].includes(
-            campaign.status.toLowerCase()
-          )
-      ).length
-    ),
+    active_campaigns:
+      numberValue(
+        item.active_campaigns,
+        campaigns.filter(
+          (campaign) =>
+            [
+              "active",
+              "running",
+              "in_progress",
+            ].includes(
+              campaign.status.toLowerCase()
+            )
+        ).length
+      ),
 
-    total_reach: numberValue(
-      item.total_reach,
-      campaigns.reduce(
-        (
-          sum,
-          campaign
-        ) =>
-          sum +
-          campaign.actual_reach,
-        0
-      )
-    ),
+    total_reach:
+      numberValue(
+        item.total_reach,
+        campaigns.reduce(
+          (
+            sum,
+            campaign
+          ) =>
+            sum +
+            campaign.actual_reach,
+          0
+        )
+      ),
 
-    average_roi: numberValue(
-      item.average_roi,
-      campaigns.length
-        ? campaigns.reduce(
-            (
-              sum,
-              campaign
-            ) =>
-              sum +
-              campaign.roi,
-            0
-          ) / campaigns.length
-        : 0
-    ),
+    average_roi:
+      numberValue(
+        item.average_roi,
+        campaigns.length
+          ? campaigns.reduce(
+              (
+                sum,
+                campaign
+              ) =>
+                sum +
+                campaign.roi,
+              0
+            ) /
+              campaigns.length
+          : 0
+      ),
 
-    total_budget: numberValue(
-      item.total_budget,
-      campaigns.reduce(
-        (
-          sum,
-          campaign
-        ) =>
-          sum +
-          campaign.budget,
-        0
-      )
-    ),
+    total_budget:
+      numberValue(
+        item.total_budget,
+        campaigns.reduce(
+          (
+            sum,
+            campaign
+          ) =>
+            sum +
+            campaign.budget,
+          0
+        )
+      ),
 
-    total_spent: numberValue(
-      item.total_spent,
-      campaigns.reduce(
-        (
-          sum,
-          campaign
-        ) =>
-          sum +
-          campaign.spent,
-        0
-      )
-    ),
+    total_spent:
+      numberValue(
+        item.total_spent,
+        campaigns.reduce(
+          (
+            sum,
+            campaign
+          ) =>
+            sum +
+            campaign.spent,
+          0
+        )
+      ),
   };
 }
 
@@ -585,7 +638,8 @@ function normalizeAnalytics(
   value: unknown,
   campaign: CampaignView | null
 ): AnalyticsView {
-  const item = asRecord(value);
+  const item =
+    asRecord(value);
 
   const actualReach =
     numberValue(
@@ -718,8 +772,7 @@ function normalizeAnalytics(
       numberValue(
         item.budget_used,
         budget > 0
-          ? (spent /
-              budget) *
+          ? (spent / budget) *
             100
           : 0
       ),
@@ -765,7 +818,8 @@ function normalizeAnalytics(
 function normalizeComparison(
   value: unknown
 ): ComparisonView[] {
-  const source = asRecord(value);
+  const source =
+    asRecord(value);
 
   const raw =
     Array.isArray(value)
@@ -844,7 +898,8 @@ function normalizeAudiencePerformance(
   value: unknown,
   campaign: CampaignView | null
 ): AudiencePerformanceView {
-  const item = asRecord(value);
+  const item =
+    asRecord(value);
 
   const actualReach =
     numberValue(
@@ -932,7 +987,8 @@ function normalizeAudienceGrowth(
   value: unknown,
   campaign: CampaignView | null
 ): AudienceGrowthView {
-  const item = asRecord(value);
+  const item =
+    asRecord(value);
 
   const currentReach =
     numberValue(
@@ -1007,7 +1063,8 @@ function normalizeAudienceGrowth(
 function normalizeHistory(
   value: unknown
 ): HistoryView[] {
-  const source = asRecord(value);
+  const source =
+    asRecord(value);
 
   const raw =
     Array.isArray(value)
@@ -1066,7 +1123,8 @@ function normalizeEngagement(
   campaign: CampaignView | null,
   history: HistoryView[]
 ): EngagementView {
-  const item = asRecord(value);
+  const item =
+    asRecord(value);
 
   const actualEngagement =
     numberValue(
@@ -1149,7 +1207,7 @@ function normalizeEngagement(
                 point.engagement,
               0
             ) /
-            history.length
+              history.length
           : 0
       ),
 
@@ -1185,7 +1243,8 @@ function normalizeReport(
   campaign: CampaignView | null,
   analytics: AnalyticsView
 ): ReportView {
-  const item = asRecord(value);
+  const item =
+    asRecord(value);
 
   return {
     campaign_name:
@@ -1297,7 +1356,8 @@ function normalizeReport(
 function normalizePosts(
   value: unknown
 ): PostView[] {
-  const source = asRecord(value);
+  const source =
+    asRecord(value);
 
   const raw =
     Array.isArray(value)
@@ -1388,12 +1448,9 @@ function statusClass(
     status.toLowerCase();
 
   if (
-    normalized ===
-      "active" ||
-    normalized ===
-      "running" ||
-    normalized ===
-      "published"
+    normalized === "active" ||
+    normalized === "running" ||
+    normalized === "published"
   ) {
     return "bg-emerald-50 text-emerald-700 border-emerald-200";
   }
@@ -1448,13 +1505,33 @@ export default function CampaignsPage() {
       null
     );
 
-  const [
-    selectedCampaign,
-    setSelectedCampaign,
-  ] =
-    useState<
-      CampaignView | null
-    >(null);
+  /*
+    IMPORTANT FIX:
+
+    selectedCampaign is no longer stored
+    separately in React state.
+
+    It is derived directly from the
+    selectedCampaignId and campaigns list.
+
+    This prevents the
+    react-hooks/set-state-in-effect
+    ESLint error.
+  */
+
+  const selectedCampaign =
+    useMemo(
+      () =>
+        campaigns.find(
+          (campaign) =>
+            campaign.id ===
+            selectedCampaignId
+        ) ?? null,
+      [
+        campaigns,
+        selectedCampaignId,
+      ]
+    );
 
   const [
     analytics,
@@ -1620,13 +1697,11 @@ export default function CampaignsPage() {
             summaryData,
             comparisonData,
           ] =
-            await Promise.all(
-              [
-                apiGetCampaigns(),
-                apiGetSummary(),
-                apiGetComparison(),
-              ]
-            );
+            await Promise.all([
+              apiGetCampaigns(),
+              apiGetSummary(),
+              apiGetComparison(),
+            ]);
 
           const normalizedCampaigns =
             normalizeCampaigns(
@@ -1650,13 +1725,16 @@ export default function CampaignsPage() {
             )
           );
 
+          /*
+            Keep the current selection when
+            the selected campaign still exists.
+          */
+
           if (
             selectedCampaignId !==
               null &&
             normalizedCampaigns.some(
-              (
-                campaign
-              ) =>
+              (campaign) =>
                 campaign.id ===
                 selectedCampaignId
             )
@@ -1664,20 +1742,20 @@ export default function CampaignsPage() {
             return;
           }
 
+          /*
+            Automatically select the first
+            campaign when needed.
+          */
+
           if (
             normalizedCampaigns.length >
             0
           ) {
             setSelectedCampaignId(
-              normalizedCampaigns[0]
-                .id
+              normalizedCampaigns[0].id
             );
           } else {
             setSelectedCampaignId(
-              null
-            );
-
-            setSelectedCampaign(
               null
             );
           }
@@ -1715,7 +1793,9 @@ export default function CampaignsPage() {
         timer
       );
     };
-  }, [loadOverview]);
+  }, [
+    loadOverview,
+  ]);
 
   /* ==========================================================
      LOAD DETAILS
@@ -1739,14 +1819,6 @@ export default function CampaignsPage() {
                 item.id ===
                 campaignId
             ) ?? null;
-
-          /*
-            Selected campaign is updated here,
-            not directly inside useEffect.
-          */
-          setSelectedCampaign(
-            campaign
-          );
 
           const [
             analyticsData,
@@ -1856,17 +1928,18 @@ export default function CampaignsPage() {
           );
         }
       },
-      [campaigns]
+      [
+        campaigns,
+      ]
     );
 
   /*
     IMPORTANT FIX:
 
-    Do NOT call setSelectedCampaign()
-    directly inside this effect.
+    There is NO setSelectedCampaign()
+    inside this effect.
 
-    loadDetails() handles selected campaign
-    asynchronously after the timeout.
+    selectedCampaign is derived with useMemo above.
   */
 
   useEffect(() => {
@@ -2006,8 +2079,15 @@ export default function CampaignsPage() {
     (
       campaign: CampaignView
     ) => {
-      setSelectedCampaign(
-        campaign
+      /*
+        IMPORTANT:
+        Do not call setSelectedCampaign here.
+        The selected campaign is derived from
+        selectedCampaignId.
+      */
+
+      setSelectedCampaignId(
+        campaign.id
       );
 
       setPerformanceForm({
@@ -2570,7 +2650,9 @@ export default function CampaignsPage() {
             selectedAnalytics.click_achievement
           ),
       }),
-      [selectedAnalytics]
+      [
+        selectedAnalytics,
+      ]
     );
 
   /* ==========================================================
@@ -2606,6 +2688,7 @@ export default function CampaignsPage() {
       <Nav />
 
       <main className="mx-auto max-w-7xl px-6 py-8">
+
         {/* HEADER */}
 
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -2693,6 +2776,7 @@ export default function CampaignsPage() {
         </section>
 
         <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
+
           {/* CAMPAIGN LIST */}
 
           <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -2707,8 +2791,7 @@ export default function CampaignsPage() {
             </div>
 
             <div className="max-h-[720px] overflow-y-auto p-3">
-              {campaigns.length ===
-              0 ? (
+              {campaigns.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center">
                   <p className="text-sm font-semibold text-slate-700">
                     No campaigns yet
@@ -2756,6 +2839,7 @@ export default function CampaignsPage() {
                           }`}
                         >
                           <div className="flex items-start justify-between gap-3">
+
                             <div className="min-w-0">
                               <p className="truncate text-sm font-bold text-slate-900">
                                 {
@@ -2816,6 +2900,7 @@ export default function CampaignsPage() {
           {/* DETAILS */}
 
           <section className="min-w-0">
+
             {!selectedCampaign ? (
               <div className="flex min-h-[500px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white">
                 <div className="text-center">
@@ -2839,6 +2924,7 @@ export default function CampaignsPage() {
 
                 <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
                   <div className="flex flex-col gap-5 border-b border-slate-200 p-6 xl:flex-row xl:items-start xl:justify-between">
+
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className="text-2xl font-bold text-slate-900">
@@ -2859,7 +2945,9 @@ export default function CampaignsPage() {
                       </div>
 
                       <p className="mt-2 text-sm text-slate-500">
-                        {selectedCampaign.platform}
+                        {
+                          selectedCampaign.platform
+                        }
                         {" · "}
                         {formatDate(
                           selectedCampaign.start_date
@@ -2890,6 +2978,7 @@ export default function CampaignsPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
+
                       {selectedCampaign.status.toLowerCase() !==
                         "active" && (
                         <button
@@ -3051,6 +3140,7 @@ export default function CampaignsPage() {
                   </div>
                 ) : (
                   <div className="mt-6 space-y-6">
+
                     {/* OVERVIEW */}
 
                     {activeTab ===
@@ -3087,6 +3177,7 @@ export default function CampaignsPage() {
                         </div>
 
                         <div className="grid gap-6 xl:grid-cols-2">
+
                           <ChartCard
                             title="Target vs Actual Performance"
                             subtitle="Campaign metrics"
@@ -3204,9 +3295,11 @@ export default function CampaignsPage() {
                               </ResponsiveContainer>
                             </div>
                           </ChartCard>
+
                         </div>
 
                         <div className="grid gap-4 lg:grid-cols-3">
+
                           <ProgressCard
                             title="Reach Achievement"
                             value={
@@ -3236,6 +3329,7 @@ export default function CampaignsPage() {
                               progressValues.clicks
                             }
                           />
+
                         </div>
                       </>
                     )}
@@ -3246,6 +3340,7 @@ export default function CampaignsPage() {
                       "engagement" && (
                       <>
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
                           <StatCard
                             label="Total Engagement"
                             value={formatNumber(
@@ -3273,9 +3368,11 @@ export default function CampaignsPage() {
                               selectedCampaign.roi
                             )}
                           />
+
                         </div>
 
                         <div className="grid gap-6 xl:grid-cols-2">
+
                           <ChartCard
                             title="Engagement Trend"
                             subtitle="Recorded campaign performance"
@@ -3375,9 +3472,11 @@ export default function CampaignsPage() {
                               </ResponsiveContainer>
                             </div>
                           </ChartCard>
+
                         </div>
 
                         <div className="grid gap-4 md:grid-cols-3">
+
                           <InfoCard
                             title="Average Historical Engagement"
                             value={formatNumber(
@@ -3401,6 +3500,7 @@ export default function CampaignsPage() {
                                 0
                             )}
                           />
+
                         </div>
                       </>
                     )}
@@ -3411,6 +3511,7 @@ export default function CampaignsPage() {
                       "audience" && (
                       <>
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
                           <StatCard
                             label="Current Reach"
                             value={formatNumber(
@@ -3442,9 +3543,11 @@ export default function CampaignsPage() {
                                 0
                             )}
                           />
+
                         </div>
 
                         <div className="grid gap-6 xl:grid-cols-2">
+
                           <ChartCard
                             title="Audience Reach History"
                             subtitle="Growth over recorded points"
@@ -3495,6 +3598,7 @@ export default function CampaignsPage() {
                             subtitle="Reach and engagement indicators"
                           >
                             <div className="grid gap-4 p-2">
+
                               <MetricRow
                                 label="Reach Growth"
                                 value={formatPercent(
@@ -3535,8 +3639,10 @@ export default function CampaignsPage() {
                                     selectedAnalytics.ctr
                                 )}
                               />
+
                             </div>
                           </ChartCard>
+
                         </div>
 
                         <div className="rounded-2xl border border-slate-200 bg-white p-6">
@@ -3545,6 +3651,7 @@ export default function CampaignsPage() {
                           </h3>
 
                           <div className="mt-5 grid gap-4 md:grid-cols-3">
+
                             <InfoCard
                               title="First Recorded Reach"
                               value={formatNumber(
@@ -3574,6 +3681,7 @@ export default function CampaignsPage() {
                                   0
                               )}
                             />
+
                           </div>
                         </div>
                       </>
@@ -3647,6 +3755,7 @@ export default function CampaignsPage() {
                         </ChartCard>
 
                         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+
                           <div className="border-b border-slate-200 px-5 py-4">
                             <h3 className="font-bold text-slate-900">
                               Recorded Performance
@@ -3655,7 +3764,9 @@ export default function CampaignsPage() {
 
                           <div className="overflow-x-auto">
                             <table className="w-full min-w-[760px] text-sm">
+
                               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+
                                 <tr>
                                   <th className="px-5 py-3">
                                     Date
@@ -3677,9 +3788,11 @@ export default function CampaignsPage() {
                                     ROI
                                   </th>
                                 </tr>
+
                               </thead>
 
                               <tbody>
+
                                 {history.length ===
                                 0 ? (
                                   <tr>
@@ -3708,6 +3821,7 @@ export default function CampaignsPage() {
                                         }
                                         className="border-t border-slate-100"
                                       >
+
                                         <td className="px-5 py-4 text-slate-700">
                                           {formatDate(
                                             item.recorded_at
@@ -3737,10 +3851,12 @@ export default function CampaignsPage() {
                                             item.roi
                                           )}
                                         </td>
+
                                       </tr>
                                     )
                                   )
                                 )}
+
                               </tbody>
                             </table>
                           </div>
@@ -3754,6 +3870,7 @@ export default function CampaignsPage() {
                       "report" && (
                       <>
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
                           <StatCard
                             label="Campaign ROI"
                             value={formatPercent(
@@ -3784,10 +3901,13 @@ export default function CampaignsPage() {
                               selectedAnalytics.budget_used
                             )}
                           />
+
                         </div>
 
                         <div className="rounded-2xl border border-slate-200 bg-white p-6">
+
                           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+
                             <div>
                               <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
                                 Campaign Report
@@ -3832,6 +3952,7 @@ export default function CampaignsPage() {
                           </div>
 
                           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+
                             <ReportMetric
                               label="Budget"
                               value={formatCurrency(
@@ -3895,10 +4016,12 @@ export default function CampaignsPage() {
                                   selectedCampaign.roi
                               )}
                             />
+
                           </div>
                         </div>
 
                         <div className="rounded-2xl border border-slate-200 bg-white p-6">
+
                           <h3 className="text-base font-bold text-slate-900">
                             Campaign Comparison
                           </h3>
@@ -3959,7 +4082,9 @@ export default function CampaignsPage() {
 
                           <div className="mt-6 overflow-x-auto">
                             <table className="w-full min-w-[780px] text-sm">
+
                               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+
                                 <tr>
                                   <th className="px-4 py-3">
                                     Campaign
@@ -3989,9 +4114,11 @@ export default function CampaignsPage() {
                                     ROI
                                   </th>
                                 </tr>
+
                               </thead>
 
                               <tbody>
+
                                 {comparison.map(
                                   (
                                     item
@@ -4002,6 +4129,7 @@ export default function CampaignsPage() {
                                       }
                                       className="border-t border-slate-100"
                                     >
+
                                       <td className="px-4 py-3 font-semibold text-slate-900">
                                         {
                                           item.campaign_name
@@ -4043,9 +4171,11 @@ export default function CampaignsPage() {
                                           item.roi
                                         )}
                                       </td>
+
                                     </tr>
                                   )
                                 )}
+
                               </tbody>
                             </table>
                           </div>
@@ -4058,7 +4188,9 @@ export default function CampaignsPage() {
                     {activeTab ===
                       "posts" && (
                       <div className="rounded-2xl border border-slate-200 bg-white">
+
                         <div className="border-b border-slate-200 px-6 py-5">
+
                           <h3 className="text-base font-bold text-slate-900">
                             Campaign Posts
                           </h3>
@@ -4066,11 +4198,13 @@ export default function CampaignsPage() {
                           <p className="mt-1 text-sm text-slate-500">
                             Content grouped under this campaign.
                           </p>
+
                         </div>
 
                         {posts.length ===
                         0 ? (
                           <div className="px-6 py-12 text-center">
+
                             <p className="text-sm font-semibold text-slate-700">
                               No posts linked to this campaign.
                             </p>
@@ -4078,9 +4212,11 @@ export default function CampaignsPage() {
                             <p className="mt-1 text-xs text-slate-500">
                               Add posts from the Create Post page.
                             </p>
+
                           </div>
                         ) : (
                           <div className="divide-y divide-slate-100">
+
                             {posts.map(
                               (
                                 post
@@ -4091,8 +4227,11 @@ export default function CampaignsPage() {
                                   }
                                   className="p-6"
                                 >
+
                                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+
                                     <div className="min-w-0">
+
                                       <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
                                         {
                                           post.content
@@ -4100,6 +4239,7 @@ export default function CampaignsPage() {
                                       </p>
 
                                       <div className="mt-3 flex flex-wrap gap-2">
+
                                         {post.platforms.map(
                                           (
                                             platform
@@ -4116,6 +4256,7 @@ export default function CampaignsPage() {
                                             </span>
                                           )
                                         )}
+
                                       </div>
                                     </div>
 
@@ -4128,9 +4269,11 @@ export default function CampaignsPage() {
                                         post.status
                                       }
                                     </span>
+
                                   </div>
 
                                   <div className="mt-4 grid gap-3 text-xs text-slate-500 md:grid-cols-3">
+
                                     <div>
                                       <span className="font-semibold text-slate-700">
                                         Created:
@@ -4157,14 +4300,19 @@ export default function CampaignsPage() {
                                         post.published_at
                                       )}
                                     </div>
+
                                   </div>
+
                                 </div>
                               )
                             )}
+
                           </div>
                         )}
+
                       </div>
                     )}
+
                   </div>
                 )}
               </>
@@ -4192,12 +4340,14 @@ export default function CampaignsPage() {
             }
             className="space-y-5"
           >
+
             <CampaignFormFields
               form={form}
               setForm={setForm}
             />
 
             <div className="flex justify-end gap-3 border-t border-slate-200 pt-5">
+
               <button
                 type="button"
                 onClick={() =>
@@ -4216,6 +4366,7 @@ export default function CampaignsPage() {
               >
                 Create Campaign
               </button>
+
             </div>
           </form>
         </Modal>
@@ -4241,12 +4392,14 @@ export default function CampaignsPage() {
               }
               className="space-y-5"
             >
+
               <CampaignFormFields
                 form={form}
                 setForm={setForm}
               />
 
               <div className="flex justify-end gap-3 border-t border-slate-200 pt-5">
+
                 <button
                   type="button"
                   onClick={() =>
@@ -4265,6 +4418,7 @@ export default function CampaignsPage() {
                 >
                   Save Changes
                 </button>
+
               </div>
             </form>
           </Modal>
@@ -4290,7 +4444,9 @@ export default function CampaignsPage() {
               }
               className="space-y-5"
             >
+
               <div className="grid gap-4 sm:grid-cols-2">
+
                 <NativeField
                   label="Actual Reach"
                   type="number"
@@ -4306,8 +4462,7 @@ export default function CampaignsPage() {
                       ) => ({
                         ...previous,
                         reach:
-                          event.target
-                            .value,
+                          event.target.value,
                       })
                     )
                   }
@@ -4329,8 +4484,7 @@ export default function CampaignsPage() {
                       ) => ({
                         ...previous,
                         engagement:
-                          event.target
-                            .value,
+                          event.target.value,
                       })
                     )
                   }
@@ -4352,8 +4506,7 @@ export default function CampaignsPage() {
                       ) => ({
                         ...previous,
                         clicks:
-                          event.target
-                            .value,
+                          event.target.value,
                       })
                     )
                   }
@@ -4375,8 +4528,7 @@ export default function CampaignsPage() {
                       ) => ({
                         ...previous,
                         spent:
-                          event.target
-                            .value,
+                          event.target.value,
                       })
                     )
                   }
@@ -4399,13 +4551,13 @@ export default function CampaignsPage() {
                       ) => ({
                         ...previous,
                         roi:
-                          event.target
-                            .value,
+                          event.target.value,
                       })
                     )
                   }
                   placeholder="e.g. 18.50"
                 />
+
               </div>
 
               <div className="rounded-xl border border-sky-100 bg-sky-50 p-4">
@@ -4417,6 +4569,7 @@ export default function CampaignsPage() {
               </div>
 
               <div className="flex justify-end gap-3 border-t border-slate-200 pt-5">
+
                 <button
                   type="button"
                   onClick={() =>
@@ -4435,10 +4588,12 @@ export default function CampaignsPage() {
                 >
                   Save Performance
                 </button>
+
               </div>
             </form>
           </Modal>
         )}
+
     </div>
   );
 }
@@ -4458,6 +4613,7 @@ function SummaryCard({
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         {title}
       </p>
@@ -4469,6 +4625,7 @@ function SummaryCard({
       <p className="mt-1 text-xs text-slate-500">
         {subtitle}
       </p>
+
     </div>
   );
 }
@@ -4482,6 +4639,7 @@ function StatCard({
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+
       <p className="text-xs font-semibold text-slate-500">
         {label}
       </p>
@@ -4489,6 +4647,7 @@ function StatCard({
       <p className="mt-2 text-lg font-bold text-slate-900">
         {value}
       </p>
+
     </div>
   );
 }
@@ -4502,6 +4661,7 @@ function MetricMini({
 }) {
   return (
     <div className="rounded-lg bg-white/80 p-2.5">
+
       <p className="text-[10px] uppercase tracking-wide text-slate-400">
         {label}
       </p>
@@ -4509,6 +4669,7 @@ function MetricMini({
       <p className="mt-1 text-sm font-bold text-slate-800">
         {value}
       </p>
+
     </div>
   );
 }
@@ -4524,7 +4685,9 @@ function ChartCard({
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
       <div className="mb-5">
+
         <h3 className="text-base font-bold text-slate-900">
           {title}
         </h3>
@@ -4532,9 +4695,11 @@ function ChartCard({
         <p className="mt-1 text-xs text-slate-500">
           {subtitle}
         </p>
+
       </div>
 
       {children}
+
     </div>
   );
 }
@@ -4550,7 +4715,9 @@ function ProgressCard({
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
       <div className="flex items-center justify-between gap-3">
+
         <p className="text-sm font-semibold text-slate-700">
           {title}
         </p>
@@ -4560,9 +4727,11 @@ function ProgressCard({
             value
           )}
         </span>
+
       </div>
 
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+
         <div
           className="h-full rounded-full bg-sky-500 transition-all"
           style={{
@@ -4575,7 +4744,9 @@ function ProgressCard({
             )}%`,
           }}
         />
+
       </div>
+
     </div>
   );
 }
@@ -4591,6 +4762,7 @@ function InfoCard({
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5">
+
       <p className="text-xs font-semibold text-slate-500">
         {title}
       </p>
@@ -4604,6 +4776,7 @@ function InfoCard({
           {subtitle}
         </p>
       )}
+
     </div>
   );
 }
@@ -4617,6 +4790,7 @@ function MetricRow({
 }) {
   return (
     <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+
       <span className="text-sm text-slate-600">
         {label}
       </span>
@@ -4624,6 +4798,7 @@ function MetricRow({
       <span className="font-bold text-slate-900">
         {value}
       </span>
+
     </div>
   );
 }
@@ -4637,6 +4812,7 @@ function ReportMetric({
 }) {
   return (
     <div className="rounded-xl bg-slate-50 p-4">
+
       <p className="text-xs text-slate-500">
         {label}
       </p>
@@ -4644,6 +4820,7 @@ function ReportMetric({
       <p className="mt-2 font-bold text-slate-900">
         {value}
       </p>
+
     </div>
   );
 }
@@ -4673,6 +4850,7 @@ function NativeField({
 }) {
   return (
     <label className="block">
+
       <span className="mb-2 block text-xs font-semibold text-slate-700">
         {label}
       </span>
@@ -4688,6 +4866,7 @@ function NativeField({
         required={required}
         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
       />
+
     </label>
   );
 }
@@ -4730,7 +4909,9 @@ function CampaignFormFields({
 }) {
   return (
     <>
+
       <div className="grid gap-4 sm:grid-cols-2">
+
         <NativeField
           label="Campaign Name"
           type="text"
@@ -4746,8 +4927,7 @@ function CampaignFormFields({
               ) => ({
                 ...previous,
                 name:
-                  event.target
-                    .value,
+                  event.target.value,
               })
             )
           }
@@ -4756,6 +4936,7 @@ function CampaignFormFields({
         />
 
         <label className="block">
+
           <span className="mb-2 block text-xs font-semibold text-slate-700">
             Platform
           </span>
@@ -4773,8 +4954,7 @@ function CampaignFormFields({
                 ) => ({
                   ...previous,
                   platform:
-                    event.target
-                      .value,
+                    event.target.value,
                 })
               )
             }
@@ -4807,8 +4987,11 @@ function CampaignFormFields({
             <option>
               Multi-Platform
             </option>
+
           </select>
+
         </label>
+
       </div>
 
       <NativeField
@@ -4826,8 +5009,7 @@ function CampaignFormFields({
             ) => ({
               ...previous,
               description:
-                event.target
-                  .value,
+                event.target.value,
             })
           )
         }
@@ -4849,8 +5031,7 @@ function CampaignFormFields({
             ) => ({
               ...previous,
               objective:
-                event.target
-                  .value,
+                event.target.value,
             })
           )
         }
@@ -4858,6 +5039,7 @@ function CampaignFormFields({
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
+
         <NativeField
           label="Start Date"
           type="date"
@@ -4873,8 +5055,7 @@ function CampaignFormFields({
               ) => ({
                 ...previous,
                 start_date:
-                  event.target
-                    .value,
+                  event.target.value,
               })
             )
           }
@@ -4896,16 +5077,17 @@ function CampaignFormFields({
               ) => ({
                 ...previous,
                 end_date:
-                  event.target
-                    .value,
+                  event.target.value,
               })
             )
           }
           required
         />
+
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
+
         <NativeField
           label="Budget"
           type="number"
@@ -4921,8 +5103,7 @@ function CampaignFormFields({
               ) => ({
                 ...previous,
                 budget:
-                  event.target
-                    .value,
+                  event.target.value,
               })
             )
           }
@@ -4945,8 +5126,7 @@ function CampaignFormFields({
               ) => ({
                 ...previous,
                 target_reach:
-                  event.target
-                    .value,
+                  event.target.value,
               })
             )
           }
@@ -4968,8 +5148,7 @@ function CampaignFormFields({
               ) => ({
                 ...previous,
                 target_engagement:
-                  event.target
-                    .value,
+                  event.target.value,
               })
             )
           }
@@ -4991,14 +5170,15 @@ function CampaignFormFields({
               ) => ({
                 ...previous,
                 target_clicks:
-                  event.target
-                    .value,
+                  event.target.value,
               })
             )
           }
           placeholder="e.g. 2500"
         />
+
       </div>
+
     </>
   );
 }
@@ -5018,8 +5198,11 @@ function Modal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+
         <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
+
           <h2 className="text-lg font-bold text-slate-900">
             {title}
           </h2>
@@ -5033,11 +5216,13 @@ function Modal({
           >
             ×
           </button>
+
         </div>
 
         <div className="p-6">
           {children}
         </div>
+
       </div>
     </div>
   );
