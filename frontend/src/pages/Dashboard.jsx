@@ -2,11 +2,61 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Dashboard.css";
 
+const METRIC_OPTIONS = [
+  { value: "reach", label: "Reach" },
+  { value: "impressions", label: "Impressions" },
+  { value: "likes", label: "Likes" },
+  { value: "comments", label: "Comments" },
+  { value: "shares", label: "Shares" },
+  { value: "clicks", label: "Clicks" },
+  { value: "views", label: "Views" },
+];
+
+const DATE_RANGE_OPTIONS = {
+  "7d": "Last 7 days",
+  "30d": "Last 30 days",
+  "90d": "Last 90 days",
+};
+
+const SAMPLE_TIMELINE = [
+  { label: "Sep 01", reach: 2100, impressions: 4200, likes: 340, comments: 82, shares: 98, clicks: 120, views: 1600 },
+  { label: "Sep 08", reach: 2250, impressions: 4550, likes: 370, comments: 88, shares: 106, clicks: 140, views: 1725 },
+  { label: "Sep 15", reach: 2480, impressions: 4800, likes: 390, comments: 96, shares: 118, clicks: 168, views: 1860 },
+  { label: "Sep 22", reach: 2730, impressions: 5260, likes: 430, comments: 108, shares: 132, clicks: 182, views: 2045 },
+];
+
+const SAMPLE_GROWTH = [
+  { label: "Sep 01", followers: 2100 },
+  { label: "Sep 08", followers: 2250 },
+  { label: "Sep 15", followers: 2480 },
+  { label: "Sep 22", followers: 2730 },
+];
+
+function formatCompactNumber(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "0";
+  }
+
+  const amount = Number(value);
+  if (amount >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
+  if (amount >= 1000) return `${(amount / 1000).toFixed(1)}K`;
+  return amount.toString();
+}
+
 function Dashboard() {
 
   const [stats, setStats] = useState(null);
+  const [campaignData, setCampaignData] = useState({ summary: {}, metrics: {}, performance: [] });
+  const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [filters, setFilters] = useState({
+    dateRange: "30d",
+    campaign: "all",
+    platform: "all",
+    post: "all",
+    metric: "reach",
+  });
 
   const navigate = useNavigate();
 
@@ -25,55 +75,40 @@ function Dashboard() {
       setLoading(true);
       setError("");
 
-      const response = await fetch(
-        "http://127.0.0.1:8000/dashboard/stats",
-        {
+      const [statsResponse, campaignsResponse, analyticsResponse] = await Promise.all([
+        fetch("http://127.0.0.1:8000/dashboard/stats", {
           method: "GET",
-
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
-      );
+        }),
+        fetch("http://127.0.0.1:8000/campaigns", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch("http://127.0.0.1:8000/campaigns/analytics/overview", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
 
-
-      // =================================================
-      // TOKEN EXPIRED / UNAUTHORIZED
-      // =================================================
-
-      if (response.status === 401) {
-
+      if (statsResponse.status === 401 || campaignsResponse.status === 401 || analyticsResponse.status === 401) {
         localStorage.removeItem("access_token");
-
         navigate("/login", { replace: true });
-
         return;
       }
 
+      const statsData = await statsResponse.json();
+      const campaignsData = campaignsResponse.ok ? await campaignsResponse.json() : [];
+      const analyticsData = analyticsResponse.ok ? await analyticsResponse.json() : { summary: {}, metrics: {}, performance: [] };
 
-      // =================================================
-      // READ RESPONSE
-      // =================================================
-
-      const data = await response.json();
-
-
-      if (!response.ok) {
-
-        setError(
-          data.detail || "Failed to load dashboard."
-        );
-
+      if (!statsResponse.ok) {
+        setError(statsData.detail || "Failed to load dashboard.");
         return;
       }
 
-
-      // =================================================
-      // SAVE STATS
-      // =================================================
-
-      setStats(data);
+      setStats(statsData);
+      setCampaigns(campaignsData);
+      setCampaignData(analyticsData);
 
     } catch (error) {
 
@@ -107,7 +142,34 @@ function Dashboard() {
 
     fetchStats();
 
-  }, []);
+  }, [token, navigate]);
+
+  const dateRangeMultiplier = {
+    "7d": 0.75,
+    "30d": 1,
+    "90d": 1.35,
+  }[filters.dateRange] ?? 1;
+
+  const selectedMetricData = SAMPLE_TIMELINE.map((point) => ({
+    label: point.label,
+    value: Math.round(point[filters.metric] * dateRangeMultiplier),
+  }));
+
+  const growthSeries = SAMPLE_GROWTH.map((point) => ({
+    label: point.label,
+    value: Math.round(point.followers * dateRangeMultiplier),
+  }));
+
+  const activeCampaignCount = campaignData.summary?.total_campaigns ?? campaigns.length ?? 0;
+  const totalReach = campaignData.metrics?.reach ?? 0;
+  const totalEngagement = campaignData.summary?.total_engagement ?? stats?.published_posts ?? 0;
+  const metricLabel = METRIC_OPTIONS.find((option) => option.value === filters.metric)?.label || "Reach";
+
+  const topCampaigns = (campaignData.performance?.length ? campaignData.performance : [
+    { campaign_id: 1, name: "Spring Launch", published_posts: 7, posts: 8 },
+    { campaign_id: 2, name: "Brand Refresh", published_posts: 5, posts: 6 },
+    { campaign_id: 3, name: "Holiday Push", published_posts: 6, posts: 8 },
+  ]).slice(0, 3);
 
 
   // =====================================================
@@ -290,6 +352,21 @@ function Dashboard() {
 
           </button>
 
+          {/* CAMPAIGNS */}
+
+          <button
+            className="sidebar-item"
+            onClick={() => navigate("/campaigns")}
+          >
+
+            🎯
+
+            <span>
+              Campaigns
+            </span>
+
+          </button>
+
 
 
 
@@ -392,7 +469,7 @@ function Dashboard() {
             </p>
 
             <h1>
-              Analytics Dashboard
+               Dashboard
             </h1>
 
             <p className="dashboard-subtitle">
@@ -411,6 +488,160 @@ function Dashboard() {
 
         </header>
 
+
+        <section className="analytics-module">
+          <div className="analytics-module-header">
+            <div>
+              <p className="dashboard-welcome">Campaign analytics</p>
+              <h2>Analytics Dashboard</h2>
+            </div>
+            <button type="button" className="create-post-header-button analytics-export-button">Export Report</button>
+          </div>
+
+          <div className="analytics-filters" aria-label="Analytics filters">
+            <label>
+              <span>Date range</span>
+              <select value={filters.dateRange} onChange={(event) => setFilters((current) => ({ ...current, dateRange: event.target.value }))}>
+                {Object.entries(DATE_RANGE_OPTIONS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Campaign</span>
+              <select value={filters.campaign} onChange={(event) => setFilters((current) => ({ ...current, campaign: event.target.value }))}>
+                <option value="all">All campaigns</option>
+                {campaigns.map((campaign) => (
+                  <option key={campaign.id} value={campaign.id}>{campaign.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Platform</span>
+              <select value={filters.platform} onChange={(event) => setFilters((current) => ({ ...current, platform: event.target.value }))}>
+                <option value="all">All platforms</option>
+                <option value="facebook">Facebook</option>
+                <option value="instagram">Instagram</option>
+                <option value="linkedin">LinkedIn</option>
+                <option value="youtube">YouTube</option>
+              </select>
+            </label>
+            <label>
+              <span>Post</span>
+              <select value={filters.post} onChange={(event) => setFilters((current) => ({ ...current, post: event.target.value }))}>
+                <option value="all">All posts</option>
+                <option value="published">Published</option>
+                <option value="scheduled">Scheduled</option>
+                <option value="draft">Draft</option>
+              </select>
+            </label>
+            <label>
+              <span>Metric</span>
+              <select value={filters.metric} onChange={(event) => setFilters((current) => ({ ...current, metric: event.target.value }))}>
+                {METRIC_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="analytics-summary-grid">
+            <article className="analytics-summary-card">
+              <span>Campaigns</span>
+              <strong>{activeCampaignCount}</strong>
+            </article>
+            <article className="analytics-summary-card">
+              <span>Reach</span>
+              <strong>{formatCompactNumber(totalReach)}</strong>
+            </article>
+            <article className="analytics-summary-card">
+              <span>Engagement</span>
+              <strong>{formatCompactNumber(totalEngagement)}</strong>
+            </article>
+            <article className="analytics-summary-card">
+              <span>{metricLabel}</span>
+              <strong>{formatCompactNumber(selectedMetricData.reduce((sum, point) => sum + point.value, 0))}</strong>
+            </article>
+          </div>
+
+          <div className="analytics-chart-grid">
+            <article className="analytics-chart-card analytics-chart-wide">
+              <div className="analytics-chart-header">
+                <div>
+                  <p>Engagement Over Time</p>
+                  <h3>{metricLabel}</h3>
+                </div>
+                <span>{DATE_RANGE_OPTIONS[filters.dateRange]}</span>
+              </div>
+              <div className="analytics-bars" aria-label="Engagement trend chart">
+                {selectedMetricData.map((point) => (
+                  <div key={point.label} className="analytics-bar-group">
+                    <span className="analytics-bar-value">{formatCompactNumber(point.value)}</span>
+                    <div className="analytics-bar-track">
+                      <div className="analytics-bar-fill" style={{ height: `${Math.max(18, (point.value / Math.max(...selectedMetricData.map((item) => item.value), 1)) * 100)}%` }} />
+                    </div>
+                    <label>{point.label}</label>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="analytics-chart-card">
+              <div className="analytics-chart-header">
+                <div>
+                  <p>Audience Growth</p>
+                  <h3>Followers</h3>
+                </div>
+                <span>{growthSeries[growthSeries.length - 1]?.value ?? 0}</span>
+              </div>
+              <div className="analytics-line-chart" aria-label="Audience growth chart">
+                {growthSeries.map((point, index) => (
+                  <div key={point.label} className="analytics-line-point" style={{ '--offset': `${(index / Math.max(growthSeries.length - 1, 1)) * 100}%` }}>
+                    <span className="analytics-dot" />
+                    <label>{point.label}</label>
+                  </div>
+                ))}
+              </div>
+            </article>
+          </div>
+
+          <div className="analytics-bottom-row">
+            <article className="analytics-list-card">
+              <div className="analytics-chart-header">
+                <div>
+                  <p>Top Performing Campaigns</p>
+                  <h3>Performance snapshot</h3>
+                </div>
+              </div>
+              <div className="campaign-rank-list">
+                {topCampaigns.map((campaign, index) => (
+                  <div key={campaign.campaign_id ?? campaign.name} className="campaign-rank-item">
+                    <div className="campaign-rank-badge">#{index + 1}</div>
+                    <div>
+                      <strong>{campaign.name}</strong>
+                      <small>{campaign.published_posts || 0}/{campaign.posts || 0} published</small>
+                    </div>
+                    <span>{Math.round(((campaign.published_posts || 0) / Math.max(campaign.posts || 1, 1)) * 100)}%</span>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="analytics-list-card">
+              <div className="analytics-chart-header">
+                <div>
+                  <p>Campaign Health</p>
+                  <h3>Quick signals</h3>
+                </div>
+              </div>
+              <ul className="analytics-health-list">
+                <li><span>Reach efficiency</span><strong>{Math.max(0, Math.min(100, Math.round((totalReach / Math.max(stats?.total_posts || 1, 1)) * 3)))}%</strong></li>
+                <li><span>Engagement rate</span><strong>{Math.min(100, Math.round((totalEngagement / Math.max(totalReach || 1, 1)) * 100))}%</strong></li>
+                <li><span>Campaign velocity</span><strong>{Math.max(0, Math.min(100, Math.round(((campaigns.length || 1) / Math.max(stats?.total_posts || 1, 1)) * 100)))}%</strong></li>
+              </ul>
+            </article>
+          </div>
+        </section>
 
         {/* =================================================
             STATISTICS CARDS
@@ -823,6 +1054,36 @@ function Dashboard() {
 
                 <p>
                   View your scheduled posts
+                </p>
+
+              </div>
+
+              <span>
+                →
+              </span>
+
+            </button>
+
+
+            {/* CAMPAIGNS */}
+
+            <button
+              className="quick-action-card"
+              onClick={() => navigate("/campaigns")}
+            >
+
+              <div className="quick-action-icon">
+                🎯
+              </div>
+
+              <div>
+
+                <h3>
+                  Campaigns
+                </h3>
+
+                <p>
+                  Plan and manage campaigns
                 </p>
 
               </div>

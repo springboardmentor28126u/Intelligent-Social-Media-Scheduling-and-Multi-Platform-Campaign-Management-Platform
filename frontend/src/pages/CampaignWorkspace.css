@@ -1,0 +1,186 @@
+:root {
+  --campaign-ink: #f8fafc;
+  --campaign-muted: #94a3b8;
+  --campaign-subtle: #64748b;
+  --campaign-line: #27364a;
+  --campaign-line-strong: #3b4d68;
+  --campaign-surface: #111c2c;
+  --campaign-surface-raised: #17253a;
+  --campaign-field: #0d1726;
+  --campaign-accent: #6d9dfc;
+  --campaign-accent-strong: #4f7edb;
+}
+
+.campaigns-page,
+.create-campaign-page,
+.campaign-details-page {
+  position: relative;
+  isolation: isolate;
+  background-color: #0b1422;
+  background-image: none;
+  color: var(--campaign-ink);
+}
+
+.campaigns-shell,
+.create-campaign-shell,
+.campaign-details-shell {
+  position: relative;
+  z-index: 1;
+}
+
+.campaigns-eyebrow {
+  color: #6d9dfc !important;
+  font-family: Arial, sans-serif;
+  font-size: 10px !important;
+  letter-spacing: 1.8px !important;
+}
+
+.campaigns-header h1,
+.create-campaign-header h1,
+.campaign-details-header h1 {
+  font-family: inherit;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.campaigns-subtitle,
+.create-campaign-header p:last-child,
+.campaign-details-header > div:first-child > p:last-child {
+  max-width: 520px;
+  color: var(--campaign-muted) !important;
+  line-height: 1.65;
+}
+
+.campaigns-back-button,
+.campaigns-refresh-button,
+.campaign-cancel-button {
+  border-color: var(--campaign-line-strong) !important;
+  background: #111c2c !important;
+  color: #cbd5e1 !important;
+}
+
+.campaigns-back-button:hover,
+.campaigns-refresh-button:hover,
+.campaign-cancel-button:hover {
+  border-color: #6d9dfc !important;
+  background: #17253a !important;
+}
+
+.campaigns-create-button,
+.campaign-save-button {
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: #6d9dfc !important;
+  color: #ffffff !important;
+  box-shadow: none;
+}
+
+.campaigns-create-button:hover,
+.campaign-save-button:hover {
+  background: #4f7edb !important;
+  transform: translateY(-1px);
+}
+
+.campaign-dashboard-summary article,
+.campaign-analytics-panel,
+.campaigns-panel,
+.create-campaign-form,
+.campaign-information-card,
+.campaign-related-panel,
+.campaign-calendar-panel {
+  border-color: var(--campaign-line) !important;
+  background: var(--campaign-surface) !important;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.16);
+}
+
+.campaign-dashboard-summary article,
+.campaign-information-card {
+  transition: border-color 180ms ease, transform 180ms ease, background 180ms ease;
+}
+
+.campaign-dashboard-summary article:hover,
+.campaign-information-card:hover {
+  border-color: var(--campaign-line-strong) !important;
+  background: #17253a !important;
+  transform: translateY(-2px);
+}
+
+.campaign-dashboard-summary strong,
+.campaign-metric-grid strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.campaigns-panel-heading,
+.campaign-related-heading {
+  border-color: var(--campaign-line) !important;
+}
+
+.campaign-filters input,
+.campaign-filters select,
+.create-campaign-form input,
+.create-campaign-form textarea,
+.create-campaign-form select,
+.campaign-edit-form input,
+.campaign-edit-form textarea,
+.campaign-edit-form select,
+.campaign-post-composer textarea,
+.campaign-post-composer select,
+.campaign-post-composer input {
+  border-color: var(--campaign-line-strong) !important;
+  background: var(--campaign-field) !important;
+}
+
+.campaign-filters input:focus,
+.campaign-filters select:focus,
+.create-campaign-form input:focus,
+.create-campaign-form textarea:focus,
+.create-campaign-form select:focus,
+.campaign-edit-form input:focus,
+.campaign-edit-form textarea:focus,
+.campaign-edit-form select:focus,
+.campaign-post-composer textarea:focus,
+.campaign-post-composer select:focus,
+.campaign-post-composer input:focus {
+  border-color: var(--campaign-accent) !important;
+  box-shadow: 0 0 0 3px rgba(109, 157, 252, 0.12);
+}
+
+.campaign-status {
+  letter-spacing: 0.2px;
+}
+
+.campaigns-table tbody tr {
+  transition: background 160ms ease;
+}
+
+.campaign-actions button,
+.post-publish-button {
+  min-height: 30px;
+  padding: 5px 8px;
+  border-radius: 5px;
+}
+
+.campaign-actions button:focus-visible,
+.campaigns-back-button:focus-visible,
+.campaigns-create-button:focus-visible,
+.campaigns-refresh-button:focus-visible,
+.campaign-save-button:focus-visible,
+.campaign-cancel-button:focus-visible,
+.post-publish-button:focus-visible {
+  outline: 2px solid #6d9dfc;
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .campaigns-page,
+  .create-campaign-page,
+  .campaign-details-page {
+    padding-top: 28px;
+  }
+
+  .campaigns-header h1,
+  .create-campaign-header h1,
+  .campaign-details-header h1 {
+    letter-spacing: -1px;
+  }
+}

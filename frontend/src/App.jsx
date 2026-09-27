@@ -5,6 +5,7 @@ import {
   Link,
   Navigate
 } from "react-router-dom";
+import React from "react";
 
 import "./App.css";
 
@@ -20,6 +21,35 @@ import Calendar from "./pages/Calendar";
 import Drafts from "./pages/Drafts";
 import PublishingLogs from "./pages/PublishingLogs";
 import PublishingQueue from "./pages/PublishingQueue";
+import Campaigns from "./pages/Campaigns";
+import CreateCampaign from "./pages/CreateCampaign";
+import CampaignDetails from "./pages/CampaignDetails";
+
+function ThemeToggle() {
+  const [theme, setTheme] = React.useState(() => {
+    const savedTheme = localStorage.getItem("socialpilot-theme");
+    return savedTheme || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  });
+
+  React.useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("socialpilot-theme", theme);
+  }, [theme]);
+
+  const nextTheme = theme === "dark" ? "light" : "dark";
+
+  return (
+    <button
+      className="theme-toggle"
+      type="button"
+      onClick={() => setTheme(nextTheme)}
+      aria-label={`Switch to ${nextTheme} mode`}
+      title={`Switch to ${nextTheme} mode`}
+    >
+      <span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span>
+    </button>
+  );
+}
 // =====================================================
 // PROTECTED ROUTE
 // =====================================================
@@ -407,6 +437,8 @@ function App() {
 
     <BrowserRouter>
 
+      <ThemeToggle />
+
       <Routes>
 
         {/* =================================================
@@ -508,6 +540,33 @@ function App() {
           element={
             <ProtectedRoute>
               <Posts />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/campaigns"
+          element={
+            <ProtectedRoute>
+              <Campaigns />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/campaigns/create"
+          element={
+            <ProtectedRoute>
+              <CreateCampaign />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/campaigns/:id"
+          element={
+            <ProtectedRoute>
+              <CampaignDetails />
             </ProtectedRoute>
           }
         />

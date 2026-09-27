@@ -33,9 +33,22 @@ class SocialAccount(Base):
         String,
         nullable=True
     )
-    
-    refresh_token = Column(String, nullable=True)
-    channel_id = Column(String, nullable=True)
+
+    refresh_token = Column(
+        String,
+        nullable=True
+    )
+
+    channel_id = Column(
+        String,
+        nullable=True
+    )
+
+    # Facebook Page ID
+    page_id = Column(
+        String,
+        nullable=True
+    )
 
     user = relationship(
         "User",

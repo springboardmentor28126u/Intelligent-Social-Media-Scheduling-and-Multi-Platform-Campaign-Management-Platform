@@ -1,30 +1,21 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from apscheduler.schedulers.background import (
-    BackgroundScheduler
-)
-
+from apscheduler.schedulers.background import BackgroundScheduler
 from dateutil.relativedelta import relativedelta
 
 from app.database.postgres import SessionLocal
 from app.models.post import Post
 from app.models.social_account import SocialAccount
-from app.models.publishing_log import (
-    PublishingLog
-)
-from app.services.publisher import (
-    publish_to_social_media
-)
+from app.models.publishing_log import PublishingLog
+from app.services.publisher import publish_to_social_media
 
 
 # ============================================================
 # INDIAN TIMEZONE
 # ============================================================
 
-INDIA_TIMEZONE = ZoneInfo(
-    "Asia/Kolkata"
-)
+INDIA_TIMEZONE = ZoneInfo("Asia/Kolkata")
 
 
 # ============================================================
@@ -32,6 +23,13 @@ INDIA_TIMEZONE = ZoneInfo(
 # ============================================================
 
 def get_current_india_time():
+    """
+    Returns the current Indian Standard Time
+    as a naive datetime.
+
+    The database scheduling values are treated
+    as Indian local time.
+    """
 
     return datetime.now(
         INDIA_TIMEZONE
@@ -48,26 +46,30 @@ def get_next_schedule(
     current_time,
     recurrence_type
 ):
+    """
+    Calculate the next occurrence of
+    a recurring post.
+    """
 
     if recurrence_type == "daily":
 
         return (
-            current_time +
-            relativedelta(days=1)
+            current_time
+            + relativedelta(days=1)
         )
 
     elif recurrence_type == "weekly":
 
         return (
-            current_time +
-            relativedelta(weeks=1)
+            current_time
+            + relativedelta(weeks=1)
         )
 
     elif recurrence_type == "monthly":
 
         return (
-            current_time +
-            relativedelta(months=1)
+            current_time
+            + relativedelta(months=1)
         )
 
     return None
@@ -84,16 +86,25 @@ def create_publishing_log(
     status,
     message
 ):
+    """
+    Create a publishing log for a post.
+    """
 
     log = PublishingLog(
         post_id=post.id,
+
         user_id=post.user_id,
+
         social_account_id=(
             post.social_account_id
         ),
+
         platform=social_account.platform,
+
         status=status,
+
         message=message,
+
         published_at=(
             get_current_india_time()
         )
@@ -112,9 +123,9 @@ def process_scheduled_posts():
 
     try:
 
-        # ----------------------------------------------------
+        # ====================================================
         # CURRENT INDIA TIME
-        # ----------------------------------------------------
+        # ====================================================
 
         now = get_current_india_time()
 
@@ -126,14 +137,16 @@ def process_scheduled_posts():
             f"Current India time: {now}"
         )
 
-        # ----------------------------------------------------
+        # ====================================================
         # FIND DUE POSTS
-        # ----------------------------------------------------
+        # ====================================================
 
         posts = (
             db.query(Post)
             .filter(
-                Post.status == "scheduled",
+                # Legacy posts use lowercase; new API posts may use uppercase.
+                Post.status.in_(["scheduled", "SCHEDULED"]),
+
                 Post.scheduled_at <= now
             )
             .all()
@@ -142,18 +155,20 @@ def process_scheduled_posts():
         if not posts:
 
             print(
-                "Found 0 scheduled post(s) ready to publish."
+                "Found 0 scheduled post(s) "
+                "ready to publish."
             )
 
             return
 
         print(
-            f"Found {len(posts)} scheduled post(s) ready to publish."
+            f"Found {len(posts)} scheduled post(s) "
+            "ready to publish."
         )
 
-        # ----------------------------------------------------
-        # PROCESS POSTS
-        # ----------------------------------------------------
+        # ====================================================
+        # PROCESS EACH POST
+        # ====================================================
 
         for post in posts:
 
@@ -161,40 +176,54 @@ def process_scheduled_posts():
 
             try:
 
-                # ------------------------------------------------
-                # SOCIAL ACCOUNT
-                # ------------------------------------------------
+                # ============================================
+                # FIND SOCIAL ACCOUNT
+                # ============================================
 
                 social_account = (
                     db.query(
                         SocialAccount
                     )
                     .filter(
-                        SocialAccount.id ==
-                            post.social_account_id,
-                        SocialAccount.user_id ==
-                            post.user_id
+                        SocialAccount.id
+                        == post.social_account_id,
+
+                        SocialAccount.user_id
+                        == post.user_id
                     )
                     .first()
                 )
 
+                # ============================================
+                # ACCOUNT NOT FOUND
+                # ============================================
+
                 if not social_account:
 
                     print(
-                        f"Social account not found for post {post.id}"
+                        f"Social account not found "
+                        f"for post {post.id}"
                     )
 
                     post.status = "failed"
+                    post.error_message = "Social media account not found"
 
                     log = PublishingLog(
                         post_id=post.id,
+
                         user_id=post.user_id,
+
                         social_account_id=None,
+
                         platform="unknown",
+
                         status="failed",
+
                         message=(
-                            "Social media account not found"
+                            "Social media account "
+                            "not found"
                         ),
+
                         published_at=(
                             get_current_india_time()
                         )
@@ -204,9 +233,9 @@ def process_scheduled_posts():
 
                     continue
 
-                # ------------------------------------------------
-                # PRINT
-                # ------------------------------------------------
+                # ============================================
+                # DISPLAY INFORMATION
+                # ============================================
 
                 print(
                     f"Processing post ID: {post.id}"
@@ -218,28 +247,81 @@ def process_scheduled_posts():
                     f"({social_account.username})"
                 )
 
-                # ------------------------------------------------
-                # PUBLISH
-                # ------------------------------------------------
+                # ============================================
+                # DISPLAY MEDIA INFORMATION
+                # ============================================
+
+                if post.media_url:
+
+                    print(
+                        f"Media URL: "
+                        f"{post.media_url}"
+                    )
+
+                    print(
+                        f"Media type: "
+                        f"{post.media_type}"
+                    )
+
+                    print(
+                        f"Media filename: "
+                        f"{post.media_filename}"
+                    )
+
+                else:
+
+                    print(
+                        "No media attached to this post."
+                    )
+
+                # ============================================
+                # PUBLISH POST
+                # ============================================
+                #
+                # IMPORTANT:
+                # We call publisher ONLY ONCE.
+                #
+                # Media information is passed here.
+                # ============================================
+
+                post.status = "publishing"
+                db.commit()
 
                 result = (
                     publish_to_social_media(
                         platform=(
                             social_account.platform
                         ),
+
                         username=(
                             social_account.username
                         ),
-                        content=post.content,
+
+                        content=(
+                            post.content
+                        ),
+
                         access_token=(
                             social_account.access_token
+                        ),
+
+                        media_url=(
+                            post.media_url
+                        ),
+
+                        media_type=(
+                            post.media_type
+                        ),
+
+                        social_account=(
+                            social_account
                         )
                     )
                 )
 
-                # ------------------------------------------------
-                # SUCCESS
-                # ------------------------------------------------
+                # ============================================
+                # PUBLISH SUCCESS
+                # ============================================
 
                 if result.get("success"):
 
@@ -250,23 +332,35 @@ def process_scheduled_posts():
                         )
                     )
 
+                    # ----------------------------------------
+                    # CREATE SUCCESS LOG
+                    # ----------------------------------------
+
                     create_publishing_log(
                         db=db,
+
                         post=post,
+
                         social_account=social_account,
+
                         status="published",
+
                         message=success_message
                     )
 
-                    # --------------------------------------------
+                    # ========================================
                     # RECURRING POST
-                    # --------------------------------------------
+                    # ========================================
 
                     if (
                         post.is_recurring
                         and post.recurrence_type
                         and post.recurrence_end
                     ):
+
+                        # ------------------------------------
+                        # CALCULATE NEXT DATE
+                        # ------------------------------------
 
                         next_schedule = (
                             get_next_schedule(
@@ -275,96 +369,123 @@ def process_scheduled_posts():
                             )
                         )
 
+                        # ------------------------------------
+                        # CHECK RECURRENCE END DATE
+                        # ------------------------------------
+
                         if (
                             next_schedule
                             and
-                            next_schedule <=
-                            post.recurrence_end
+                            next_schedule
+                            <= post.recurrence_end
                         ):
+
+                            # ================================
+                            # CREATE NEXT RECURRING POST
+                            # ================================
 
                             new_post = Post(
 
-                                user_id=
-                                    post.user_id,
+                                user_id=(
+                                    post.user_id
+                                ),
 
-                                social_account_id=
-                                    post.social_account_id,
+                                social_account_id=(
+                                    post.social_account_id
+                                ),
 
-                                content=
-                                    post.content,
+                                content=(
+                                    post.content
+                                ),
 
-                                status=
-                                    "scheduled",
+                                status="scheduled",
 
-                                scheduled_at=
-                                    next_schedule,
+                                scheduled_at=(
+                                    next_schedule
+                                ),
 
-                                is_recurring=
-                                    True,
+                                is_recurring=True,
 
-                                recurrence_type=
-                                    post.recurrence_type,
+                                recurrence_type=(
+                                    post.recurrence_type
+                                ),
 
-                                recurrence_end=
+                                recurrence_end=(
                                     post.recurrence_end
+                                ),
+
+                                # ----------------------------
+                                # COPY MEDIA
+                                # ----------------------------
+
+                                media_url=(
+                                    post.media_url
+                                ),
+
+                                media_type=(
+                                    post.media_type
+                                ),
+
+                                media_filename=(
+                                    post.media_filename
+                                )
                             )
 
                             db.add(new_post)
 
-                            post.status = (
-                                "published"
-                            )
+                            # --------------------------------
+                            # MARK CURRENT POST AS PUBLISHED
+                            # --------------------------------
 
-                            post.scheduled_at = (
-                                None
-                            )
+                            post.status = "published"
+
+                            post.scheduled_at = None
 
                             print(
                                 "Next recurring post "
-                                f"scheduled for {next_schedule}"
+                                f"scheduled for "
+                                f"{next_schedule}"
                             )
 
                         else:
 
-                            post.status = (
-                                "published"
-                            )
+                            # =================================
+                            # RECURRING PERIOD COMPLETED
+                            # =================================
 
-                            post.scheduled_at = (
-                                None
-                            )
+                            post.status = "published"
 
-                            post.is_recurring = (
-                                False
-                            )
+                            post.scheduled_at = None
+
+                            post.is_recurring = False
 
                             print(
                                 f"Recurring schedule "
-                                f"completed for post {post.id}"
+                                f"completed for post "
+                                f"{post.id}"
                             )
 
-                    # --------------------------------------------
+                    # ========================================
                     # NORMAL POST
-                    # --------------------------------------------
+                    # ========================================
 
                     else:
 
-                        post.status = (
-                            "published"
-                        )
+                        post.status = "published"
+                        post.published_at = get_current_india_time()
+                        post.platform_post_id = result.get("post_id")
+                        post.error_message = None
 
-                        post.scheduled_at = (
-                            None
-                        )
+                        post.scheduled_at = None
 
                     print(
                         f"Post {post.id} "
                         "published successfully"
                     )
 
-                # ------------------------------------------------
+                # =================================================
                 # PUBLISH FAILED
-                # ------------------------------------------------
+                # =================================================
 
                 else:
 
@@ -375,54 +496,74 @@ def process_scheduled_posts():
                         )
                     )
 
-                    post.status = (
-                        "failed"
-                    )
+                    post.status = "failed"
+                    post.error_message = error_message
 
                     create_publishing_log(
                         db=db,
+
                         post=post,
+
                         social_account=social_account,
+
                         status="failed",
+
                         message=error_message
                     )
 
                     print(
                         f"Failed to publish post "
-                        f"{post.id}: {error_message}"
+                        f"{post.id}: "
+                        f"{error_message}"
                     )
+
+            # ====================================================
+            # ERROR PROCESSING INDIVIDUAL POST
+            # ====================================================
 
             except Exception as post_error:
 
                 post.status = "failed"
+                post.error_message = str(post_error)
 
                 try:
 
-                    create_publishing_log(
-                        db=db,
-                        post=post,
-                        social_account=social_account,
-                        status="failed",
-                        message=str(post_error)
-                    )
+                    if social_account:
+
+                        create_publishing_log(
+                            db=db,
+
+                            post=post,
+
+                            social_account=social_account,
+
+                            status="failed",
+
+                            message=str(post_error)
+                        )
 
                 except Exception:
                     pass
 
                 print(
                     f"Error while processing post "
-                    f"{post.id}: {post_error}"
+                    f"{post.id}: "
+                    f"{post_error}"
                 )
 
-        # ----------------------------------------------------
-        # SAVE
-        # ----------------------------------------------------
+        # ====================================================
+        # SAVE ALL CHANGES
+        # ====================================================
 
         db.commit()
 
         print(
             "Scheduler processing completed."
         )
+
+    # ========================================================
+    # GENERAL SCHEDULER ERROR
+    # ========================================================
 
     except Exception as error:
 
@@ -431,6 +572,10 @@ def process_scheduled_posts():
         print(
             f"Scheduler error: {error}"
         )
+
+    # ========================================================
+    # CLOSE DATABASE
+    # ========================================================
 
     finally:
 
@@ -448,17 +593,23 @@ scheduler = BackgroundScheduler(
 
 scheduler.add_job(
     process_scheduled_posts,
+
     "interval",
+
     seconds=10,
+
     id="scheduled_posts_job",
+
     replace_existing=True,
+
     max_instances=1,
+
     coalesce=True
 )
 
 
 # ============================================================
-# START
+# START SCHEDULER
 # ============================================================
 
 def start_scheduler():
@@ -474,7 +625,7 @@ def start_scheduler():
 
 
 # ============================================================
-# STOP
+# STOP SCHEDULER
 # ============================================================
 
 def stop_scheduler():

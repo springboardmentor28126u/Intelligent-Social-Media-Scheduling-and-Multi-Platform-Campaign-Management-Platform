@@ -104,6 +104,12 @@ a {
 
   border: 1px solid #363b4b;
 
+  body {
+    background: var(--bg);
+    color: var(--text);
+  }
+
+
   border-radius: 20px;
 
   color: #aeb2c5;
@@ -112,6 +118,14 @@ a {
 
   margin-bottom: 25px;
 }
+
+  :root[data-theme="light"] .navbar,
+  :root[data-theme="light"] footer,
+  :root[data-theme="light"] .post-preview {
+    background: var(--surface);
+    border-color: var(--border);
+  }
+
 
 .hero h1 {
   font-size: 58px;
@@ -127,6 +141,13 @@ a {
   color: #818cf8;
 }
 
+
+  :root[data-theme="light"] .home-page,
+  :root[data-theme="light"] .hero {
+    background: var(--bg);
+    color: var(--text-h);
+  }
+
 .hero p {
   font-size: 19px;
 
@@ -137,11 +158,36 @@ a {
   margin-bottom: 35px;
 }
 
+  :root[data-theme="light"] .hero-badge,
+  :root[data-theme="light"] .secondary-button,
+  :root[data-theme="light"] .feature-card,
+  :root[data-theme="light"] .workflow-step,
+  :root[data-theme="light"] .preview-card,
+  :root[data-theme="light"] .stat-card {
+    border-color: var(--border);
+    background: var(--surface);
+    color: var(--text-h);
+  }
+
+
 .hero-buttons {
   display: flex;
 
   gap: 15px;
 }
+
+  :root[data-theme="light"] .hero p,
+  :root[data-theme="light"] .hero-badge,
+  :root[data-theme="light"] .section-heading p,
+  :root[data-theme="light"] .feature-card p,
+  :root[data-theme="light"] .workflow-step p,
+  :root[data-theme="light"] .cta p,
+  :root[data-theme="light"] .footer-links a,
+  :root[data-theme="light"] .copyright,
+  :root[data-theme="light"] .stat-label {
+    color: var(--text);
+  }
+
 
 
 /* BUTTONS */
@@ -151,6 +197,10 @@ a {
 
   padding: 14px 26px;
 
+
+  :root[data-theme="light"] .stat-card {
+    background: var(--surface-muted);
+  }
   background: #6366f1;
 
   color: white;

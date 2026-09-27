@@ -113,29 +113,6 @@ function formatIndianDate(value) {
 
 
 // ============================================================
-// FORMAT TIME ONLY
-// ============================================================
-
-function formatIndianTime(value) {
-  if (!value) {
-    return "";
-  }
-
-  const date = parseIndianDateTime(value);
-
-  if (!date) {
-    return "";
-  }
-
-  return date.toLocaleTimeString("en-IN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-
-// ============================================================
 // GET PLATFORM ICON
 // ============================================================
 
@@ -312,8 +289,9 @@ function Posts() {
       return;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchPosts();
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
 
@@ -550,6 +528,34 @@ function Posts() {
     }
   };
 
+  const retryPost = async (postId) => {
+    const token = localStorage.getItem("access_token");
+    const response = await fetch(`${API_URL}/posts/${postId}/retry`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      alert(data.detail || "Failed to retry post.");
+      return;
+    }
+    await fetchPosts();
+  };
+
+  const cancelPost = async (postId) => {
+    const token = localStorage.getItem("access_token");
+    const response = await fetch(`${API_URL}/posts/${postId}/cancel`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      alert(data.detail || "Failed to cancel post.");
+      return;
+    }
+    await fetchPosts();
+  };
+
 
   // ============================================================
   // COUNTS
@@ -580,7 +586,6 @@ function Posts() {
       String(post.status || "")
         .toLowerCase() === "failed"
   ).length;
-
 
   // ============================================================
   // LOADING
@@ -915,6 +920,19 @@ function Posts() {
 
             <button
               className={
+                filter === "cancelled"
+                  ? "active"
+                  : ""
+              }
+              onClick={() =>
+                setFilter("cancelled")
+              }
+            >
+              Cancelled
+            </button>
+
+            <button
+              className={
                 filter === "failed"
                   ? "active"
                   : ""
@@ -1040,6 +1058,12 @@ function Posts() {
                       <p>
                         {post.content}
                       </p>
+
+                      {status === "failed" && post.error_message && (
+                        <p className="post-error-message">
+                          Reason: {post.error_message}
+                        </p>
+                      )}
 
                     </div>
 
@@ -1169,6 +1193,24 @@ function Posts() {
                           ✏️ Edit
                         </button>
 
+                      )}
+
+                      {status === "failed" && (
+                        <button
+                          className="post-publish-button"
+                          onClick={() => retryPost(post.id)}
+                        >
+                          🔁 Retry
+                        </button>
+                      )}
+
+                      {status === "scheduled" && (
+                        <button
+                          className="post-schedule-button"
+                          onClick={() => cancelPost(post.id)}
+                        >
+                          ✕ Cancel
+                        </button>
                       )}
 
 

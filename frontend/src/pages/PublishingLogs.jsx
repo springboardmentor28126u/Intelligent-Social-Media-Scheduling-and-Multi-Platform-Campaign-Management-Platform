@@ -65,9 +65,11 @@ function PublishingLogs() {
 
       if (!response.ok) {
 
-        setError(
-          data.detail || "Failed to load publishing logs"
-        );
+        const detail = Array.isArray(data?.detail)
+          ? data.detail.map((issue) => issue?.msg || "Validation error").join("; ")
+          : data?.detail || "Failed to load publishing logs";
+
+        setError(detail);
 
         return;
       }

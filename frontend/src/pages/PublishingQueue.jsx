@@ -65,9 +65,11 @@ function PublishingQueue() {
 
       if (!response.ok) {
 
-        setError(
-          data.detail || "Failed to load publishing queue."
-        );
+        const detail = Array.isArray(data?.detail)
+          ? data.detail.map((issue) => issue?.msg || "Validation error").join("; ")
+          : data?.detail || "Failed to load publishing queue.";
+
+        setError(detail);
 
         return;
       }

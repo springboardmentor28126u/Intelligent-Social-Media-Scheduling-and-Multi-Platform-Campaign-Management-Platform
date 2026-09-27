@@ -6,9 +6,21 @@ from app.routers.auth import router as auth_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.social_accounts import router as social_accounts_router
 from app.routers.posts import router as posts_router
+from app.routers.campaigns import router as campaigns_router
 
 from app.services.scheduler import scheduler
 
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+
+
+
+# Upload directories
+UPLOAD_DIR = Path("uploads")
+
+UPLOAD_DIR.mkdir(exist_ok=True)
+(UPLOAD_DIR / "images").mkdir(exist_ok=True)
+(UPLOAD_DIR / "videos").mkdir(exist_ok=True)
 
 # ---------------------------------------------------------
 # Application lifespan
@@ -42,6 +54,13 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Serve uploaded files publicly from the live application instance.
+app.mount(
+    "/uploads",
+    StaticFiles(directory="uploads"),
+    name="uploads"
+)
+
 
 # ---------------------------------------------------------
 # CORS configuration
@@ -67,6 +86,7 @@ app.include_router(auth_router)
 app.include_router(dashboard_router)
 app.include_router(social_accounts_router)
 app.include_router(posts_router)
+app.include_router(campaigns_router)
 
 
 # ---------------------------------------------------------

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Calendar.css";
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 
 // ============================================================
@@ -139,9 +139,13 @@ function Calendar() {
       }
 
 
-      const data =
-        await response.json();
+      let data = null;
 
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
 
       console.log(
         "Scheduled posts:",
@@ -154,10 +158,17 @@ function Calendar() {
       // --------------------------------------------------------
 
       if (!response.ok) {
-        setError(
-          data.detail ||
-            "Failed to load scheduled posts."
-        );
+        const errorDetail = data && (data.detail || data.message)
+          ? data.detail || data.message
+          : "Failed to load scheduled posts.";
+
+        const message = Array.isArray(errorDetail)
+          ? errorDetail.map((item) => item?.msg || item?.detail || String(item)).join("; ")
+          : typeof errorDetail === "string"
+            ? errorDetail
+            : JSON.stringify(errorDetail);
+
+        setError(message);
 
         return;
       }
@@ -338,14 +349,15 @@ function Calendar() {
   const getPostsForDate = (day) => {
     return posts.filter(
       (post) => {
+        const eventDateValue = post.scheduled_at || post.published_at;
 
-        if (!post.scheduled_at) {
+        if (!eventDateValue) {
           return false;
         }
 
         const postDate =
           parseIndianDateTime(
-            post.scheduled_at
+            eventDateValue
           );
 
         if (!postDate) {
@@ -388,6 +400,14 @@ function Calendar() {
         hour12: true,
       }
     );
+  };
+
+  const formatEventTime = (post) => {
+    if (post.status && post.status.toLowerCase() === "published") {
+      return formatTime(post.published_at || post.scheduled_at);
+    }
+
+    return formatTime(post.scheduled_at || post.published_at);
   };
 
 
@@ -618,9 +638,7 @@ function Calendar() {
 
                   <div className="calendar-post-time">
 
-                    {formatTime(
-                      post.scheduled_at
-                    )}
+                    {formatEventTime(post)}
 
                   </div>
 
