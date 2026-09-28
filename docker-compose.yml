@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: intellipost_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=intellipost_docker_jwt_secret_key_8492048204
+      - DATABASE_URL=sqlite:///./intellipost.db
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    build:
+      context: ./nexora
+      dockerfile: Dockerfile
+    container_name: intellipost_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api
+    depends_on:
+      - backend
