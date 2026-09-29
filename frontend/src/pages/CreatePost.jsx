@@ -105,6 +105,7 @@ function CreatePost() {
   const location = useLocation();
 
   const editMode = location.state?.editMode || false;
+  const rescheduleMode = location.state?.rescheduleMode || false;
   const scheduleMode = location.state?.scheduleMode || false;
   const existingPost = location.state?.post || null;
 
@@ -712,6 +713,8 @@ function CreatePost() {
 
   if (scheduleMode) {
     pageTitle = "Schedule Draft";
+  } else if (rescheduleMode) {
+    pageTitle = "Reschedule Post";
   } else if (editMode) {
     pageTitle = "Edit Draft";
   }
@@ -722,6 +725,9 @@ function CreatePost() {
   if (scheduleMode) {
     pageDescription =
       "Choose when your draft should be published.";
+  } else if (rescheduleMode) {
+    pageDescription =
+      "Choose a new publishing time for this post.";
   } else if (editMode) {
     pageDescription =
       "Update your draft and save your changes.";
@@ -731,6 +737,8 @@ function CreatePost() {
 
   if (scheduleMode) {
     buttonText = "Schedule Post";
+  } else if (rescheduleMode) {
+    buttonText = "Update Schedule";
   } else if (editMode && scheduledAt) {
     buttonText = "Update Schedule";
   } else if (editMode) {

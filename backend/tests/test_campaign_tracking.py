@@ -237,3 +237,31 @@ def test_calendar_visible_statuses_include_published_posts():
 
     assert "published" in visible_statuses
     assert "PUBLISHED" in visible_statuses
+
+
+def test_dashboard_and_analytics_routes_require_jwt_user():
+    from app.core.security import get_current_user
+    from app.routers.analytics import router as analytics_router
+    from app.routers.dashboard import router as dashboard_router
+
+    dashboard_paths = {route.path for route in dashboard_router.routes}
+    assert dashboard_paths == {
+        "/dashboard/stats",
+        "/dashboard/recent-campaigns",
+        "/dashboard/recent-posts",
+    }
+
+    analytics_paths = {route.path for route in analytics_router.routes}
+    assert analytics_paths == {
+        "/analytics/overview",
+        "/analytics/engagement",
+        "/analytics/audience",
+        "/analytics/campaigns",
+        "/analytics/campaigns/{campaign_id}",
+        "/analytics/comparison",
+        "/analytics/roi",
+    }
+
+    for route in [*dashboard_router.routes, *analytics_router.routes]:
+        dependencies = [dependency.call for dependency in route.dependant.dependencies]
+        assert get_current_user in dependencies

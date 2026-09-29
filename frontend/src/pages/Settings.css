@@ -1,0 +1,22 @@
+.settings-page { max-width: 1120px; }
+.settings-page > .page-heading { margin-bottom: 23px; }
+.settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.settings-section { min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+.settings-section h2 { margin: 0 0 17px; font-size: 16px; }
+.settings-details { margin: 0; }
+.settings-details div { display: flex; justify-content: space-between; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.settings-details div:last-child { border-bottom: 0; }
+.settings-details dt { color: var(--text); font-size: 11px; }
+.settings-details dd { overflow-wrap: anywhere; margin: 0; color: var(--text-h); font-size: 11px; font-weight: 650; text-align: right; }
+.settings-note { margin: 10px 0; color: var(--text); font-size: 10px; line-height: 1.5; }
+.theme-options { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-muted); }
+.theme-options button { min-width: 74px; padding: 7px 10px; border: 0; border-radius: 4px; background: transparent; color: var(--text); font-size: 11px; cursor: pointer; }
+.theme-options button.selected { background: var(--surface); color: var(--accent-strong); box-shadow: 0 1px 3px rgba(20, 35, 60, .14); }
+.settings-toggle { min-height: 53px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.settings-toggle:last-child { border-bottom: 0; }
+.settings-toggle span { display: grid; gap: 3px; }
+.settings-toggle strong { color: var(--text-h); font-size: 11px; }
+.settings-toggle small { color: var(--text); font-size: 9px; }
+.settings-toggle input { width: 16px; height: 16px; accent-color: var(--accent); }
+.settings-link-button { padding: 8px 0; border: 0; background: transparent; color: var(--accent); font-size: 11px; font-weight: 700; cursor: pointer; }
+@media (max-width: 680px) { .settings-grid { grid-template-columns: 1fr; } .settings-section { padding: 16px; } }

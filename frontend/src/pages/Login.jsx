@@ -7,6 +7,7 @@ function Login() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -298,17 +299,23 @@ function Login() {
                 Password
               </label>
 
-              <input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) =>
-                  setPassword(e.target.value)
-                }
-                disabled={loading}
-                autoComplete="current-password"
-              />
+              <div className="password-input-row">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                  autoComplete="current-password"
+                />
+                <button type="button" className="password-visibility-button" onClick={() => setShowPassword((shown) => !shown)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? "Hide" : "Show"}</button>
+              </div>
+
+              <div className="login-form-options">
+                <span>Signed in securely with your SocialPilot account</span>
+                <Link to="/forgot-password">Forgot password?</Link>
+              </div>
 
             </div>
 

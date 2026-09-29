@@ -7,12 +7,29 @@ function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const navigate = useNavigate();
 
   const handleRegister = async (e) => {
 
     e.preventDefault();
+    setError("");
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (!acceptedTerms) {
+      setError("Accept the terms to create your account.");
+      return;
+    }
+
+    setSubmitting(true);
 
     try {
 
@@ -36,29 +53,17 @@ function Register() {
       const data = await response.json();
 
       if (!response.ok) {
-
-        alert(
-          data.detail || "Registration failed"
-        );
-
+        setError(data.detail || "Registration failed");
         return;
       }
-
-      alert("Registration successful!");
-
-      console.log(data);
 
       // Go to login after successful registration
       navigate("/login");
 
-    } catch (error) {
-
-      console.error(error);
-
-      alert(
-        "Cannot connect to backend"
-      );
-
+    } catch {
+      setError("Cannot connect to backend");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -162,6 +167,8 @@ function Register() {
 
           <form onSubmit={handleRegister}>
 
+            {error && <p className="register-form-error" role="alert">{error}</p>}
+
 
             {/* NAME */}
 
@@ -211,16 +218,27 @@ function Register() {
                 Password
               </label>
 
-              <input
-                id="password"
-                type="password"
-                placeholder="Create a password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <div className="password-input-row">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Create a password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
+                  required
+                />
+                <button type="button" className="password-visibility-button" onClick={() => setShowPassword((shown) => !shown)} aria-label={showPassword ? "Hide passwords" : "Show passwords"}>{showPassword ? "Hide" : "Show"}</button>
+              </div>
 
             </div>
+
+            <div className="register-form-group">
+              <label htmlFor="confirm-password">Confirm password</label>
+              <input id="confirm-password" type={showPassword ? "text" : "password"} placeholder="Re-enter your password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" required />
+            </div>
+
+            <label className="register-terms"><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} /><span>I agree to the terms of service and privacy policy.</span></label>
 
 
             {/* REGISTER BUTTON */}
@@ -228,8 +246,9 @@ function Register() {
             <button
               type="submit"
               className="register-button"
+              disabled={submitting}
             >
-              Create Account
+              {submitting ? "Creating account..." : "Create Account"}
             </button>
 
           </form>

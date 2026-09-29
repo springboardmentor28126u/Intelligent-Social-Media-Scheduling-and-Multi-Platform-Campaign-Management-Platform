@@ -1,14 +1,14 @@
 :root {
-  --campaign-ink: #f8fafc;
-  --campaign-muted: #94a3b8;
-  --campaign-subtle: #64748b;
-  --campaign-line: #27364a;
-  --campaign-line-strong: #3b4d68;
-  --campaign-surface: #111c2c;
-  --campaign-surface-raised: #17253a;
-  --campaign-field: #0d1726;
-  --campaign-accent: #6d9dfc;
-  --campaign-accent-strong: #4f7edb;
+  --campaign-ink: var(--text-h);
+  --campaign-muted: var(--text);
+  --campaign-subtle: var(--text);
+  --campaign-line: var(--border);
+  --campaign-line-strong: var(--border);
+  --campaign-surface: var(--surface);
+  --campaign-surface-raised: var(--surface-muted);
+  --campaign-field: var(--surface);
+  --campaign-accent: var(--accent);
+  --campaign-accent-strong: var(--accent-strong);
 }
 
 .campaigns-page,
@@ -29,7 +29,7 @@
 }
 
 .campaigns-eyebrow {
-  color: #6d9dfc !important;
+  color: var(--accent) !important;
   font-family: Arial, sans-serif;
   font-size: 10px !important;
   letter-spacing: 1.8px !important;
@@ -55,29 +55,29 @@
 .campaigns-refresh-button,
 .campaign-cancel-button {
   border-color: var(--campaign-line-strong) !important;
-  background: #111c2c !important;
-  color: #cbd5e1 !important;
+  background: var(--surface-muted) !important;
+  color: var(--text-h) !important;
 }
 
 .campaigns-back-button:hover,
 .campaigns-refresh-button:hover,
 .campaign-cancel-button:hover {
   border-color: #6d9dfc !important;
-  background: #17253a !important;
+  background: var(--surface-muted) !important;
 }
 
 .campaigns-create-button,
 .campaign-save-button {
   border: 0 !important;
   border-radius: 8px !important;
-  background: #6d9dfc !important;
+  background: var(--accent) !important;
   color: #ffffff !important;
   box-shadow: none;
 }
 
 .campaigns-create-button:hover,
 .campaign-save-button:hover {
-  background: #4f7edb !important;
+  background: var(--accent-strong) !important;
   transform: translateY(-1px);
 }
 
@@ -101,7 +101,7 @@
 .campaign-dashboard-summary article:hover,
 .campaign-information-card:hover {
   border-color: var(--campaign-line-strong) !important;
-  background: #17253a !important;
+  background: var(--surface-muted) !important;
   transform: translateY(-2px);
 }
 

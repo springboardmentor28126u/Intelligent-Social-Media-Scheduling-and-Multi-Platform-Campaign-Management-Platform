@@ -3,7 +3,8 @@ import {
   Routes,
   Route,
   Link,
-  Navigate
+  Navigate,
+  useLocation
 } from "react-router-dom";
 import React from "react";
 
@@ -12,6 +13,8 @@ import "./App.css";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import Analytics from "./pages/Analytics";
+import Settings from "./pages/Settings";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
 import SocialAccounts from "./pages/SocialAccounts";
@@ -24,8 +27,13 @@ import PublishingQueue from "./pages/PublishingQueue";
 import Campaigns from "./pages/Campaigns";
 import CreateCampaign from "./pages/CreateCampaign";
 import CampaignDetails from "./pages/CampaignDetails";
+import Notifications from "./pages/Notifications";
+import Reports from "./pages/Reports";
+import { ForgotPassword, ResetPassword } from "./pages/PasswordRecovery";
+import WorkspaceLayout from "./components/WorkspaceLayout";
 
 function ThemeToggle() {
+  const location = useLocation();
   const [theme, setTheme] = React.useState(() => {
     const savedTheme = localStorage.getItem("socialpilot-theme");
     return savedTheme || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
@@ -34,9 +42,19 @@ function ThemeToggle() {
   React.useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("socialpilot-theme", theme);
+    window.dispatchEvent(new CustomEvent("socialpilot-theme-change", { detail: theme }));
   }, [theme]);
 
+  React.useEffect(() => {
+    const syncTheme = (event) => setTheme(event.detail);
+    window.addEventListener("socialpilot-theme-change", syncTheme);
+    return () => window.removeEventListener("socialpilot-theme-change", syncTheme);
+  }, []);
+
   const nextTheme = theme === "dark" ? "light" : "dark";
+  const workspaceRoute = /^\/(dashboard|analytics|campaigns|social-accounts|posts|create-post|calendar|drafts|publishing-|reports|notifications|settings|admin-)/.test(location.pathname);
+
+  if (workspaceRoute) return null;
 
   return (
     <button
@@ -57,12 +75,23 @@ function ThemeToggle() {
 function ProtectedRoute({ children }) {
 
   const token = localStorage.getItem("access_token");
+  const { pathname } = useLocation();
 
   if (!token) {
     return <Navigate to="/login" replace />;
   }
 
-  return children;
+  const active = pathname === "/publishing-queue" ? "publishing-queue"
+    : pathname.startsWith("/campaigns") ? "campaigns"
+    : ["/create-post", "/calendar", "/drafts", "/publishing-logs", "/publishing-queue"].includes(pathname) ? "posts"
+      : pathname === "/social-accounts" ? "accounts"
+        : pathname === "/analytics" ? "analytics"
+          : pathname === "/reports" ? "reports"
+            : pathname === "/notifications" ? "notifications"
+              : pathname === "/settings" ? "settings"
+                : "dashboard";
+
+  return <WorkspaceLayout active={active}>{children}</WorkspaceLayout>;
 }
 
 
@@ -73,12 +102,18 @@ function ProtectedRoute({ children }) {
 function AdminRoute({ children }) {
 
   const token = localStorage.getItem("access_token");
+  const { pathname } = useLocation();
 
   if (!token) {
     return <Navigate to="/login" replace />;
   }
 
-  return children;
+  if (localStorage.getItem("role") !== "ADMIN") {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  const active = pathname === "/admin-users" ? "admin-users" : "admin";
+  return <WorkspaceLayout active={active} admin>{children}</WorkspaceLayout>;
 }
 
 
@@ -460,6 +495,9 @@ function App() {
           element={<Login />}
         />
 
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+
 
         {/* =================================================
             USER DASHBOARD
@@ -470,6 +508,42 @@ function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute>
+              <Analytics />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute>
+              <Reports />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
             </ProtectedRoute>
           }
         />
@@ -590,13 +664,13 @@ function App() {
          </ProtectedRoute>
        }
       />
-      <Route path="/publishing-logs" element={<PublishingLogs />} />
+      <Route path="/publishing-logs" element={<ProtectedRoute><PublishingLogs /></ProtectedRoute>} />
 
 
 
       <Route
       path="/publishing-queue"
-      element={<PublishingQueue />}
+      element={<ProtectedRoute><PublishingQueue /></ProtectedRoute>}
      />
 
 

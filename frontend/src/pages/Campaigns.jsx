@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Campaigns.css";
 import "./CampaignWorkspace.css";
-import "./Dashboard.css";
 
 const API_URL = "http://127.0.0.1:8000";
 const STATUSES = ["Draft", "Scheduled", "Active", "Paused", "Completed", "Archived"];
@@ -40,13 +39,15 @@ function emptyForm() {
 function Campaigns() {
   const navigate = useNavigate();
   const [campaigns, setCampaigns] = useState([]);
+  const [campaignPlatforms, setCampaignPlatforms] = useState({});
+  const [availablePlatforms, setAvailablePlatforms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [editingCampaign, setEditingCampaign] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
-  const [filters, setFilters] = useState({ search: "", status: "", objective: "", start_date: "", end_date: "" });
+  const [filters, setFilters] = useState({ search: "", status: "", objective: "", start_date: "", end_date: "", platform: "" });
   const [analytics, setAnalytics] = useState({ summary: {}, metrics: {}, performance: [] });
   const [comparison, setComparison] = useState({ summary: {}, comparison: [] });
   const [selectedCompareIds, setSelectedCompareIds] = useState([]);
@@ -67,11 +68,14 @@ function Campaigns() {
     try {
       setLoading(true);
       setError("");
-      const query = new URLSearchParams(Object.entries(filters).filter(([, value]) => value));
-      const [response, analyticsResponse, comparisonResponse] = await Promise.all([
+      const apiFilters = { ...filters };
+      delete apiFilters.platform;
+      const query = new URLSearchParams(Object.entries(apiFilters).filter(([, value]) => value));
+      const [response, analyticsResponse, comparisonResponse, accountsResponse] = await Promise.all([
         fetch(`${API_URL}/campaigns?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_URL}/campaigns/analytics/overview`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_URL}/campaigns/analytics/comparison`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/social-accounts/`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if (response.status === 401) {
@@ -84,6 +88,15 @@ function Campaigns() {
         throw new Error(data.detail || "Unable to load campaigns.");
       }
       setCampaigns(data);
+      if (accountsResponse.ok) {
+        const connectedAccounts = await accountsResponse.json();
+        setAvailablePlatforms([...new Set(connectedAccounts.map((account) => account.platform).filter(Boolean))]);
+      }
+      const campaignAccounts = await Promise.all(data.map(async (campaign) => {
+        const accountResponse = await fetch(`${API_URL}/campaigns/${campaign.id}/accounts`, { headers: { Authorization: `Bearer ${token}` } });
+        return [campaign.id, accountResponse.ok ? await accountResponse.json() : []];
+      }));
+      setCampaignPlatforms(Object.fromEntries(campaignAccounts.map(([id, accounts]) => [id, accounts.map((account) => account.platform).filter(Boolean)])));
       if (analyticsResponse.ok) setAnalytics(await analyticsResponse.json());
       if (comparisonResponse.ok) setComparison(await comparisonResponse.json());
     } catch (requestError) {
@@ -94,6 +107,9 @@ function Campaigns() {
   };
 
   const updateFilter = (event) => setFilters((current) => ({ ...current, [event.target.name]: event.target.value }));
+  const filteredCampaigns = filters.platform
+    ? campaigns.filter((campaign) => campaignPlatforms[campaign.id]?.some((platform) => platform.toLowerCase() === filters.platform.toLowerCase()))
+    : campaigns;
 
   const toggleCompareCampaign = (campaignId) => {
     setSelectedCompareIds((current) => {
@@ -230,23 +246,7 @@ function Campaigns() {
   };
 
   return (
-    <div className="dashboard-page campaigns-dashboard-page">
-      <aside className="dashboard-sidebar">
-        <div className="dashboard-logo">🚀 SocialPilot</div>
-        <nav className="sidebar-nav">
-          <button className="sidebar-item" type="button" onClick={() => navigate("/dashboard")}>📊 <span>Analytics</span></button>
-          <button className="sidebar-item" type="button" onClick={() => navigate("/social-accounts")}>👥 <span>Social Accounts</span></button>
-          <button className="sidebar-item" type="button" onClick={() => navigate("/posts")}>📝 <span>My Posts</span></button>
-          <button className="sidebar-item" type="button" onClick={() => navigate("/create-post")}>➕ <span>Create Post</span></button>
-          <button className="sidebar-item" type="button" onClick={() => navigate("/calendar")}>📅 <span>Publishing Calendar</span></button>
-          <button className="sidebar-item active" type="button" onClick={() => navigate("/campaigns")}>🎯 <span>Campaigns</span></button>
-          <button className="sidebar-item" type="button" onClick={() => navigate("/publishing-logs")}>📋 <span>Publishing Logs</span></button>
-        </nav>
-        <div className="sidebar-bottom">
-          <button className="sidebar-logout" type="button" onClick={() => { localStorage.removeItem("access_token"); localStorage.removeItem("role"); navigate("/login"); }}>🚪 <span>Logout</span></button>
-        </div>
-      </aside>
-      <main className="campaigns-page">
+    <div className="campaigns-page">
       <section className="campaigns-shell">
         <header className="campaigns-header">
           <div>
@@ -283,7 +283,7 @@ function Campaigns() {
         <section className="campaign-analytics-panel" aria-label="Campaign ROI comparison panel">
           <div className="campaigns-panel-heading">
             <div>
-              <h2>ROI &amp; campaign comparison</h2>
+              <h2>ROI &amp; campaign comparison · modeled estimates</h2>
               <span>{comparison.summary.total_campaigns ?? 0} campaign{(comparison.summary.total_campaigns ?? 0) === 1 ? "" : "s"}</span>
             </div>
             <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
@@ -340,7 +340,7 @@ function Campaigns() {
           <div className="campaigns-panel-heading">
             <div>
               <h2>All campaigns</h2>
-              <span>{campaigns.length} {campaigns.length === 1 ? "campaign" : "campaigns"}</span>
+              <span>{filteredCampaigns.length} {filteredCampaigns.length === 1 ? "campaign" : "campaigns"}</span>
             </div>
             <button className="campaigns-refresh-button" type="button" onClick={fetchCampaigns}>
               Refresh
@@ -352,12 +352,13 @@ function Campaigns() {
             <input name="objective" value={filters.objective} onChange={updateFilter} placeholder="Objective" />
             <input name="start_date" type="date" value={filters.start_date} onChange={updateFilter} aria-label="Start Date" />
             <input name="end_date" type="date" value={filters.end_date} onChange={updateFilter} aria-label="End Date" />
+            <select name="platform" value={filters.platform} onChange={updateFilter} aria-label="Platform"><option value="">All platforms</option>{availablePlatforms.map((platform) => <option key={platform} value={platform}>{platform}</option>)}</select>
             <button className="campaigns-refresh-button" type="button" onClick={fetchCampaigns}>Apply filters</button>
           </div>
 
           {loading ? (
             <div className="campaigns-state">Loading campaigns...</div>
-          ) : campaigns.length === 0 ? (
+          ) : filteredCampaigns.length === 0 ? (
             <div className="campaigns-state campaigns-empty">
               <strong>No campaigns yet</strong>
               <span>Your campaigns will appear here once they are created.</span>
@@ -378,7 +379,7 @@ function Campaigns() {
                   </tr>
                 </thead>
                 <tbody>
-                  {campaigns.map((campaign) => (
+                  {filteredCampaigns.map((campaign) => (
                     <tr key={campaign.id}>
                       <td style={{ textAlign: "center" }}>
                         <input
@@ -456,7 +457,6 @@ function Campaigns() {
           </form>
         </div>
       )}
-      </main>
     </div>
   );
 }

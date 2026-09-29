@@ -1,0 +1,95 @@
+.workspace-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.workspace-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 15px 16px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+
+.workspace-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 9px 23px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-h);
+  font-size: 18px;
+  font-weight: 750;
+  text-align: left;
+  cursor: pointer;
+}
+
+.brand-mark {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  background: #dcefe7;
+  color: #116b4d;
+  font-family: Georgia, serif;
+  font-size: 20px;
+}
+
+.sidebar-caption {
+  margin: 25px 10px 10px;
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.workspace-nav { display: grid; gap: 4px; }
+
+.workspace-nav-link,
+.workspace-logout {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0 11px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.workspace-nav-link:hover,
+.workspace-logout:hover { background: var(--surface-muted); color: var(--text-h); }
+.workspace-nav-link.is-active { background: #e5f2ed; color: #12664c; font-weight: 700; }
+.nav-icon { width: 20px; text-align: center; font-size: 17px; }
+.workspace-logout { margin-top: auto; border-top: 1px solid var(--border); padding-top: 10px; }
+.workspace-content { min-width: 0; }
+
+@media (max-width: 760px) {
+  .workspace-shell { grid-template-columns: 64px minmax(0, 1fr); }
+  .workspace-sidebar { padding: 14px 7px; }
+  .workspace-brand { justify-content: center; padding: 5px 0 17px; font-size: 0; }
+  .brand-mark { flex: 0 0 32px; }
+  .sidebar-caption { overflow: hidden; height: 0; margin: 0; }
+  .workspace-nav { margin-top: 18px; }
+  .workspace-nav-link, .workspace-logout { justify-content: center; padding: 0; font-size: 0; }
+  .nav-icon { font-size: 18px; }
+  .workspace-logout { font-size: 0; }
+}
+
+@media (max-width: 420px) {
+  .workspace-shell { grid-template-columns: 52px minmax(0, 1fr); }
+  .workspace-sidebar { padding-inline: 4px; }
+}

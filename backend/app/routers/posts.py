@@ -14,7 +14,7 @@ from fastapi import (
     File
 )
 
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.database.postgres import SessionLocal
@@ -1072,109 +1072,80 @@ def get_publishing_queue(
     posts = (
         db.query(Post)
         .filter(
-
-            Post.user_id ==
-                current_user_id,
-
-            Post.status ==
-                "scheduled",
-
-            Post.scheduled_at.isnot(None)
-
+            Post.user_id == current_user_id,
+            func.lower(Post.status).in_(
+                ["scheduled", "publishing", "published", "failed", "cancelled"]
+            ),
         )
         .order_by(
-            Post.scheduled_at.asc()
+            Post.scheduled_at.asc().nullslast(),
+            Post.created_at.desc(),
+            Post.id.desc(),
         )
         .all()
     )
 
+    failed_attempts = dict(
+        db.query(PublishingLog.post_id, func.count(PublishingLog.id))
+        .filter(
+            PublishingLog.user_id == current_user_id,
+            func.lower(PublishingLog.status) == "failed",
+        )
+        .group_by(PublishingLog.post_id)
+        .all()
+    )
 
     queue = []
-
-
-    for position, post in enumerate(
-        posts,
-        start=1
-    ):
-
-        platform = "Unknown"
-
-        username = None
-
-
-        # ----------------------------------------------------
-        # SOCIAL ACCOUNT
-        # ----------------------------------------------------
-
+    scheduled_position = 0
+    for post in posts:
+        account = None
         if post.social_account_id:
-
-            social_account = (
+            account = (
                 db.query(SocialAccount)
                 .filter(
-
-                    SocialAccount.id ==
-                        post.social_account_id,
-
-                    SocialAccount.user_id ==
-                        current_user_id
-
+                    SocialAccount.id == post.social_account_id,
+                    SocialAccount.user_id == current_user_id,
                 )
                 .first()
             )
 
-
-            if social_account:
-
-                platform = (
-                    social_account.platform
+        campaign = None
+        if post.campaign_id:
+            campaign = (
+                db.query(Campaign)
+                .filter(
+                    Campaign.id == post.campaign_id,
+                    Campaign.user_id == current_user_id,
                 )
+                .first()
+            )
 
-                username = (
-                    social_account.username
-                )
-
-
-        # ----------------------------------------------------
-        # ADD TO QUEUE
-        # ----------------------------------------------------
+        status = str(post.status or "").lower()
+        if status == "scheduled":
+            scheduled_position += 1
 
         queue.append({
-
-            "queue_position":
-                position,
-
-            "id":
-                post.id,
-
-            "content":
-                post.content,
-
-            "platform":
-                platform,
-
-            "username":
-                username,
-
-            "scheduled_at":
-                post.scheduled_at,
-
-            "status":
-                post.status,
-
-            "is_recurring":
-                post.is_recurring,
-
-            "recurrence_type":
-                post.recurrence_type,
-
-            "media_url":
-                post.media_url,
-
-            "media_type":
-                post.media_type
-
+            "queue_position": scheduled_position if status == "scheduled" else None,
+            "id": post.id,
+            "user_id": post.user_id,
+            "content": post.content,
+            "social_account_id": post.social_account_id,
+            "campaign_id": post.campaign_id,
+            "campaign_name": campaign.name if campaign else None,
+            "platform": account.platform if account else "Unknown",
+            "username": account.username if account else None,
+            "scheduled_at": post.scheduled_at,
+            "published_at": post.published_at,
+            "created_at": post.created_at,
+            "status": status,
+            "error_message": post.error_message,
+            "retry_count": failed_attempts.get(post.id, 0),
+            "is_recurring": post.is_recurring,
+            "recurrence_type": post.recurrence_type,
+            "media_url": post.media_url,
+            "media_type": post.media_type,
+            "media_filename": post.media_filename,
         })
-
 
     return queue
 

@@ -1,0 +1,28 @@
+.notifications-page { max-width: 1160px; }
+.notifications-heading { margin-bottom: 24px; }
+.notifications-mark-all { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--accent-strong); font-size: 11px; font-weight: 650; cursor: pointer; }
+.notifications-mark-all:disabled { opacity: .5; cursor: not-allowed; }
+.notifications-list { border-top: 1px solid var(--border); background: var(--surface); }
+.notification-item { display: flex; align-items: center; gap: 13px; min-height: 86px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.notification-item.is-unread { background: color-mix(in srgb, var(--accent-soft) 38%, var(--surface)); }
+.notification-indicator { width: 32px; height: 32px; flex: 0 0 32px; display: grid; place-items: center; border-radius: 50%; background: var(--success-soft); color: var(--success); font-size: 14px; font-weight: 700; }
+.notification-indicator.is-error { background: var(--danger-soft); color: var(--danger); }
+.notification-copy { min-width: 0; flex: 1; }
+.notification-copy > div { display: flex; justify-content: space-between; gap: 14px; margin-bottom: 5px; }
+.notification-category, .notification-copy time { color: var(--text); font-size: 10px; }
+.notification-copy strong { display: block; color: var(--text-h); font-size: 12px; }
+.notification-copy p { overflow: hidden; margin: 4px 0 0; color: var(--text); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.notification-read-button { flex: 0 0 auto; border: 0; background: transparent; color: var(--accent); font-size: 10px; font-weight: 700; cursor: pointer; }
+.notification-empty { padding: 25px 0; color: var(--text); font-size: 12px; }
+.notifications-empty { padding: 68px 20px; border: 1px dashed var(--border); text-align: center; }
+.notifications-empty .shared-empty-state { justify-items: center; }
+.notifications-empty > span { width: 42px; height: 42px; display: grid; place-items: center; margin: 0 auto 15px; border-radius: 50%; background: var(--success-soft); color: var(--success); }
+.notifications-empty h2 { margin: 0 0 7px; font-size: 17px; }
+.notifications-empty p, .notification-count, .notification-error { color: var(--text); font-size: 11px; }
+.notification-count { margin: 12px 0 0; text-align: right; }
+.notification-error { color: var(--danger); }
+@media (max-width: 600px) {
+  .notification-item { align-items: flex-start; padding-inline: 10px; }
+  .notification-copy > div { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .notification-read-button { padding-top: 7px; }
+}
