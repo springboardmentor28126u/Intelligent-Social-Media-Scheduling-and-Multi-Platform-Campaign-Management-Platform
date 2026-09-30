@@ -17,7 +17,7 @@ interface SocialAccountData {
 }
 
 function backendPlatformToKey(backendPlatform: string): PlatformKey {
-  const normalized = backendPlatform.toLowerCase();
+  const normalized = (backendPlatform || '').toLowerCase();
   if (normalized.includes('linkedin')) return 'linkedin';
   if (normalized.includes('youtube')) return 'youtube';
   if (normalized.includes('instagram')) return 'instagram';
@@ -31,7 +31,7 @@ function keyToBackendPlatform(key: PlatformKey): string {
   if (key === 'youtube') return 'YouTube';
   if (key === 'instagram') return 'Instagram';
   if (key === 'facebook') return 'Facebook';
-  if (key === 'x') return 'X (Twitter)';
+  if (key === 'x') return 'X';
   return key;
 }
 
@@ -73,12 +73,14 @@ export default function SocialAccounts() {
   useEffect(() => {
     fetchAccounts();
 
-    // Check if redirect query parameters exist from OAuth redirect callback (e.g. ?linkedin=connected, ?youtube=connected, ?instagram=connected)
+    // Check if redirect query parameters exist from OAuth redirect callback (e.g. ?linkedin=connected, ?youtube=connected, ?instagram=connected, ?facebook=connected, ?x=connected)
     const params = new URLSearchParams(window.location.search);
     if (
       params.get('linkedin') === 'connected' ||
       params.get('youtube') === 'connected' ||
-      params.get('instagram') === 'connected'
+      params.get('instagram') === 'connected' ||
+      params.get('facebook') === 'connected' ||
+      params.get('x') === 'connected'
     ) {
       // Clear query params from the browser address bar
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -119,18 +121,21 @@ export default function SocialAccounts() {
 
   const handleConnectClick = (platformKey: PlatformKey) => {
     if (!token) return;
-    if (platformKey === 'linkedin' || platformKey === 'youtube' || platformKey === 'instagram') {
-      if (platformKey === 'linkedin') {
-        window.location.href = `${API_BASE}/auth/linkedin/login?token=${token}`;
-      } else if (platformKey === 'youtube') {
-        window.location.href = `${API_BASE}/auth/youtube/login?token=${token}`;
-      } else if (platformKey === 'instagram') {
-        window.location.href = `${API_BASE}/auth/instagram/login?token=${token}`;
-      }
+    if (platformKey === 'linkedin') {
+      window.location.href = `${API_BASE}/auth/linkedin/login?token=${token}`;
+    } else if (platformKey === 'youtube') {
+      window.location.href = `${API_BASE}/auth/youtube/login?token=${token}`;
+    } else if (platformKey === 'instagram') {
+      window.location.href = `${API_BASE}/auth/instagram/login?token=${token}`;
+    } else if (platformKey === 'facebook') {
+      window.location.href = `${API_BASE}/auth/facebook/login?token=${token}`;
+    } else if (platformKey === 'x') {
+      window.location.href = `${API_BASE}/auth/x/login?token=${token}`;
     } else {
       setModalPlatform(platformKey);
     }
   };
+
   const handleDisconnect = async (id: number) => {
     if (!token) return;
     setDisconnectingId(id);
@@ -151,8 +156,8 @@ export default function SocialAccounts() {
     }
   };
 
-  const getConnectedAccount = (platformKey: PlatformKey) => {
-    return accounts.find((acc) => backendPlatformToKey(acc.platform) === platformKey);
+  const getPlatformAccounts = (platformKey: PlatformKey) => {
+    return accounts.filter((acc) => backendPlatformToKey(acc.platform) === platformKey);
   };
 
   if (loading) {
@@ -180,7 +185,7 @@ export default function SocialAccounts() {
         </div>
         <div className="flex-1">
           <p className="text-sm font-semibold text-ink-900">Connected Accounts</p>
-          <p className="text-xs text-ink-400">{accounts.length} of {platforms.length} platforms connected</p>
+          <p className="text-xs text-ink-400">{accounts.length} connected across platforms</p>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -201,45 +206,70 @@ export default function SocialAccounts() {
       {/* Platform cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {platforms.map((p) => {
-          const connectedAcc = getConnectedAccount(p.key);
-          const isConnected = !!connectedAcc;
+          const matchingAccs = getPlatformAccounts(p.key);
+          const isConnected = matchingAccs.length > 0;
 
           return (
-            <Card key={p.key} hover className="p-6">
-              <div className="flex items-start justify-between">
-                <div
-                  className={`flex h-14 w-14 items-center justify-center rounded-2xl ${p.bg} ${p.color}`}
-                >
-                  <p.Icon className="h-7 w-7" />
-                </div>
-                <Badge variant={isConnected ? 'brand' : 'neutral'}>
-                  {isConnected ? 'Connected' : 'Not connected'}
-                </Badge>
-              </div>
-              <h3 className="mt-4 text-base font-semibold text-ink-900">{p.name}</h3>
-              <p className="mt-1 text-sm text-ink-400 truncate">
-                {isConnected ? (connectedAcc.account_name || 'Connected') : 'Connect to start publishing and tracking.'}
-              </p>
-              <div className="mt-5">
-                {isConnected ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    fullWidth
-                    onClick={() => handleDisconnect(connectedAcc.id)}
-                    disabled={disconnectingId === connectedAcc.id}
-                    leftIcon={
-                      disconnectingId === connectedAcc.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-danger-600" />
-                      ) : (
-                        <X className="h-3.5 w-3.5 text-danger-600" />
-                      )
-                    }
-                    className="text-danger-600 border-danger-100 hover:bg-danger-50"
+            <Card key={p.key} hover className="flex flex-col justify-between p-6">
+              <div>
+                <div className="flex items-start justify-between">
+                  <div
+                    className={`flex h-14 w-14 items-center justify-center rounded-2xl ${p.bg} ${p.color}`}
                   >
-                    {disconnectingId === connectedAcc.id ? 'Disconnecting...' : 'Disconnect Account'}
-                  </Button>
-                ) : (
+                    <p.Icon className="h-7 w-7" />
+                  </div>
+                  <Badge variant={isConnected ? 'brand' : 'neutral'}>
+                    {isConnected
+                      ? matchingAccs.length > 1
+                        ? `${matchingAccs.length} Connected`
+                        : 'Connected'
+                      : 'Not connected'}
+                  </Badge>
+                </div>
+                <h3 className="mt-4 text-base font-semibold text-ink-900">{p.name}</h3>
+
+                {!isConnected && (
+                  <p className="mt-1 text-sm text-ink-400">
+                    Connect to start publishing and tracking.
+                  </p>
+                )}
+
+                {isConnected && matchingAccs.length === 1 && (
+                  <p className="mt-1 text-sm text-ink-600 truncate font-medium">
+                    {matchingAccs[0].account_name || 'Connected'}
+                  </p>
+                )}
+
+                {isConnected && matchingAccs.length > 1 && (
+                  <div className="mt-3 space-y-2 max-h-36 overflow-y-auto pr-1">
+                    {matchingAccs.map((acc) => (
+                      <div
+                        key={acc.id}
+                        className="flex items-center justify-between rounded-xl bg-ink-50/80 px-3 py-2 text-xs border border-ink-100"
+                      >
+                        <span className="font-medium text-ink-800 truncate mr-2" title={acc.account_name}>
+                          {acc.account_name}
+                        </span>
+                        <button
+                          onClick={() => handleDisconnect(acc.id)}
+                          disabled={disconnectingId === acc.id}
+                          className="text-danger-500 hover:text-danger-700 disabled:opacity-50 p-1 rounded hover:bg-danger-50 flex-shrink-0"
+                          title={`Disconnect ${acc.account_name}`}
+                        >
+                          {disconnectingId === acc.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <X className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-5">
+                {!isConnected ? (
                   <Button
                     variant="primary"
                     size="sm"
@@ -247,7 +277,35 @@ export default function SocialAccounts() {
                     onClick={() => handleConnectClick(p.key)}
                     leftIcon={<Link2 className="h-3.5 w-3.5" />}
                   >
-                    Connect Account
+                    Connect {p.name}
+                  </Button>
+                ) : matchingAccs.length === 1 ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    fullWidth
+                    onClick={() => handleDisconnect(matchingAccs[0].id)}
+                    disabled={disconnectingId === matchingAccs[0].id}
+                    leftIcon={
+                      disconnectingId === matchingAccs[0].id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-danger-600" />
+                      ) : (
+                        <X className="h-3.5 w-3.5 text-danger-600" />
+                      )
+                    }
+                    className="text-danger-600 border-danger-100 hover:bg-danger-50"
+                  >
+                    {disconnectingId === matchingAccs[0].id ? 'Disconnecting...' : 'Disconnect Account'}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    fullWidth
+                    onClick={() => handleConnectClick(p.key)}
+                    leftIcon={<Plus className="h-3.5 w-3.5" />}
+                  >
+                    Connect Another Page / Account
                   </Button>
                 )}
               </div>

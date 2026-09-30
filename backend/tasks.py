@@ -4,7 +4,8 @@ from sqlalchemy import or_
 from celery_app import celery_app
 from database import SessionLocal
 import models
-from publishers import publish_linkedin, publish_youtube
+from publishers import publish_linkedin, publish_youtube, publish_instagram, publish_facebook
+from notifications import create_notification
 
 
 def _log(db, post_id, platform, event, message=None):
@@ -128,6 +129,20 @@ def publish_post(post_id: int):
                         success, result = publish_youtube(
                             db, account, video_url, post.title, post.content, is_short=post.post_as_short,
                         )
+                elif platform_lower == "instagram":
+                    if not video_url:
+                        success, result = False, "No image or video URL provided for Instagram post"
+                    else:
+                        success, result = publish_instagram(
+                            db, account, post.content, media_url=video_url, is_reel=post.post_as_short,
+                        )
+                elif platform_lower == "facebook":
+                    success, result = publish_facebook(
+                        account.access_token,
+                        account.platform_user_id,
+                        post.content,
+                        media_url=video_url,
+                    )
                 else:
                     success, result = False, f"Unsupported platform: {pp.platform}"
             except Exception as e:
@@ -140,11 +155,29 @@ def publish_post(post_id: int):
                 pp.error_message = None
                 any_success = True
                 _log(db, post.id, pp.platform, "success", f"Published successfully, external_id={result}")
+                create_notification(
+                    db=db,
+                    user_id=post.user_id,
+                    type="post_published",
+                    title="Post Published",
+                    message=f"Your post to {pp.platform} was published",
+                    related_post_id=post.id,
+                    related_campaign_id=post.campaign_id,
+                )
             else:
                 pp.status = "failed"
                 pp.error_message = result
                 any_failure = True
                 _log(db, post.id, pp.platform, "failure", result)
+                create_notification(
+                    db=db,
+                    user_id=post.user_id,
+                    type="post_failed",
+                    title="Post Failed",
+                    message=f"Your post to {pp.platform} failed: {result}",
+                    related_post_id=post.id,
+                    related_campaign_id=post.campaign_id,
+                )
 
             db.commit()
 

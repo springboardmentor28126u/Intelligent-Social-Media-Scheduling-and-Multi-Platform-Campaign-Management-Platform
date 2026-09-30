@@ -17,6 +17,7 @@ class User(Base):
     social_accounts = relationship("SocialAccount", back_populates="owner")
     posts = relationship("Post", back_populates="user", cascade="all, delete-orphan")
     campaigns = relationship("Campaign", back_populates="owner")
+    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
 
 
 class SocialAccount(Base):
@@ -107,4 +108,20 @@ class PublishLog(Base):
     created_at = Column(DateTime(timezone=True), server_default="now()")
 
     post = relationship("Post", back_populates="logs")
-    
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    type = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    related_post_id = Column(Integer, ForeignKey("posts.id"), nullable=True)
+    related_campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=True)
+    is_read = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="notifications")
+    post = relationship("Post")
+    campaign = relationship("Campaign")

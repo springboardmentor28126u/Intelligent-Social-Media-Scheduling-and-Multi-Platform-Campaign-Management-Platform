@@ -123,3 +123,24 @@ class CampaignOut(CampaignBase):
 
     class Config:
         from_attributes = True
+
+
+class NotificationOut(BaseModel):
+    id: int
+    user_id: int
+    type: str
+    title: str
+    message: str
+    related_post_id: Optional[int] = None
+    related_campaign_id: Optional[int] = None
+    is_read: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationListResponse(BaseModel):
+    notifications: List[NotificationOut]
+    unread_count: int
+    total: int

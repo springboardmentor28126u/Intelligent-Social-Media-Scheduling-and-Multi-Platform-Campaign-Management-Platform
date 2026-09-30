@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from typing import List
-from database import get_db, engine, Base
+from database import get_db, engine
 from config import MEDIA_DIR
 import models, schemas, auth
 from linkedin_auth import router as linkedin_router
@@ -13,9 +13,12 @@ from youtube_auth import router as youtube_router
 from posts import router as posts_router
 from campaigns import router as campaigns_router
 from analytics import router as analytics_router
+from notifications import router as notifications_router
+from reports import router as reports_router
 import instagram_auth
+import facebook_auth
+import x_auth
 
-Base.metadata.create_all(bind=engine)
 app = FastAPI()
 app.include_router(campaigns_router)
 app.include_router(posts_router)
@@ -30,7 +33,11 @@ app.add_middleware(
 app.include_router(linkedin_router)
 app.include_router(youtube_router)
 app.include_router(instagram_auth.router)
+app.include_router(facebook_auth.router)
+app.include_router(x_auth.router)
 app.include_router(analytics_router)
+app.include_router(notifications_router)
+app.include_router(reports_router)
 
 ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".webm"}
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}

@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import tempfile
 import httpx
 from datetime import datetime, timedelta, timezone
@@ -15,6 +16,7 @@ LINKEDIN_API_VERSION = "202607"
 LINKEDIN_SOCIAL_ACTIONS_URL = "https://api.linkedin.com/rest/socialActions"
 DOWNLOAD_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SocialPilotBot/1.0"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".webm", ".mkv", ".m4v"}
 
 
 def _linkedin_headers(access_token):
@@ -303,3 +305,251 @@ def publish_youtube(db, social_account, video_url: str, title: str, description:
     else:
         return False, f"YouTube API error {response.status_code}: {response.text}"
 
+
+# ---------------------------------------------------------------------------
+# Instagram
+# ---------------------------------------------------------------------------
+# NOTE: this module is called from synchronous Celery tasks, same as the
+# YouTube functions above, so these are plain sync httpx calls — deliberately
+# NOT the async `refresh_instagram_token` in instagram_auth.py, which exists
+# only for the OAuth callback route. Same pattern as get_valid_youtube_token
+# vs. the token exchange that happens in the OAuth callback.
+
+INSTAGRAM_GRAPH_URL = "https://graph.instagram.com/v22.0"
+INSTAGRAM_REFRESH_URL = "https://graph.instagram.com/refresh_access_token"
+INSTAGRAM_POLL_INTERVAL_SECONDS = 10
+INSTAGRAM_POLL_MAX_ATTEMPTS = 30  # ~5 minutes
+
+
+def refresh_instagram_token(db, social_account):
+    """
+    Refreshes an Instagram long-lived token if it's within 7 days of expiring.
+    Instagram tokens must be refreshed *before* they expire — an already-expired
+    token cannot be refreshed and requires the user to reconnect via OAuth.
+    """
+    now = datetime.now(timezone.utc)
+    if social_account.token_expires_at and social_account.token_expires_at > now + timedelta(days=7):
+        return social_account.access_token
+
+    response = httpx.get(
+        INSTAGRAM_REFRESH_URL,
+        params={
+            "grant_type": "ig_refresh_token",
+            "access_token": social_account.access_token,
+        },
+    )
+    if response.status_code != 200:
+        raise Exception(f"Failed to refresh Instagram token: {response.text}")
+
+    data = response.json()
+    social_account.access_token = data["access_token"]
+    social_account.token_expires_at = now + timedelta(seconds=data["expires_in"])
+    db.commit()
+    return social_account.access_token
+
+
+def get_valid_instagram_token(db, social_account):
+    return refresh_instagram_token(db, social_account)
+
+
+def publish_instagram(db, social_account, content: str, media_url: str = None, is_reel: bool = False):
+    """
+    Publishes a post to Instagram via the two-step container flow: create a
+    media container (pointing at a public image/video URL), poll until it's
+    processed, then publish it.
+    Returns (success: bool, external_post_id_or_error: str)
+    """
+    if not media_url:
+        return False, "Instagram posts require an image or video URL"
+
+    access_token = get_valid_instagram_token(db, social_account)
+    ig_user_id = social_account.platform_user_id
+
+    ext = os.path.splitext(media_url.split("?")[0])[1].lower()
+    is_video = ext in VIDEO_EXTENSIONS or is_reel
+
+    container_params = {
+        "access_token": access_token,
+        "caption": content or "",
+    }
+    if is_video:
+        container_params["media_type"] = "REELS" if is_reel else "VIDEO"
+        container_params["video_url"] = media_url
+    else:
+        container_params["image_url"] = media_url
+
+    create_resp = httpx.post(
+        f"{INSTAGRAM_GRAPH_URL}/{ig_user_id}/media",
+        params=container_params,
+        timeout=60,
+    )
+    if create_resp.status_code != 200:
+        return False, f"Instagram container error {create_resp.status_code}: {create_resp.text}"
+
+    creation_id = create_resp.json()["id"]
+
+    if is_video:
+        for _ in range(INSTAGRAM_POLL_MAX_ATTEMPTS):
+            status_resp = httpx.get(
+                f"{INSTAGRAM_GRAPH_URL}/{creation_id}",
+                params={"fields": "status_code", "access_token": access_token},
+                timeout=30,
+            )
+            if status_resp.status_code != 200:
+                return False, f"Instagram status check error {status_resp.status_code}: {status_resp.text}"
+
+            status_code = status_resp.json().get("status_code")
+            if status_code == "FINISHED":
+                break
+            elif status_code == "ERROR":
+                return False, "Instagram media processing failed"
+            time.sleep(INSTAGRAM_POLL_INTERVAL_SECONDS)
+        else:
+            return False, "Instagram media processing timed out"
+
+    publish_resp = httpx.post(
+        f"{INSTAGRAM_GRAPH_URL}/{ig_user_id}/media_publish",
+        params={"creation_id": creation_id, "access_token": access_token},
+        timeout=60,
+    )
+    if publish_resp.status_code != 200:
+        return False, f"Instagram publish error {publish_resp.status_code}: {publish_resp.text}"
+
+    media_id = publish_resp.json().get("id", "unknown")
+    return True, media_id
+
+
+def get_instagram_post_insights(db, social_account, ig_media_id: str):
+    """
+    Fetches reach/likes/comments/shares/saved for an Instagram post.
+    Returns (success: bool, stats_dict_or_error)
+    """
+    access_token = get_valid_instagram_token(db, social_account)
+
+    response = httpx.get(
+        f"{INSTAGRAM_GRAPH_URL}/{ig_media_id}/insights",
+        params={
+            "metric": "reach,likes,comments,shares,saved",
+            "access_token": access_token,
+        },
+    )
+    if response.status_code != 200:
+        return False, f"Instagram API error {response.status_code}: {response.text}"
+
+    data = response.json().get("data", [])
+    stats = {item["name"]: item["values"][0]["value"] for item in data}
+    return True, {
+        "reach": stats.get("reach", 0),
+        "likes": stats.get("likes", 0),
+        "comments": stats.get("comments", 0),
+        "shares": stats.get("shares", 0),
+        "saved": stats.get("saved", 0),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Facebook (Pages)
+# ---------------------------------------------------------------------------
+# Page access tokens derived from a long-lived user token (see
+# facebook_auth.py) don't expire on their own, so unlike YouTube/Instagram
+# there's no refresh step needed before calling these.
+
+FACEBOOK_GRAPH_URL = "https://graph.facebook.com/v22.0"
+
+
+def publish_facebook(access_token: str, page_id: str, content: str, media_url: str = None):
+    """
+    Publishes a post to a Facebook Page. Facebook's Page endpoints accept a
+    plain media URL directly (unlike LinkedIn/Instagram, no upload step is
+    needed) — image URLs go through /photos, video URLs through /videos,
+    text-only posts through /feed.
+    Returns (success: bool, external_post_id_or_error: str)
+    """
+    if media_url:
+        ext = os.path.splitext(media_url.split("?")[0])[1].lower()
+        if ext in VIDEO_EXTENSIONS:
+            endpoint = f"{FACEBOOK_GRAPH_URL}/{page_id}/videos"
+            payload = {"file_url": media_url, "description": content or "", "access_token": access_token}
+        else:
+            endpoint = f"{FACEBOOK_GRAPH_URL}/{page_id}/photos"
+            payload = {"url": media_url, "caption": content or "", "access_token": access_token}
+    else:
+        endpoint = f"{FACEBOOK_GRAPH_URL}/{page_id}/feed"
+        payload = {"message": content or "", "access_token": access_token}
+
+    response = httpx.post(endpoint, data=payload, timeout=120)
+
+    if response.status_code != 200:
+        return False, f"Facebook API error {response.status_code}: {response.text}"
+
+    result = response.json()
+    # /photos and /videos return {"id": ..., "post_id": ...}; /feed returns {"id": ...}
+    post_id = result.get("post_id") or result.get("id", "unknown")
+    return True, post_id
+
+
+def get_facebook_post_stats(access_token: str, post_id: str):
+    """
+    Fetches likes/comments/shares for a Facebook Page post.
+    Returns (success: bool, stats_dict_or_error)
+    """
+    response = httpx.get(
+        f"{FACEBOOK_GRAPH_URL}/{post_id}",
+        params={
+            "fields": "likes.summary(true),comments.summary(true),shares",
+            "access_token": access_token,
+        },
+    )
+    if response.status_code != 200:
+        return False, f"Facebook API error {response.status_code}: {response.text}"
+
+    data = response.json()
+    return True, {
+        "likes": data.get("likes", {}).get("summary", {}).get("total_count", 0),
+        "comments": data.get("comments", {}).get("summary", {}).get("total_count", 0),
+        "shares": data.get("shares", {}).get("count", 0),
+    }
+
+
+# ---------------------------------------------------------------------------
+# X (Twitter)
+# ---------------------------------------------------------------------------
+# Free tier only supports OAuth login + basic profile read — no posting or
+# tweet-level analytics without a paid tier. This refresh helper exists so
+# the "connected" status stays accurate (X access tokens expire in ~2 hours)
+# and so upgrading to paid later only requires adding publish/stats
+# functions, not rebuilding the auth plumbing.
+
+X_TOKEN_URL = "https://api.twitter.com/2/oauth2/token"
+X_CLIENT_ID = os.getenv("X_CLIENT_ID")
+X_CLIENT_SECRET = os.getenv("X_CLIENT_SECRET")
+
+
+def refresh_x_token(db, social_account):
+    response = httpx.post(
+        X_TOKEN_URL,
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": social_account.refresh_token,
+            "client_id": X_CLIENT_ID,
+        },
+        auth=(X_CLIENT_ID, X_CLIENT_SECRET),
+    )
+    if response.status_code != 200:
+        raise Exception(f"Failed to refresh X token: {response.text}")
+
+    data = response.json()
+    social_account.access_token = data["access_token"]
+    # X rotates refresh tokens on use — the old one becomes invalid.
+    if data.get("refresh_token"):
+        social_account.refresh_token = data["refresh_token"]
+    social_account.token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=data.get("expires_in", 7200))
+    db.commit()
+    return social_account.access_token
+
+
+def get_valid_x_token(db, social_account):
+    now = datetime.now(timezone.utc)
+    if social_account.token_expires_at is None or social_account.token_expires_at <= now + timedelta(minutes=2):
+        return refresh_x_token(db, social_account)
+    return social_account.access_token

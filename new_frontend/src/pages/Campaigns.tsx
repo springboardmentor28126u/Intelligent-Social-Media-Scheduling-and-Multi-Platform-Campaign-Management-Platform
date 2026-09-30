@@ -23,6 +23,7 @@ import {
   ExternalLink,
   Sparkles,
   X,
+  Download,
 } from 'lucide-react';
 import PageHeader from '@/components/common/PageHeader';
 import Card from '@/components/common/Card';
@@ -52,6 +53,7 @@ import {
   updateCampaign,
   deleteCampaign,
   getCampaignPosts,
+  API_BASE,
 } from '@/services/campaigns';
 
 const filterTabs: { label: string; value: string }[] = [
@@ -301,6 +303,35 @@ export default function Campaigns() {
     return matchesFilter && matchesQuery;
   });
 
+  const handleExportCampaignCsv = (campaignId: number) => {
+    const token = localStorage.getItem('token');
+    const url = `${API_BASE}/reports/campaigns/${campaignId}/export?format=csv`;
+
+    fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Download failed');
+        return res.blob();
+      })
+      .then((blob) => {
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `campaign_${campaignId}_report.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(blobUrl);
+      })
+      .catch((err) => {
+        console.error('CSV export failed:', err);
+        alert('Could not export CSV. Please try again.');
+      });
+  };
+
   // Render Campaign Detail View if a campaign is selected
   if (selectedCampaignId && selectedCampaign) {
     return (
@@ -362,18 +393,28 @@ export default function Campaigns() {
               )}
             </div>
 
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={() =>
-                navigate('/app/create', {
-                  state: { initialCampaignId: selectedCampaign.id },
-                })
-              }
-              leftIcon={<Plus className="h-4 w-4" />}
-            >
-              Create Post for Campaign
-            </Button>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => handleExportCampaignCsv(selectedCampaign.id)}
+                leftIcon={<Download className="h-4 w-4" />}
+              >
+                Export CSV
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() =>
+                  navigate('/app/create', {
+                    state: { initialCampaignId: selectedCampaign.id },
+                  })
+                }
+                leftIcon={<Plus className="h-4 w-4" />}
+              >
+                Create Post for Campaign
+              </Button>
+            </div>
           </div>
 
           {/* Quick Metrics Grid */}

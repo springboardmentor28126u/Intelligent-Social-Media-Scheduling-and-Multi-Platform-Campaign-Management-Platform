@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import Logo from '@/components/common/Logo';
 import { useAuth } from '@/contexts/AuthContext';
+import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 
 const navItems = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -121,13 +122,7 @@ export default function AppLayout() {
           )}
 
           <div className="flex items-center gap-2">
-            <Link
-              to="/app/notifications"
-              className="relative flex h-10 w-10 items-center justify-center rounded-lg text-ink-600 transition-colors hover:bg-ink-100"
-              aria-label="Notifications"
-            >
-              <Bell className="h-5 w-5" />
-            </Link>
+            <NotificationDropdown />
             <Link
               to="/app/settings"
               className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-600 transition-colors hover:bg-ink-100"
