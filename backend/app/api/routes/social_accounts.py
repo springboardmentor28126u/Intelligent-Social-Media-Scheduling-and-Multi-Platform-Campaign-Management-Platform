@@ -187,7 +187,7 @@ def oauth_callback(
                 (settings.INSTAGRAM_REDIRECT_URI or f"{settings.BACKEND_URL}/api/instagram/callback")
                 if platform_key == "instagram"
                 else (
-                    (settings.FACEBOOK_REDIRECT_URI or f"{settings.BACKEND_URL}/social-auth/facebook/call")
+                    (settings.FACEBOOK_REDIRECT_URI or f"{settings.BACKEND_URL}/api/facebook/callback")
                     if platform_key == "facebook"
                     else f"{settings.BACKEND_URL}/social-accounts/oauth/{platform_key}/callback"
                 )

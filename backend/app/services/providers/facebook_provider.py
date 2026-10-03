@@ -62,7 +62,7 @@ class FacebookProvider(SocialProvider):
     def _get_redirect_uri(self) -> str:
         return (
             getattr(settings, "FACEBOOK_REDIRECT_URI", "") or
-            f"{settings.BACKEND_URL}/social-auth/facebook/call"
+            f"{settings.BACKEND_URL}/api/facebook/callback"
         )
 
     def _is_configured(self) -> bool:

@@ -39,7 +39,7 @@ ROLE_DEFAULT_PERMISSIONS: Dict[str, List[str]] = {
     ],
     "content_creator": [
         "users.read", "posts.create", "posts.read", "posts.update", "posts.submit_approval",
-        "calendar.read", "media.upload", "social_accounts.read"
+        "calendar.read", "media.upload", "social_accounts.read", "campaigns.read"
     ]
 }
 

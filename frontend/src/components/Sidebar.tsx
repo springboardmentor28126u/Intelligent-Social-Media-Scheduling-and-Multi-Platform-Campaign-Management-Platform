@@ -85,6 +85,7 @@ export default function Sidebar({ onOpenCreatePost, isMobileOpen, onCloseMobile 
         return [
           { name: "Creator Panel", path: "/", icon: <LayoutDashboard size={19} /> },
           { name: "Create Post", action: "create", icon: <Plus size={19} /> },
+          { name: "Campaigns", path: "/campaigns", icon: <Megaphone size={19} /> },
           { name: "Content Calendar", path: "/calendar", icon: <CalendarDays size={19} /> },
           { name: "Analytics", path: "/analytics", icon: <BarChart3 size={19} /> },
           { name: "Audience", path: "/team", icon: <Users size={19} /> },

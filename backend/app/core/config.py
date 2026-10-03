@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     FACEBOOK_APP_SECRET: str = ""
     FACEBOOK_CLIENT_ID: str = "1640248207501817"
     FACEBOOK_CLIENT_SECRET: str = ""
-    FACEBOOK_REDIRECT_URI: str = "https://guise-reclusive-sample.ngrok-free.dev/social-auth/facebook/call"
+    FACEBOOK_REDIRECT_URI: str = "https://dove-object-underpay.ngrok-free.dev/api/facebook/callback"
     FACEBOOK_CONFIG_ID: str = "1746943613275567"
     FACEBOOK_SCOPES: str = "pages_show_list,pages_read_engagement,pages_manage_posts"
     META_APP_ID: str = ""

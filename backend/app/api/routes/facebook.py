@@ -69,7 +69,7 @@ def get_facebook_auth_url(
     effective_redirect = (
         redirect_uri or
         settings.FACEBOOK_REDIRECT_URI or
-        f"{settings.BACKEND_URL}/social-auth/facebook/call"
+        f"{settings.BACKEND_URL}/api/facebook/callback"
     )
 
     is_configured = "facebook" in list_configured_platforms()
