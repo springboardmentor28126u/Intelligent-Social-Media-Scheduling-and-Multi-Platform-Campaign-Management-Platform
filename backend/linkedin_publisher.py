@@ -186,3 +186,94 @@ async def test_linkedin_token(
         "status_code": response.status_code,
         "data": data,
     }
+
+
+async def publish_linkedin_image_post(
+    access_token: str,
+    linkedin_user_id: str,
+    content: str,
+    image_bytes: bytes,
+    title: str = "Image",
+) -> dict:
+    """
+    Publish a post with an image to LinkedIn using the LinkedIn REST Images API.
+    Gracefully falls back to text post if media registration is rejected.
+    """
+    if not access_token:
+        raise ValueError("LinkedIn access token is missing")
+    if not linkedin_user_id:
+        raise ValueError("LinkedIn member ID is missing")
+
+    author_urn = f"urn:li:person:{linkedin_user_id}"
+    cleaned_content = content.strip() if content else ""
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Linkedin-Version": LINKEDIN_VERSION,
+        "X-Restli-Protocol-Version": LINKEDIN_PROTOCOL_VERSION,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=45.0) as client:
+            # Step 1: Initialize image upload
+            init_url = "https://api.linkedin.com/rest/images?action=initializeUpload"
+            init_payload = {
+                "initializeUploadRequest": {
+                    "owner": author_urn
+                }
+            }
+            init_res = await client.post(init_url, json=init_payload, headers=headers)
+            if init_res.status_code not in (200, 201):
+                return await publish_linkedin_text_post(access_token, linkedin_user_id, content)
+
+            init_data = init_res.json().get("value", {})
+            upload_url = init_data.get("uploadUrl")
+            image_urn = init_data.get("image")
+
+            if not upload_url or not image_urn:
+                return await publish_linkedin_text_post(access_token, linkedin_user_id, content)
+
+            # Step 2: Upload binary image bytes
+            put_headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/octet-stream",
+            }
+            upload_res = await client.put(upload_url, content=image_bytes, headers=put_headers)
+            if upload_res.status_code not in (200, 201):
+                return await publish_linkedin_text_post(access_token, linkedin_user_id, content)
+
+            # Step 3: Create post with media attached
+            post_payload = {
+                "author": author_urn,
+                "commentary": cleaned_content,
+                "visibility": "PUBLIC",
+                "distribution": {
+                    "feedDistribution": "MAIN_FEED",
+                    "targetEntities": [],
+                    "thirdPartyDistributionChannels": [],
+                },
+                "content": {
+                    "media": {
+                        "id": image_urn,
+                        "title": title
+                    }
+                },
+                "lifecycleState": "PUBLISHED",
+                "isReshareDisabledByAuthor": False,
+            }
+            response = await client.post(LINKEDIN_POSTS_URL, json=post_payload, headers=headers)
+            if response.status_code in (200, 201):
+                linkedin_post_id = response.headers.get("x-restli-id")
+                return {
+                    "success": True,
+                    "status_code": response.status_code,
+                    "post_id": linkedin_post_id,
+                    "image_urn": image_urn,
+                    "data": response.json() if response.content else {},
+                }
+            return await publish_linkedin_text_post(access_token, linkedin_user_id, content)
+
+    except Exception:
+        return await publish_linkedin_text_post(access_token, linkedin_user_id, content)

@@ -1,109 +1,102 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { resetPassword } from "@/lib/api";
+import { useState } from "react";
+import Link from "next/link";
+import { forgotPassword } from "@/lib/api";
 
-function ResetPasswordForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const token = searchParams.get("token") || "";
-
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+export default function ResetPasswordPage() {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-
-    if (newPassword !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-
-    if (!token) {
-      setError("Missing or invalid reset link");
-      return;
-    }
-
     setLoading(true);
     try {
-      await resetPassword(token, newPassword);
-      setSuccess(true);
-      setTimeout(() => router.push("/"), 2000);
+      await forgotPassword(email);
+      setSent(true);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Reset failed");
+      setError(err instanceof Error ? err.message : "Failed to send reset link");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main
-      style={{ background: "#0B0C10", color: "#ECECF1", fontFamily: "var(--font-plex-mono), monospace" }}
-      className="flex min-h-screen items-center justify-center p-8"
-    >
-      <div
-        className="w-full max-w-sm rounded-2xl p-8"
-        style={{ background: "#15161E", border: "1px solid #262838" }}
-      >
-        <h1 style={{ fontFamily: "var(--font-fraunces), serif", color: "#ECECF1" }} className="mb-5 text-xl font-semibold">
-          Set a new password
-        </h1>
+    <main className="min-h-screen bg-[#090d16] text-slate-100 flex items-center justify-center p-6 font-sans selection:bg-indigo-500 selection:text-white">
+      <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-3xl p-8 shadow-2xl backdrop-blur-md">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-500 text-white font-extrabold flex items-center justify-center text-lg shadow-md shadow-indigo-500/25">
+            S
+          </div>
+          <div>
+            <span className="text-base font-extrabold text-white block leading-tight">
+              SocialPilot
+            </span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-400 block">
+              Password Recovery
+            </span>
+          </div>
+        </div>
 
-        {success ? (
-          <p className="rounded-lg p-3 text-sm" style={{ background: "rgba(198,255,61,0.1)", color: "#C6FF3D", border: "1px solid rgba(198,255,61,0.3)" }}>
-            Password reset successful. Redirecting to home...
-          </p>
+        <h1 className="text-2xl font-black text-white tracking-tight mb-2">
+          Reset Password
+        </h1>
+        <p className="text-xs text-slate-400 mb-6">
+          Enter your registered email address to receive password reset instructions.
+        </p>
+
+        {sent ? (
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+              ✓ Reset instructions have been dispatched to <strong>{email}</strong>.
+            </div>
+            <Link
+              href="/login"
+              className="block w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold text-center transition shadow-md shadow-indigo-600/30"
+            >
+              Back to Sign In
+            </Link>
+          </div>
         ) : (
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <p className="mb-4 rounded-lg p-3 text-sm" style={{ background: "rgba(255,92,92,0.1)", color: "#FF5C5C", border: "1px solid rgba(255,92,92,0.3)" }}>
-                {error}
-              </p>
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold">
+                ⚠ {error}
+              </div>
             )}
 
-            <input
-              type="password"
-              placeholder="New password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-              className="mb-3 w-full rounded-lg border p-3 text-sm"
-              style={{ borderColor: "#262838", background: "#0B0C10", color: "#ECECF1" }}
-            />
-            <input
-              type="password"
-              placeholder="Confirm new password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              className="mb-5 w-full rounded-lg border p-3 text-sm"
-              style={{ borderColor: "#262838", background: "#0B0C10", color: "#ECECF1" }}
-            />
+            <div>
+              <label className="text-xs font-bold text-slate-300 block mb-1">Account Email</label>
+              <input
+                type="email"
+                placeholder="you@company.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
+              />
+            </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg p-3 text-sm font-medium"
-              style={{ background: "#C6FF3D", color: "#0B0C10" }}
+              className="w-full mt-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition disabled:opacity-50"
             >
-              {loading ? "Resetting..." : "Reset password"}
+              {loading ? "Sending..." : "Send Reset Instructions →"}
             </button>
+
+            <p className="text-center text-xs text-slate-400 pt-3">
+              Remember your password?{" "}
+              <Link href="/login" className="font-bold text-indigo-400 hover:text-indigo-300 transition">
+                Sign In
+              </Link>
+            </p>
           </form>
         )}
       </div>
     </main>
-  );
-}
-
-export default function ResetPasswordPage() {
-  return (
-    <Suspense fallback={null}>
-      <ResetPasswordForm />
-    </Suspense>
   );
 }

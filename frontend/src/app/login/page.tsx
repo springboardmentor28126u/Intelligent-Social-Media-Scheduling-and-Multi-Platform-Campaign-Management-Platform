@@ -249,38 +249,38 @@ export default function LoginPage() {
   ========================================================== */
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center px-6 py-10">
-        <div className="grid w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl lg:grid-cols-2">
+    <main className="min-h-screen bg-[#090d16] text-slate-100 flex items-center justify-center selection:bg-indigo-500 selection:text-white">
+      <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center px-6 py-10 w-full">
+        <div className="grid w-full overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/90 shadow-2xl lg:grid-cols-2">
 
           {/* ==================================================
              LEFT PANEL
           ================================================== */}
 
-          <section className="hidden bg-slate-900 p-10 text-white lg:flex lg:flex-col lg:justify-between">
+          <section className="hidden bg-slate-950/90 border-r border-slate-800 p-10 text-white lg:flex lg:flex-col lg:justify-between">
             <div>
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-500 text-xl font-bold">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-500 text-xl font-bold shadow-lg shadow-indigo-500/25">
                   S
                 </div>
 
                 <div>
-                  <p className="text-lg font-bold">
+                  <p className="text-lg font-bold text-white">
                     SocialPilot
                   </p>
 
-                  <p className="text-xs text-slate-400">
-                    Social Intelligence
+                  <p className="text-xs text-indigo-400 font-semibold">
+                    Campaign Engine
                   </p>
                 </div>
               </div>
 
               <div className="mt-16 max-w-md">
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-sky-400">
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-indigo-400">
                   Social Media Management
                 </p>
 
-                <h1 className="mt-4 text-4xl font-bold leading-tight">
+                <h1 className="mt-4 text-4xl font-bold leading-tight text-white">
                   Manage campaigns.
                   <br />
                   Track performance.
@@ -288,7 +288,7 @@ export default function LoginPage() {
                   Grow smarter.
                 </h1>
 
-                <p className="mt-6 text-sm leading-7 text-slate-300">
+                <p className="mt-6 text-sm leading-7 text-slate-400">
                   Create posts, manage campaigns,
                   monitor engagement and understand
                   your audience from one platform.
@@ -297,8 +297,8 @@ export default function LoginPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-xl border border-slate-700 bg-slate-800 p-4">
-                <p className="text-lg font-bold">
+              <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-4">
+                <p className="text-lg font-bold text-white">
                   Campaigns
                 </p>
 
@@ -307,8 +307,8 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-slate-700 bg-slate-800 p-4">
-                <p className="text-lg font-bold">
+              <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-4">
+                <p className="text-lg font-bold text-white">
                   Analytics
                 </p>
 
@@ -317,8 +317,8 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-slate-700 bg-slate-800 p-4">
-                <p className="text-lg font-bold">
+              <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-4">
+                <p className="text-lg font-bold text-white">
                   Audience
                 </p>
 
@@ -333,23 +333,23 @@ export default function LoginPage() {
              RIGHT PANEL
           ================================================== */}
 
-          <section className="flex items-center p-6 sm:p-10">
+          <section className="flex items-center p-6 sm:p-10 bg-slate-900/70">
             <div className="mx-auto w-full max-w-md">
 
               {/* MOBILE BRAND */}
 
               <div className="mb-8 flex items-center gap-3 lg:hidden">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-500 text-xl font-bold text-white">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-500 text-xl font-bold text-white shadow-md shadow-indigo-500/20">
                   S
                 </div>
 
                 <div>
-                  <p className="text-lg font-bold text-slate-900">
+                  <p className="text-lg font-bold text-white">
                     SocialPilot
                   </p>
 
-                  <p className="text-xs text-slate-500">
-                    Social Intelligence
+                  <p className="text-xs text-indigo-400 font-semibold">
+                    Campaign Engine
                   </p>
                 </div>
               </div>
@@ -357,15 +357,15 @@ export default function LoginPage() {
               {/* HEADING */}
 
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-400">
                   Welcome back
                 </p>
 
-                <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
+                <h2 className="mt-2 text-3xl font-bold tracking-tight text-white">
                   Sign in to SocialPilot
                 </h2>
 
-                <p className="mt-2 text-sm leading-6 text-slate-500">
+                <p className="mt-2 text-sm leading-6 text-slate-400">
                   Access your campaigns, posts and
                   analytics dashboard.
                 </p>
@@ -374,9 +374,9 @@ export default function LoginPage() {
               {/* ERROR */}
 
               {error && (
-                <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-                  <p className="text-sm leading-5 text-red-700">
-                    {error}
+                <div className="mt-6 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3">
+                  <p className="text-sm leading-5 text-rose-300 font-semibold">
+                    ⚠ {error}
                   </p>
                 </div>
               )}
@@ -393,7 +393,7 @@ export default function LoginPage() {
                 <div>
                   <label
                     htmlFor="email"
-                    className="mb-2 block text-sm font-semibold text-slate-700"
+                    className="mb-2 block text-sm font-semibold text-slate-300"
                   >
                     Email address
                   </label>
@@ -411,7 +411,7 @@ export default function LoginPage() {
                     }
                     placeholder="you@example.com"
                     disabled={loading}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 disabled:cursor-not-allowed disabled:bg-slate-900"
                   />
                 </div>
 
@@ -421,14 +421,14 @@ export default function LoginPage() {
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <label
                       htmlFor="password"
-                      className="block text-sm font-semibold text-slate-700"
+                      className="block text-sm font-semibold text-slate-300"
                     >
                       Password
                     </label>
 
                     <Link
                       href="/reset-password"
-                      className="text-xs font-semibold text-sky-600 hover:text-sky-700"
+                      className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition"
                     >
                       Forgot password?
                     </Link>
@@ -452,7 +452,7 @@ export default function LoginPage() {
                       }
                       placeholder="Enter your password"
                       disabled={loading}
-                      className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-20 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-3 pr-20 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 disabled:cursor-not-allowed disabled:bg-slate-900"
                     />
 
                     <button
@@ -464,7 +464,7 @@ export default function LoginPage() {
                         )
                       }
                       disabled={loading}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:cursor-not-allowed"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-semibold text-slate-400 hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed transition"
                     >
                       {showPassword
                         ? "Hide"
@@ -478,7 +478,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3.5 text-sm font-bold text-white shadow-md shadow-indigo-600/30 transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? (
                     <>
@@ -494,12 +494,12 @@ export default function LoginPage() {
 
               {/* REGISTER */}
 
-              <div className="mt-8 border-t border-slate-200 pt-6 text-center">
-                <p className="text-sm text-slate-500">
-                  Don&apos;t have an account?{""}
+              <div className="mt-8 border-t border-slate-800 pt-6 text-center">
+                <p className="text-sm text-slate-400">
+                  Don&apos;t have an account?{" "}
                   <Link
                     href="/register"
-                    className="font-bold text-sky-600 hover:text-sky-700"
+                    className="font-bold text-indigo-400 hover:text-indigo-300 transition"
                   >
                     Create one
                   </Link>
@@ -508,7 +508,7 @@ export default function LoginPage() {
 
               {/* FOOTER */}
 
-              <p className="mt-8 text-center text-[11px] leading-5 text-slate-400">
+              <p className="mt-8 text-center text-[11px] leading-5 text-slate-500">
                 By signing in, you can access your
                 SocialPilot workspace and connected
                 social media management features.

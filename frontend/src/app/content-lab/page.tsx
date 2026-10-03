@@ -1,1251 +1,417 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Nav from "@/components/Nav";
 
 type ContentStatus = "idea" | "draft" | "ready";
 
-type ContentItem = {
+interface ContentItem {
   id: number;
   title: string;
   text: string;
   platform: string;
   status: ContentStatus;
   createdAt: string;
-};
+  category: string;
+}
 
-const STORAGE_KEY = "socialpilot_content";
+const AI_TEMPLATES = [
+  {
+    title: "Viral Contrarian Hook",
+    description: "Challenge an industry myth to spark high comments & reposts",
+    prompt: "Most people think [X] is the secret to scaling, but in reality [Y] is what actually moves the needle. Here is what 90% get wrong:",
+  },
+  {
+    title: "Step-by-Step Educational Framework",
+    description: "Break down complex systems into digestible bullet points",
+    prompt: "How we increased our organic engagement by 40% in 30 days without spending on paid ads:\n\n1. Audit content cadence\n2. Optimize hook velocity\n3. Engage in the first 60 minutes",
+  },
+  {
+    title: "Product Launch / Feature Drop",
+    description: "High-impact announcement for new features or milestones",
+    prompt: "Today is a massive milestone for our team 🚀\n\nWe are officially launching [Feature/Product Name] — built to solve [Pain Point] once and for all.",
+  },
+  {
+    title: "Interactive Audience Poll / Question",
+    description: "Drive immediate algorithmic reach through comments",
+    prompt: "Quick poll for founders & marketers: What is your #1 social channel for high-intent customer acquisition right now? Drop your vote below 👇",
+  },
+];
 
-const PLATFORM_DATA: Record<
-  string,
-  { icon: string; label: string }
-> = {
-  linkedin: {
-    icon: "in",
-    label: "LinkedIn",
-  },
-  instagram: {
-    icon: "◎",
-    label: "Instagram",
-  },
-  facebook: {
-    icon: "f",
-    label: "Facebook",
-  },
-  twitter: {
-    icon: "𝕏",
-    label: "X",
-  },
-  youtube: {
-    icon: "▶",
-    label: "YouTube",
-  },
-  pinterest: {
-    icon: "P",
-    label: "Pinterest",
-  },
-};
-
-const SAMPLE_CONTENT: ContentItem[] = [
+const INITIAL_DRAFTS: ContentItem[] = [
   {
     id: 1,
-    title: "AI is changing how we work",
-    text:
-      "Artificial intelligence is not simply replacing tasks. It is changing how people think, create and solve problems.",
+    title: "AI & The Next Generation of Social Workflows",
+    text: "Artificial intelligence is not simply replacing tasks. It is fundamentally changing how creators think, syndicate, and evaluate campaign velocity.",
     platform: "linkedin",
     status: "ready",
-    createdAt: "Today",
+    createdAt: "Today, 11:20 AM",
+    category: "Thought Leadership",
   },
   {
     id: 2,
-    title: "5 lessons from building with AI",
-    text:
-      "Start small. Test quickly. Listen to users. Improve continuously. The best AI products are built around real problems.",
-    platform: "linkedin",
+    title: "Carousel: The 2026 Social Distribution Blueprint",
+    text: "Slide 1: Why algorithm updates favor high dwell-time.\nSlide 2: The 3 pillars of omni-channel publishing.\nSlide 3: Real campaign metrics vs vanity numbers.",
+    platform: "instagram",
     status: "draft",
     createdAt: "Yesterday",
+    category: "Carousel Blueprint",
   },
   {
     id: 3,
-    title: "Weekend content idea",
-    text:
-      "Share a simple behind-the-scenes story about your latest project.",
-    platform: "instagram",
+    title: "Feature Teaser: Automated Failed Post Retries",
+    text: "Zero downtime social publishing. How our microservice queue automatically reschedules and retries failed API calls with exponential backoff.",
+    platform: "twitter",
     status: "idea",
-    createdAt: "2 days ago",
+    createdAt: "Sep 28",
+    category: "Engineering Insights",
   },
 ];
 
 export default function ContentLabPage() {
   const router = useRouter();
-
-  const [contents, setContents] = useState<ContentItem[]>([]);
-  const [activeFilter, setActiveFilter] = useState<
-    "all" | ContentStatus
-  >("all");
-
-  const [search, setSearch] = useState("");
-  const [showComposer, setShowComposer] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [selectedContent, setSelectedContent] =
-    useState<ContentItem | null>(null);
-
-  const [title, setTitle] = useState("");
-  const [text, setText] = useState("");
-  const [platform, setPlatform] = useState("linkedin");
-  const [status, setStatus] =
-    useState<ContentStatus>("draft");
-
-  const [aiLoading, setAiLoading] = useState(false);
+  const [drafts, setDrafts] = useState<ContentItem[]>(INITIAL_DRAFTS);
+  const [selectedDraft, setSelectedDraft] = useState<ContentItem | null>(INITIAL_DRAFTS[0]);
+  const [activeTab, setActiveTab] = useState<"drafts" | "templates">("drafts");
+  const [newTitle, setNewTitle] = useState("");
+  const [newText, setNewText] = useState("");
+  const [selectedPlatform, setSelectedPlatform] = useState("linkedin");
+  const [showNewModal, setShowNewModal] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
   const [message, setMessage] = useState("");
 
-  /* =========================================================
-     LOAD CONTENT
-  ========================================================= */
-
+  /* Auth Guard */
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const saved = localStorage.getItem(STORAGE_KEY);
-
-      if (!saved) {
-        setContents(SAMPLE_CONTENT);
-        localStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify(SAMPLE_CONTENT)
-        );
-        return;
-      }
-
-      try {
-        const parsed = JSON.parse(saved);
-
-        if (Array.isArray(parsed)) {
-          setContents(parsed);
-        } else {
-          setContents(SAMPLE_CONTENT);
-        }
-      } catch (error) {
-        console.error(
-          "Failed to load saved content:",
-          error
-        );
-
-        setContents(SAMPLE_CONTENT);
-      }
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  /* =========================================================
-     SAVE CONTENT
-  ========================================================= */
-
-  function saveContents(updated: ContentItem[]) {
-    setContents(updated);
-
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(updated)
-    );
-  }
-
-  /* =========================================================
-     FILTER CONTENT
-  ========================================================= */
-
-  const filteredContents = useMemo(() => {
-    return contents.filter((item) => {
-      const matchesFilter =
-        activeFilter === "all" ||
-        item.status === activeFilter;
-
-      const searchText = search
-        .trim()
-        .toLowerCase();
-
-      const matchesSearch =
-        !searchText ||
-        item.title
-          .toLowerCase()
-          .includes(searchText) ||
-        item.text
-          .toLowerCase()
-          .includes(searchText) ||
-        item.platform
-          .toLowerCase()
-          .includes(searchText);
-
-      return matchesFilter && matchesSearch;
-    });
-  }, [contents, activeFilter, search]);
-
-  /* =========================================================
-     COUNTS
-  ========================================================= */
-
-  const ideaCount = contents.filter(
-    (item) => item.status === "idea"
-  ).length;
-
-  const draftCount = contents.filter(
-    (item) => item.status === "draft"
-  ).length;
-
-  const readyCount = contents.filter(
-    (item) => item.status === "ready"
-  ).length;
-
-  /* =========================================================
-     OPEN COMPOSER
-  ========================================================= */
-
-  function openComposer() {
-    setEditingId(null);
-    setTitle("");
-    setText("");
-    setPlatform("linkedin");
-    setStatus("draft");
-    setMessage("");
-    setShowComposer(true);
-  }
-
-  /* =========================================================
-     EDIT CONTENT
-  ========================================================= */
-
-  function editContent(item: ContentItem) {
-    setEditingId(item.id);
-    setTitle(item.title);
-    setText(item.text);
-    setPlatform(item.platform);
-    setStatus(item.status);
-    setMessage("");
-    setShowComposer(true);
-  }
-
-  /* =========================================================
-     SAVE / UPDATE CONTENT
-  ========================================================= */
-
-  function handleSaveContent(
-    e: React.FormEvent<HTMLFormElement>
-  ) {
-    e.preventDefault();
-
-    if (!title.trim() || !text.trim()) {
-      setMessage(
-        "Please enter a title and content."
-      );
-      return;
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      router.push("/login");
     }
-
-    if (editingId !== null) {
-      const updated = contents.map((item) =>
-        item.id === editingId
-          ? {
-              ...item,
-              title: title.trim(),
-              text: text.trim(),
-              platform,
-              status,
-            }
-          : item
-      );
-
-      saveContents(updated);
-
-      setMessage(
-        "Content updated successfully."
-      );
-    } else {
-      const newContent: ContentItem = {
-        id: Date.now(),
-        title: title.trim(),
-        text: text.trim(),
-        platform,
-        status,
-        createdAt: "Just now",
-      };
-
-      saveContents([
-        newContent,
-        ...contents,
-      ]);
-
-      setMessage(
-        "Content saved successfully."
-      );
-    }
-
-    setTitle("");
-    setText("");
-    setEditingId(null);
-    setShowComposer(false);
-  }
-
-  /* =========================================================
-     DELETE CONTENT
-  ========================================================= */
-
-  function deleteContent(id: number) {
-    const confirmed = window.confirm(
-      "Delete this content?"
-    );
-
-    if (!confirmed) return;
-
-    const updated = contents.filter(
-      (item) => item.id !== id
-    );
-
-    saveContents(updated);
-    setSelectedContent(null);
-  }
-
-  /* =========================================================
-     CHANGE STATUS
-  ========================================================= */
-
-  function changeStatus(
-    id: number,
-    newStatus: ContentStatus
-  ) {
-    const updated = contents.map((item) =>
-      item.id === id
-        ? {
-            ...item,
-            status: newStatus,
-          }
-        : item
-    );
-
-    saveContents(updated);
-
-    if (selectedContent?.id === id) {
-      setSelectedContent({
-        ...selectedContent,
-        status: newStatus,
-      });
-    }
-  }
-
-  /* =========================================================
-     AI REGENERATE
-  ========================================================= */
-
-  function regenerateWithAI() {
-    if (!text.trim()) {
-      setMessage(
-        "Write some content first."
-      );
-      return;
-    }
-
-    setAiLoading(true);
-    setMessage("");
-
-    window.setTimeout(() => {
-      const regenerated = `Here is a refreshed version of your idea:
-
-${text.trim()}
-
-The key message is simple: create useful content, experiment consistently, and learn from your audience.`;
-
-      setText(regenerated);
-      setAiLoading(false);
-      setMessage(
-        "AI generated a refreshed version."
-      );
-    }, 1200);
-  }
-
-  /* =========================================================
-     CLEAR ALL CONTENT
-  ========================================================= */
-
-  function clearAllContent() {
-    const confirmed = window.confirm(
-      "Remove all saved content?"
-    );
-
-    if (!confirmed) return;
-
-    saveContents([]);
-  }
-
-  /* =========================================================
-     PAGE
-  ========================================================= */
-
-  return (
-    <main className="min-h-screen bg-slate-100 text-slate-800">
-      <div className="flex min-h-screen">
-
-        {/* =====================================================
-            MASTER SIDEBAR
-        ===================================================== */}
-
-        <aside className="hidden w-72 shrink-0 bg-slate-200 border-r border-slate-300 flex-col shadow-sm md:flex">
-
-          {/* LOGO */}
-          <div className="px-6 py-7 border-b border-slate-300">
-            <button
-              onClick={() =>
-                router.push("/dashboard")
-              }
-              className="text-left"
-            >
-              <div className="text-2xl font-bold text-sky-600 tracking-tight">
-                SocialPilot
-              </div>
-
-              <p className="text-sm text-slate-500 mt-1">
-                Social Media Command Center
-              </p>
-            </button>
-          </div>
-
-          {/* NAVIGATION */}
-          <nav className="flex-1 p-4">
-
-            <p className="px-3 mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
-              Workspace
-            </p>
-
-            {/* COMMAND CENTER */}
-            <button
-              onClick={() =>
-                router.push("/dashboard")
-              }
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left text-base font-medium text-slate-600 hover:bg-slate-100 hover:text-sky-700 transition mb-1"
-            >
-              <span className="text-xl">
-                ⌂
-              </span>
-
-              Command Center
-            </button>
-
-            {/* CREATE */}
-            <button
-              onClick={() =>
-                router.push("/create-post")
-              }
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left text-base font-medium text-slate-600 hover:bg-slate-100 hover:text-sky-700 transition mb-1"
-            >
-              <span className="text-xl">
-                ＋
-              </span>
-
-              Create
-            </button>
-
-            {/* CONTENT LAB - ACTIVE */}
-            <button
-              onClick={() =>
-                router.push("/content-lab")
-              }
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left text-base font-semibold bg-white text-sky-700 border border-slate-300 mb-1 shadow-sm"
-            >
-              <span className="text-xl">
-                ✦
-              </span>
-
-              Content Lab
-            </button>
-
-            {/* INSIGHTS */}
-            <button
-              onClick={() =>
-                router.push("/insights")
-              }
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left text-base font-medium text-slate-600 hover:bg-slate-100 hover:text-sky-700 transition mb-1"
-            >
-              <span className="text-xl">
-                ◷
-              </span>
-
-              Insights
-            </button>
-
-            {/* AUDIENCE */}
-            <button
-              onClick={() =>
-                router.push("/audience")
-              }
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left text-base font-medium text-slate-600 hover:bg-slate-100 hover:text-sky-700 transition mb-1"
-            >
-              <span className="text-xl">
-                ◎
-              </span>
-
-              Audience
-            </button>
-
-            {/* PUBLISHING CALENDAR */}
-            <button
-              onClick={() =>
-                router.push("/calender")
-              }
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left text-base font-medium text-slate-600 hover:bg-slate-100 hover:text-sky-700 transition mb-1"
-            >
-              <span className="text-xl">
-                ▣
-              </span>
-
-              Publishing Calendar
-            </button>
-
-            <div className="my-6 border-t border-slate-300" />
-
-            {/* ACCOUNT */}
-            <p className="px-3 mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
-              Account
-            </p>
-
-            {/* SETTINGS */}
-            <button
-              onClick={() =>
-                router.push("/settings")
-              }
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left text-base font-medium text-slate-600 hover:bg-slate-100 hover:text-sky-700 transition mb-1"
-            >
-              <span className="text-xl">
-                ⚙
-              </span>
-
-              Settings
-            </button>
-          </nav>
-
-          {/* USER FOOTER */}
-          <div className="border-t border-slate-300 p-5">
-
-            <div className="flex items-center gap-3 mb-4">
-
-              <div className="w-11 h-11 rounded-full bg-sky-500 text-white flex items-center justify-center text-base font-bold">
-                SP
-              </div>
-
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-slate-800 truncate">
-                  SocialPilot User
-                </p>
-
-                <p className="text-xs text-slate-500 truncate">
-                  Social Media Manager
-                </p>
-              </div>
-
-            </div>
-
-            <button
-              onClick={() => {
-                localStorage.removeItem(
-                  "access_token"
-                );
-
-                router.push("/login");
-              }}
-              className="w-full rounded-xl px-4 py-3 text-left text-base font-medium text-red-500 hover:bg-red-50 transition"
-            >
-              Sign out
-            </button>
-
-          </div>
-        </aside>
-
-        {/* =====================================================
-            MAIN CONTENT
-        ===================================================== */}
-
-        <section className="flex-1 min-w-0">
-
-          {/* HEADER */}
-          <header className="flex items-center justify-between bg-white border-b border-slate-300 px-6 py-5 md:px-10 shadow-sm">
-
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-widest text-sky-600">
-                Content Lab
-              </p>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Turn ideas into publish-ready content.
-              </p>
-            </div>
-
-            <button
-              onClick={openComposer}
-              className="rounded-xl bg-sky-500 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-sky-600 transition"
-            >
-              + New content
-            </button>
-
-          </header>
-
-          {/* CONTENT AREA */}
-          <div className="mx-auto max-w-7xl p-6 md:p-10">
-
-            {/* PAGE INTRO */}
-            <div className="mb-8">
-
-              <h1 className="text-3xl md:text-4xl font-bold text-slate-900">
-                Your content, evolving.
-              </h1>
-
-              <p className="mt-2 max-w-xl text-base leading-7 text-slate-500">
-                Capture ideas, shape drafts, and move your strongest content toward ready.
-              </p>
-
-            </div>
-
-            {/* =================================================
-                STAT CARDS
-            ================================================= */}
-
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-
-              <StatCard
-                label="Everything"
-                value={contents.length}
-                active={
-                  activeFilter === "all"
-                }
-                onClick={() =>
-                  setActiveFilter("all")
-                }
-              />
-
-              <StatCard
-                label="Ideas"
-                value={ideaCount}
-                active={
-                  activeFilter === "idea"
-                }
-                onClick={() =>
-                  setActiveFilter("idea")
-                }
-              />
-
-              <StatCard
-                label="Drafts"
-                value={draftCount}
-                active={
-                  activeFilter === "draft"
-                }
-                onClick={() =>
-                  setActiveFilter("draft")
-                }
-              />
-
-              <StatCard
-                label="Ready"
-                value={readyCount}
-                active={
-                  activeFilter === "ready"
-                }
-                onClick={() =>
-                  setActiveFilter("ready")
-                }
-              />
-
-            </div>
-
-            {/* =================================================
-                SEARCH
-            ================================================= */}
-
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-
-              <div className="relative flex-1">
-
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                  ⌕
-                </span>
-
-                <input
-                  value={search}
-                  onChange={(e) =>
-                    setSearch(e.target.value)
-                  }
-                  placeholder="Search your content..."
-                  className="w-full rounded-xl border border-slate-300 bg-white py-3 pl-10 pr-4 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-                />
-
-              </div>
-
-              {contents.length > 0 && (
-                <button
-                  onClick={clearAllContent}
-                  className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
-                >
-                  Clear library
-                </button>
-              )}
-
-            </div>
-
-            {/* =================================================
-                CONTENT GRID
-            ================================================= */}
-
-            <div className="mt-8">
-
-              {filteredContents.length === 0 ? (
-
-                /* EMPTY STATE */
-
-                <div className="rounded-2xl border border-slate-300 bg-white p-12 text-center shadow-sm">
-
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-2xl text-sky-500">
-                    ✦
-                  </div>
-
-                  <h2 className="mt-5 text-xl font-bold text-slate-900">
-                    Nothing here yet.
-                  </h2>
-
-                  <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-                    Start with an idea and build it into something worth sharing.
-                  </p>
-
-                  <button
-                    onClick={openComposer}
-                    className="mt-6 rounded-xl bg-sky-500 px-5 py-3 text-sm font-semibold text-white hover:bg-sky-600 transition"
-                  >
-                    Create your first piece
-                  </button>
-
-                </div>
-
-              ) : (
-
-                /* CONTENT CARDS */
-
-                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-
-                  {filteredContents.map(
-                    (item) => {
-
-                      const platformInfo =
-                        PLATFORM_DATA[
-                          item.platform
-                        ];
-
-                      return (
-                        <article
-                          key={item.id}
-                          className="group rounded-2xl border border-slate-300 bg-white p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
-                        >
-
-                          {/* PLATFORM + STATUS */}
-                          <div className="flex items-center justify-between">
-
-                            <div className="flex items-center gap-2">
-
-                              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-700">
-                                {platformInfo?.icon ||
-                                  "●"}
-                              </span>
-
-                              <span className="text-sm text-slate-500">
-                                {platformInfo?.label ||
-                                  item.platform}
-                              </span>
-
-                            </div>
-
-                            <StatusBadge
-                              status={
-                                item.status
-                              }
-                            />
-
-                          </div>
-
-                          {/* TITLE */}
-                          <h2 className="mt-5 text-lg font-bold leading-6 text-slate-900">
-                            {item.title}
-                          </h2>
-
-                          {/* CONTENT */}
-                          <p className="mt-3 line-clamp-4 text-sm leading-6 text-slate-600">
-                            {item.text}
-                          </p>
-
-                          {/* FOOTER */}
-                          <div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-4">
-
-                            <span className="text-xs text-slate-400">
-                              {item.createdAt}
-                            </span>
-
-                            <div className="flex gap-2">
-
-                              <button
-                                onClick={() =>
-                                  setSelectedContent(
-                                    item
-                                  )
-                                }
-                                className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 transition"
-                              >
-                                View
-                              </button>
-
-                              <button
-                                onClick={() =>
-                                  editContent(
-                                    item
-                                  )
-                                }
-                                className="rounded-lg bg-sky-50 px-3 py-2 text-xs font-medium text-sky-700 hover:bg-sky-100 transition"
-                              >
-                                Edit
-                              </button>
-
-                            </div>
-
-                          </div>
-
-                        </article>
-                      );
-                    }
-                  )}
-
-                </div>
-              )}
-
-            </div>
-
-          </div>
-        </section>
-      </div>
-
-      {/* =======================================================
-          COMPOSER MODAL
-      ======================================================= */}
-
-      {showComposer && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
-          onMouseDown={(e) => {
-            if (
-              e.target === e.currentTarget
-            ) {
-              setShowComposer(false);
-            }
-          }}
-        >
-
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-300 bg-white p-6 shadow-xl">
-
-            {/* MODAL HEADER */}
-            <div className="flex items-start justify-between">
-
-              <div>
-
-                <p className="text-xs font-semibold uppercase tracking-widest text-sky-600">
-                  {editingId
-                    ? "Edit content"
-                    : "Content studio"}
-                </p>
-
-                <h2 className="mt-2 text-2xl font-bold text-slate-900">
-                  Shape your next idea.
-                </h2>
-
-              </div>
-
-              <button
-                onClick={() =>
-                  setShowComposer(false)
-                }
-                className="text-2xl text-slate-400 hover:text-slate-700"
-              >
-                ×
-              </button>
-
-            </div>
-
-            {/* FORM */}
-            <form
-              onSubmit={handleSaveContent}
-              className="mt-8 space-y-5"
-            >
-
-              {/* TITLE */}
-              <div>
-
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">
-                  Title
-                </label>
-
-                <input
-                  value={title}
-                  onChange={(e) =>
-                    setTitle(e.target.value)
-                  }
-                  placeholder="Give your content a name"
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-                />
-
-              </div>
-
-              {/* PLATFORM + STAGE */}
-              <div className="grid gap-4 sm:grid-cols-2">
-
-                <div>
-
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">
-                    Platform
-                  </label>
-
-                  <select
-                    value={platform}
-                    onChange={(e) =>
-                      setPlatform(
-                        e.target.value
-                      )
-                    }
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-                  >
-                    <option value="linkedin">
-                      LinkedIn
-                    </option>
-
-                    <option value="instagram">
-                      Instagram
-                    </option>
-
-                    <option value="facebook">
-                      Facebook
-                    </option>
-
-                    <option value="twitter">
-                      X
-                    </option>
-
-                    <option value="youtube">
-                      YouTube
-                    </option>
-
-                    <option value="pinterest">
-                      Pinterest
-                    </option>
-                  </select>
-
-                </div>
-
-                <div>
-
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">
-                    Stage
-                  </label>
-
-                  <select
-                    value={status}
-                    onChange={(e) =>
-                      setStatus(
-                        e.target.value as ContentStatus
-                      )
-                    }
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-                  >
-                    <option value="idea">
-                      Idea
-                    </option>
-
-                    <option value="draft">
-                      Draft
-                    </option>
-
-                    <option value="ready">
-                      Ready
-                    </option>
-                  </select>
-
-                </div>
-
-              </div>
-
-              {/* CONTENT */}
-              <div>
-
-                <div className="mb-2 flex items-center justify-between">
-
-                  <label className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-                    Content
-                  </label>
-
-                  <button
-                    type="button"
-                    onClick={regenerateWithAI}
-                    disabled={aiLoading}
-                    className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 hover:bg-sky-100 disabled:opacity-50 transition"
-                  >
-                    {aiLoading
-                      ? "Generating..."
-                      : "✦ Regenerate with AI"}
-                  </button>
-
-                </div>
-
-                <textarea
-                  value={text}
-                  onChange={(e) =>
-                    setText(e.target.value)
-                  }
-                  rows={9}
-                  placeholder="Write your idea or draft here..."
-                  className="w-full resize-none rounded-xl border border-slate-300 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-800 outline-none placeholder:text-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-                />
-
-                <div className="mt-2 text-right text-xs text-slate-400">
-                  {text.length} characters
-                </div>
-
-              </div>
-
-              {/* MESSAGE */}
-              {message && (
-                <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-700">
-                  {message}
-                </div>
-              )}
-
-              {/* ACTIONS */}
-              <div className="flex justify-end gap-3 pt-2">
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShowComposer(false)
-                  }
-                  className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="rounded-xl bg-sky-500 px-6 py-3 text-sm font-semibold text-white hover:bg-sky-600 transition"
-                >
-                  {editingId
-                    ? "Update content"
-                    : "Save content"}
-                </button>
-
-              </div>
-
-            </form>
-
-          </div>
-        </div>
-      )}
-
-      {/* =======================================================
-          VIEW MODAL
-      ======================================================= */}
-
-      {selectedContent && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
-          onMouseDown={(e) => {
-            if (
-              e.target === e.currentTarget
-            ) {
-              setSelectedContent(null);
-            }
-          }}
-        >
-
-          <div className="w-full max-w-xl rounded-2xl border border-slate-300 bg-white p-6 shadow-xl">
-
-            {/* HEADER */}
-            <div className="flex items-center justify-between">
-
-              <StatusBadge
-                status={
-                  selectedContent.status
-                }
-              />
-
-              <button
-                onClick={() =>
-                  setSelectedContent(null)
-                }
-                className="text-2xl text-slate-400 hover:text-slate-700"
-              >
-                ×
-              </button>
-
-            </div>
-
-            {/* TITLE */}
-            <h2 className="mt-6 text-2xl font-bold text-slate-900">
-              {selectedContent.title}
-            </h2>
-
-            {/* CONTENT */}
-            <div className="mt-5 whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-600">
-              {selectedContent.text}
-            </div>
-
-            {/* STATUS ACTIONS */}
-            <div className="mt-6 flex flex-wrap gap-2">
-
-              <button
-                onClick={() =>
-                  changeStatus(
-                    selectedContent.id,
-                    "idea"
-                  )
-                }
-                className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 transition"
-              >
-                Move to Idea
-              </button>
-
-              <button
-                onClick={() =>
-                  changeStatus(
-                    selectedContent.id,
-                    "draft"
-                  )
-                }
-                className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 transition"
-              >
-                Move to Draft
-              </button>
-
-              <button
-                onClick={() =>
-                  changeStatus(
-                    selectedContent.id,
-                    "ready"
-                  )
-                }
-                className="rounded-lg bg-sky-50 px-3 py-2 text-xs font-medium text-sky-700 hover:bg-sky-100 transition"
-              >
-                Mark Ready
-              </button>
-
-            </div>
-
-            {/* FOOTER ACTIONS */}
-            <div className="mt-6 flex justify-end gap-3">
-
-              <button
-                onClick={() => {
-                  setSelectedContent(null);
-                  editContent(
-                    selectedContent
-                  );
-                }}
-                className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-medium text-sky-700 hover:bg-sky-100 transition"
-              >
-                Edit
-              </button>
-
-              <button
-                onClick={() =>
-                  deleteContent(
-                    selectedContent.id
-                  )
-                }
-                className="rounded-xl border border-red-200 bg-white px-4 py-3 text-sm font-medium text-red-500 hover:bg-red-50 transition"
-              >
-                Delete
-              </button>
-
-            </div>
-
-          </div>
-        </div>
-      )}
-    </main>
-  );
-}
-
-/* =============================================================
-   STAT CARD
-============================================================= */
-
-function StatCard({
-  label,
-  value,
-  active,
-  onClick,
-}: {
-  label: string;
-  value: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-2xl border p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
-        active
-          ? "border-sky-300 bg-sky-50"
-          : "border-slate-300 bg-white"
-      }`}
-    >
-      <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-        {label}
-      </p>
-
-      <p
-        className={`mt-4 text-2xl font-bold ${
-          active
-            ? "text-sky-600"
-            : "text-slate-800"
-        }`}
-      >
-        {value}
-      </p>
-    </button>
-  );
-}
-
-/* =============================================================
-   STATUS BADGE
-============================================================= */
-
-function StatusBadge({
-  status,
-}: {
-  status: ContentStatus;
-}) {
-  const config = {
-    idea: {
-      label: "Idea",
-      className:
-        "bg-slate-100 text-slate-600 border-slate-200",
-    },
-
-    draft: {
-      label: "Draft",
-      className:
-        "bg-amber-50 text-amber-700 border-amber-200",
-    },
-
-    ready: {
-      label: "Ready",
-      className:
-        "bg-sky-50 text-sky-700 border-sky-200",
-    },
+  }, [router]);
+
+  const handleUseTemplate = (prompt: string, title: string) => {
+    setNewTitle(title);
+    setNewText(prompt);
+    setShowNewModal(true);
   };
 
-  const current = config[status];
+  const handleCreateDraft = () => {
+    if (!newTitle.trim() || !newText.trim()) return;
+    const item: ContentItem = {
+      id: Date.now(),
+      title: newTitle.trim(),
+      text: newText.trim(),
+      platform: selectedPlatform,
+      status: "draft",
+      createdAt: "Just now",
+      category: "Custom Idea",
+    };
+    setDrafts([item, ...drafts]);
+    setSelectedDraft(item);
+    setShowNewModal(false);
+    setNewTitle("");
+    setNewText("");
+    setMessage("Draft saved to Content Lab repository!");
+    setTimeout(() => setMessage(""), 3000);
+  };
+
+  const handleSendToComposer = (text: string) => {
+    router.push(`/create-post?idea=${encodeURIComponent(text)}`);
+  };
+
+  const handleAIEnhance = () => {
+    if (!selectedDraft) return;
+    setAiGenerating(true);
+    setTimeout(() => {
+      setSelectedDraft({
+        ...selectedDraft,
+        text: `${selectedDraft.text}\n\nKey Takeaway: The best social teams optimize for consistency, clarity, and genuine audience conversation rather than algorithmic vanity metrics. #Marketing2026`,
+      });
+      setAiGenerating(false);
+      setMessage("AI expanded your post with viral hooks & takeaways!");
+      setTimeout(() => setMessage(""), 3000);
+    }, 600);
+  };
 
   return (
-    <span
-      className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider ${current.className}`}
-    >
-      {current.label}
-    </span>
+    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+      <Nav />
+
+      {/* HEADER BREADCRUMB */}
+      <div className="bg-slate-900/80 backdrop-blur border-b border-slate-800/80 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
+              <Link href="/dashboard" className="hover:text-indigo-400 transition">
+                Dashboard
+              </Link>
+              <span>/</span>
+              <span className="text-indigo-400 font-bold">Creative Workbench</span>
+            </div>
+            <h1 className="text-xl font-extrabold text-white tracking-tight mt-0.5">
+              Content Lab & Idea Incubator
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowNewModal(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition flex items-center gap-1.5"
+            >
+              <span>＋</span>
+              <span>New Draft Idea</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* FEEDBACK BANNER */}
+      {message && (
+        <div className="max-w-7xl mx-auto w-full px-6 mt-4">
+          <div className="p-3.5 rounded-xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-between shadow-lg">
+            <span>✓ {message}</span>
+            <button onClick={() => setMessage("")} className="hover:text-white">✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* WORKBENCH CONTENT */}
+      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 flex-1">
+        {/* TABS HEADER */}
+        <div className="flex items-center gap-2 mb-6">
+          <button
+            type="button"
+            onClick={() => setActiveTab("drafts")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+              activeTab === "drafts"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+                : "bg-slate-900 text-slate-300 border border-slate-800 hover:bg-slate-800"
+            }`}
+          >
+            Drafts & Saved Ideas ({drafts.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("templates")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+              activeTab === "templates"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+                : "bg-slate-900 text-slate-300 border border-slate-800 hover:bg-slate-800"
+            }`}
+          >
+            ✦ AI Prompt Templates ({AI_TEMPLATES.length})
+          </button>
+        </div>
+
+        {/* TAB 1: DRAFTS STUDIO */}
+        {activeTab === "drafts" && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* DRAFT LIST (5 COLS) */}
+            <div className="lg:col-span-5 space-y-3">
+              {drafts.map((draft) => {
+                const isSelected = selectedDraft?.id === draft.id;
+                const statusColor =
+                  draft.status === "ready"
+                    ? "bg-emerald-950/80 text-emerald-300 border-emerald-800/70"
+                    : draft.status === "draft"
+                    ? "bg-indigo-950/80 text-indigo-300 border-indigo-800/70"
+                    : "bg-amber-950/80 text-amber-300 border-amber-800/70";
+
+                return (
+                  <div
+                    key={draft.id}
+                    onClick={() => setSelectedDraft(draft)}
+                    className={`p-4 rounded-xl border transition cursor-pointer ${
+                      isSelected
+                        ? "bg-slate-850 border-indigo-500 shadow-lg ring-2 ring-indigo-500/20"
+                        : "bg-slate-900/90 border-slate-800 hover:border-slate-700 shadow-sm"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${statusColor}`}
+                      >
+                        {draft.status}
+                      </span>
+                      <span className="text-[10px] text-slate-400">{draft.createdAt}</span>
+                    </div>
+
+                    <h3 className="text-xs font-bold text-white line-clamp-1">{draft.title}</h3>
+                    <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                      {draft.text}
+                    </p>
+
+                    <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-800 text-[10px] text-slate-400">
+                      <span>Network: <strong className="text-slate-300">{draft.platform.toUpperCase()}</strong></span>
+                      <span className="text-indigo-400 font-semibold">{draft.category}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* DRAFT EDITOR & ACTIONS (7 COLS) */}
+            <div className="lg:col-span-7 bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl">
+              {selectedDraft ? (
+                <div>
+                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 bg-indigo-950/80 px-2.5 py-0.5 rounded-full border border-indigo-800/80">
+                        {selectedDraft.category}
+                      </span>
+                      <h2 className="text-base font-bold text-white mt-1.5">{selectedDraft.title}</h2>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleAIEnhance}
+                        disabled={aiGenerating}
+                        className="px-3 py-1.5 rounded-xl bg-purple-950/60 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 text-xs font-bold transition flex items-center gap-1"
+                      >
+                        <span>✦</span>
+                        <span>{aiGenerating ? "Generating..." : "AI Expand"}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSendToComposer(selectedDraft.text)}
+                        className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition"
+                      >
+                        Open in Composer →
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-4 text-xs leading-relaxed text-slate-200 whitespace-pre-wrap min-h-[220px]">
+                    {selectedDraft.text}
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                    <span>Target Network: <strong className="text-slate-200">{selectedDraft.platform.toUpperCase()}</strong></span>
+                    <span>Created: <strong className="text-slate-200">{selectedDraft.createdAt}</strong></span>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-slate-500">
+                  <p>Select a draft from the left to view or edit</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: AI TEMPLATES */}
+        {activeTab === "templates" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {AI_TEMPLATES.map((tmpl) => (
+              <div
+                key={tmpl.title}
+                className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg hover:border-indigo-500/50 transition flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-7 h-7 rounded-lg bg-indigo-950 text-indigo-400 border border-indigo-800/60 flex items-center justify-center text-sm font-bold">
+                      ✦
+                    </span>
+                    <h3 className="text-sm font-bold text-white">{tmpl.title}</h3>
+                  </div>
+                  <p className="text-xs text-slate-400 mb-3">{tmpl.description}</p>
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-indigo-300 font-mono leading-relaxed line-clamp-3">
+                    {tmpl.prompt}
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-800 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => handleUseTemplate(tmpl.prompt, tmpl.title)}
+                    className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-sm"
+                  >
+                    Use this Template →
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+
+      {/* NEW DRAFT MODAL */}
+      {showNewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg bg-slate-900 rounded-2xl p-6 shadow-2xl border border-slate-800 text-white">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-white text-base">New Idea / Draft</h3>
+              <button
+                onClick={() => setShowNewModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 my-4">
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">Concept Title</label>
+                <input
+                  type="text"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="e.g. 5 Algorithm Shifts for 2026"
+                  className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-700 bg-slate-950/80 text-white focus:ring-2 focus:ring-indigo-500 outline-none placeholder:text-slate-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">Target Network</label>
+                <select
+                  value={selectedPlatform}
+                  onChange={(e) => setSelectedPlatform(e.target.value)}
+                  className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-700 bg-slate-950/80 text-white focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+                >
+                  <option value="linkedin" className="bg-slate-900 text-white">LinkedIn</option>
+                  <option value="twitter" className="bg-slate-900 text-white">X (Twitter)</option>
+                  <option value="instagram" className="bg-slate-900 text-white">Instagram</option>
+                  <option value="facebook" className="bg-slate-900 text-white">Facebook</option>
+                  <option value="youtube" className="bg-slate-900 text-white">YouTube</option>
+                  <option value="pinterest" className="bg-slate-900 text-white">Pinterest</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">Draft Content</label>
+                <textarea
+                  value={newText}
+                  onChange={(e) => setNewText(e.target.value)}
+                  rows={5}
+                  placeholder="Draft your thoughts or copy template..."
+                  className="w-full text-xs p-3 rounded-xl border border-slate-700 bg-slate-950/80 text-white focus:ring-2 focus:ring-indigo-500 outline-none resize-none placeholder:text-slate-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowNewModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateDraft}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-md shadow-indigo-600/30"
+              >
+                Save Draft
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

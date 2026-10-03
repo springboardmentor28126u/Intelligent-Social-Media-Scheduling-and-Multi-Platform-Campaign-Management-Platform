@@ -448,6 +448,11 @@ class SocialAccount(Base):
         nullable=True
     )
 
+    credentials = Column(
+        Text,
+        nullable=True
+    )
+
     token_expires_at = Column(
         DateTime,
         nullable=True
@@ -518,6 +523,11 @@ class Post(Base):
         String(50),
         nullable=False,
         default="text"
+    )
+
+    media_url = Column(
+        Text,
+        nullable=True
     )
 
     status = Column(

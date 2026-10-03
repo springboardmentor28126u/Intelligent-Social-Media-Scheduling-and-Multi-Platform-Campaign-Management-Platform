@@ -255,7 +255,7 @@ export default function AuthModal({
 
         <div className="mb-6 flex items-start justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-600">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">
               SocialPilot
             </p>
 
@@ -333,7 +333,7 @@ export default function AuthModal({
                 }
                 placeholder="Enter your name"
                 autoComplete="name"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
               />
             </div>
           )}
@@ -361,7 +361,7 @@ export default function AuthModal({
               }
               placeholder="you@example.com"
               autoComplete="email"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
             />
           </div>
 
@@ -392,7 +392,7 @@ export default function AuthModal({
                   ? "current-password"
                   : "new-password"
               }
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
             />
           </div>
 
@@ -420,7 +420,7 @@ export default function AuthModal({
                 }
                 placeholder="Confirm your password"
                 autoComplete="new-password"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
               />
             </div>
           )}
@@ -432,7 +432,7 @@ export default function AuthModal({
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading
               ? mode === "login"
@@ -462,7 +462,7 @@ export default function AuthModal({
                   : "login"
               )
             }
-            className="ml-1 font-bold text-sky-600 hover:text-sky-700"
+            className="ml-1 font-bold text-indigo-600 hover:text-sky-700"
           >
             {mode === "login"
               ? "Create one"

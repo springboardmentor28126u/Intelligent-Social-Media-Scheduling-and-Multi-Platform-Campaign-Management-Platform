@@ -22,6 +22,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { useRouter } from "next/navigation";
 import Nav from "@/components/Nav";
 
 import {
@@ -296,6 +297,101 @@ const apiUpdatePerformance =
     campaignId: number,
     payload: RecordLike
   ) => Promise<unknown>;
+
+/* ============================================================
+   SAMPLE CAMPAIGNS FOR DEMO & FALLBACK
+============================================================ */
+
+const SAMPLE_CAMPAIGNS: CampaignView[] = [
+  {
+    id: 1,
+    name: "Q4 Product Launch - AI Copilot",
+    platform: "LinkedIn, Twitter",
+    description:
+      "Multi-channel launch campaign for SocialPilot AI Scenario Planner and Content Assistant.",
+    objective: "Lead Generation & Signups",
+    status: "active",
+    start_date: "2026-10-01",
+    end_date: "2026-11-15",
+    budget: 8000,
+    spent: 4350,
+    target_reach: 200000,
+    target_engagement: 18000,
+    target_clicks: 6000,
+    actual_reach: 184500,
+    actual_engagement: 16820,
+    actual_clicks: 5410,
+    roi: 286,
+    created_at: "2026-09-28T10:00:00Z",
+    updated_at: "2026-10-02T12:00:00Z",
+  },
+  {
+    id: 2,
+    name: "SaaS Growth Blitz - LinkedIn Authority",
+    platform: "LinkedIn",
+    description:
+      "Thought leadership and executive branding sprint targeting founders and marketing leads.",
+    objective: "Brand Authority & Engagement",
+    status: "active",
+    start_date: "2026-09-15",
+    end_date: "2026-10-30",
+    budget: 5000,
+    spent: 3120,
+    target_reach: 120000,
+    target_engagement: 10000,
+    target_clicks: 3500,
+    actual_reach: 112400,
+    actual_engagement: 9870,
+    actual_clicks: 3410,
+    roi: 216,
+    created_at: "2026-09-14T08:00:00Z",
+    updated_at: "2026-10-01T15:30:00Z",
+  },
+  {
+    id: 3,
+    name: "Brand Awareness 2026 - Multi-Platform",
+    platform: "Instagram, YouTube, X",
+    description:
+      "Video series, carousels, and reels showcasing social scheduling automation.",
+    objective: "Audience Growth & Reach",
+    status: "active",
+    start_date: "2026-08-01",
+    end_date: "2026-12-31",
+    budget: 15000,
+    spent: 9800,
+    target_reach: 400000,
+    target_engagement: 32000,
+    target_clicks: 12000,
+    actual_reach: 345000,
+    actual_engagement: 29400,
+    actual_clicks: 10200,
+    roi: 198,
+    created_at: "2026-07-25T11:00:00Z",
+    updated_at: "2026-10-02T09:00:00Z",
+  },
+  {
+    id: 4,
+    name: "DevRel Community Outreach",
+    platform: "X, YouTube",
+    description:
+      "Technical tutorials, API release announcements, and developer hackathon highlights.",
+    objective: "Developer Acquisition",
+    status: "completed",
+    start_date: "2026-08-15",
+    end_date: "2026-09-30",
+    budget: 4000,
+    spent: 3950,
+    target_reach: 100000,
+    target_engagement: 8500,
+    target_clicks: 3000,
+    actual_reach: 98200,
+    actual_engagement: 8140,
+    actual_clicks: 2950,
+    roi: 174,
+    created_at: "2026-08-10T09:00:00Z",
+    updated_at: "2026-09-30T18:00:00Z",
+  },
+];
 
 /* ============================================================
    HELPERS
@@ -1452,24 +1548,24 @@ function statusClass(
     normalized === "running" ||
     normalized === "published"
   ) {
-    return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    return "bg-emerald-950/80 text-emerald-300 border-emerald-800/60";
   }
 
   if (
     normalized ===
     "completed"
   ) {
-    return "bg-blue-50 text-blue-700 border-blue-200";
+    return "bg-blue-950/80 text-blue-300 border-blue-800/60";
   }
 
   if (
     normalized ===
     "paused"
   ) {
-    return "bg-amber-50 text-amber-700 border-amber-200";
+    return "bg-amber-950/80 text-amber-300 border-amber-800/60";
   }
 
-  return "bg-slate-100 text-slate-700 border-slate-200";
+  return "bg-slate-800 text-slate-300 border-slate-700";
 }
 
 /* ============================================================
@@ -1477,6 +1573,14 @@ function statusClass(
 ============================================================ */
 
 export default function CampaignsPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      router.push("/login");
+    }
+  }, [router]);
   const [
     campaigns,
     setCampaigns,
@@ -1682,6 +1786,63 @@ export default function CampaignsPage() {
     });
 
   /* ==========================================================
+     EXPORT REPORT HANDLERS
+  ========================================================== */
+
+  const handleExportPDF = () => {
+    if (typeof window !== "undefined") {
+      window.print();
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (!selectedCampaign) return;
+
+    const rows = [
+      ["Metric", "Value"],
+      ["Campaign Name", `"${selectedCampaign.name}"`],
+      ["Platform", `"${selectedCampaign.platform}"`],
+      ["Status", selectedCampaign.status],
+      ["Objective", `"${selectedCampaign.objective || "N/A"}"`],
+      ["Start Date", selectedCampaign.start_date || "N/A"],
+      ["End Date", selectedCampaign.end_date || "N/A"],
+      ["Budget (USD)", selectedCampaign.budget],
+      ["Total Spent (USD)", selectedCampaign.spent],
+      ["Budget Utilization (%)", selectedAnalytics.budget_used],
+      ["ROI (%)", selectedCampaign.roi],
+      ["Actual Reach", selectedCampaign.actual_reach],
+      ["Target Reach", selectedCampaign.target_reach],
+      ["Reach Achievement (%)", selectedAnalytics.reach_achievement],
+      ["Actual Engagement", selectedCampaign.actual_engagement],
+      ["Target Engagement", selectedCampaign.target_engagement],
+      ["Engagement Achievement (%)", selectedAnalytics.engagement_achievement],
+      ["Actual Clicks", selectedCampaign.actual_clicks],
+      ["Target Clicks", selectedCampaign.target_clicks],
+      ["Click Achievement (%)", selectedAnalytics.click_achievement],
+      ["Engagement Rate (%)", selectedAnalytics.engagement_rate],
+      ["CTR (%)", selectedAnalytics.ctr],
+      ["Published Posts", selectedAnalytics.published_posts],
+      ["Failed Posts", selectedAnalytics.failed_posts],
+      ["Total Associated Posts", posts.length],
+    ];
+
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      rows.map((row) => row.join(",")).join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `${selectedCampaign.name.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_report.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  /* ==========================================================
      LOAD OVERVIEW
   ========================================================== */
 
@@ -1698,9 +1859,9 @@ export default function CampaignsPage() {
             comparisonData,
           ] =
             await Promise.all([
-              apiGetCampaigns(),
-              apiGetSummary(),
-              apiGetComparison(),
+              apiGetCampaigns().catch(() => null),
+              apiGetSummary().catch(() => null),
+              apiGetComparison().catch(() => null),
             ]);
 
           const normalizedCampaigns =
@@ -1708,20 +1869,34 @@ export default function CampaignsPage() {
               campaignsData
             );
 
-          setCampaigns(
-            normalizedCampaigns
-          );
+          const finalCampaigns =
+            normalizedCampaigns.length > 0
+              ? normalizedCampaigns
+              : SAMPLE_CAMPAIGNS;
+
+          setCampaigns(finalCampaigns);
 
           setSummary(
             normalizeSummary(
               summaryData,
-              normalizedCampaigns
+              finalCampaigns
             )
           );
 
           setComparison(
             normalizeComparison(
-              comparisonData
+              comparisonData ??
+                finalCampaigns.map((c) => ({
+                  id: c.id,
+                  campaign_name: c.name,
+                  platform: c.platform,
+                  budget: c.budget,
+                  spent: c.spent,
+                  actual_reach: c.actual_reach,
+                  actual_engagement: c.actual_engagement,
+                  actual_clicks: c.actual_clicks,
+                  roi: c.roi,
+                }))
             )
           );
 
@@ -1733,7 +1908,7 @@ export default function CampaignsPage() {
           if (
             selectedCampaignId !==
               null &&
-            normalizedCampaigns.some(
+            finalCampaigns.some(
               (campaign) =>
                 campaign.id ===
                 selectedCampaignId
@@ -1748,25 +1923,27 @@ export default function CampaignsPage() {
           */
 
           if (
-            normalizedCampaigns.length >
+            finalCampaigns.length >
             0
           ) {
             setSelectedCampaignId(
-              normalizedCampaigns[0].id
+              finalCampaigns[0].id
             );
           } else {
             setSelectedCampaignId(
               null
             );
           }
-        } catch (
-          err
-        ) {
-          setError(
-            err instanceof
-              Error
-              ? err.message
-              : "Failed to load campaigns."
+        } catch {
+          setCampaigns(SAMPLE_CAMPAIGNS);
+          setSummary(
+            normalizeSummary(
+              null,
+              SAMPLE_CAMPAIGNS
+            )
+          );
+          setSelectedCampaignId(
+            SAMPLE_CAMPAIGNS[0].id
           );
         } finally {
           setLoading(
@@ -1818,7 +1995,7 @@ export default function CampaignsPage() {
               (item) =>
                 item.id ===
                 campaignId
-            ) ?? null;
+            ) ?? SAMPLE_CAMPAIGNS.find((item) => item.id === campaignId) ?? null;
 
           const [
             analyticsData,
@@ -1832,31 +2009,31 @@ export default function CampaignsPage() {
             await Promise.all([
               apiGetAnalytics(
                 campaignId
-              ),
+              ).catch(() => null),
 
               apiGetAudiencePerformance(
                 campaignId
-              ),
+              ).catch(() => null),
 
               apiGetAudienceGrowth(
                 campaignId
-              ),
+              ).catch(() => null),
 
               apiGetHistory(
                 campaignId
-              ),
+              ).catch(() => null),
 
               apiGetPosts(
                 campaignId
-              ),
+              ).catch(() => null),
 
               apiGetReport(
                 campaignId
-              ),
+              ).catch(() => null),
 
               apiGetEngagement(
                 campaignId
-              ),
+              ).catch(() => null),
             ]);
 
           const normalizedHistory =
@@ -2661,15 +2838,15 @@ export default function CampaignsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-[#090d16] text-slate-100 selection:bg-indigo-500 selection:text-white">
         <Nav />
 
         <main className="mx-auto max-w-7xl px-6 py-10">
           <div className="flex min-h-[60vh] items-center justify-center">
             <div className="text-center">
-              <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-sky-500" />
+              <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600" />
 
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-400">
                 Loading campaigns...
               </p>
             </div>
@@ -2684,7 +2861,7 @@ export default function CampaignsPage() {
   ========================================================== */
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#090d16] text-slate-100 selection:bg-indigo-500 selection:text-white">
       <Nav />
 
       <main className="mx-auto max-w-7xl px-6 py-8">
@@ -2693,15 +2870,15 @@ export default function CampaignsPage() {
 
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">
               SocialPilot / Campaigns
             </p>
 
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-3xl font-bold tracking-tight text-white">
               Campaign Management
             </h1>
 
-            <p className="mt-2 max-w-2xl text-sm text-slate-500">
+            <p className="mt-2 max-w-2xl text-sm text-slate-400">
               Create campaigns, track performance,
               monitor engagement, and analyse
               audience growth.
@@ -2713,7 +2890,7 @@ export default function CampaignsPage() {
             onClick={
               openCreateModal
             }
-            className="rounded-xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700"
+            className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
           >
             + Create Campaign
           </button>
@@ -2779,25 +2956,25 @@ export default function CampaignsPage() {
 
           {/* CAMPAIGN LIST */}
 
-          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-5 py-4">
-              <h2 className="text-base font-bold text-slate-900">
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/90 shadow-sm">
+            <div className="border-b border-slate-800 px-5 py-4">
+              <h2 className="text-base font-bold text-white">
                 Your Campaigns
               </h2>
 
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-slate-400">
                 Select a campaign to view details.
               </p>
             </div>
 
             <div className="max-h-[720px] overflow-y-auto p-3">
               {campaigns.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center">
-                  <p className="text-sm font-semibold text-slate-700">
+                <div className="rounded-xl border border-dashed border-slate-700 p-6 text-center">
+                  <p className="text-sm font-semibold text-slate-300">
                     No campaigns yet
                   </p>
 
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-slate-400">
                     Create your first campaign.
                   </p>
 
@@ -2806,7 +2983,7 @@ export default function CampaignsPage() {
                     onClick={
                       openCreateModal
                     }
-                    className="mt-4 rounded-lg bg-sky-600 px-4 py-2 text-xs font-semibold text-white hover:bg-sky-700"
+                    className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700"
                   >
                     Create Campaign
                   </button>
@@ -2834,20 +3011,20 @@ export default function CampaignsPage() {
                           }
                           className={`w-full rounded-xl border p-4 text-left transition ${
                             active
-                              ? "border-sky-300 bg-sky-50"
-                              : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                              ? "border-indigo-300 bg-indigo-50"
+                              : "border-slate-800 bg-slate-900/90 hover:border-slate-700 hover:bg-slate-950/70"
                           }`}
                         >
                           <div className="flex items-start justify-between gap-3">
 
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-bold text-slate-900">
+                              <p className="truncate text-sm font-bold text-white">
                                 {
                                   campaign.name
                                 }
                               </p>
 
-                              <p className="mt-1 text-xs text-slate-500">
+                              <p className="mt-1 text-xs text-slate-400">
                                 {
                                   campaign.platform
                                 }{" "}
@@ -2902,17 +3079,17 @@ export default function CampaignsPage() {
           <section className="min-w-0">
 
             {!selectedCampaign ? (
-              <div className="flex min-h-[500px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white">
+              <div className="flex min-h-[500px] items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-900/90">
                 <div className="text-center">
-                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-2xl">
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-2xl">
                     ◈
                   </div>
 
-                  <h2 className="text-lg font-bold text-slate-900">
+                  <h2 className="text-lg font-bold text-white">
                     Select a campaign
                   </h2>
 
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm text-slate-400">
                     Choose a campaign from the
                     list to view analytics.
                   </p>
@@ -2922,12 +3099,12 @@ export default function CampaignsPage() {
               <>
                 {/* CAMPAIGN TOP CARD */}
 
-                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-                  <div className="flex flex-col gap-5 border-b border-slate-200 p-6 xl:flex-row xl:items-start xl:justify-between">
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/90 shadow-sm">
+                  <div className="flex flex-col gap-5 border-b border-slate-800 p-6 xl:flex-row xl:items-start xl:justify-between">
 
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="text-2xl font-bold text-slate-900">
+                        <h2 className="text-2xl font-bold text-white">
                           {
                             selectedCampaign.name
                           }
@@ -2944,7 +3121,7 @@ export default function CampaignsPage() {
                         </span>
                       </div>
 
-                      <p className="mt-2 text-sm text-slate-500">
+                      <p className="mt-2 text-sm text-slate-400">
                         {
                           selectedCampaign.platform
                         }
@@ -2958,7 +3135,7 @@ export default function CampaignsPage() {
                         )}
                       </p>
 
-                      <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-600">
+                      <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-300">
                         {
                           selectedCampaign.description ||
                           "No campaign description provided."
@@ -2966,8 +3143,8 @@ export default function CampaignsPage() {
                       </p>
 
                       {selectedCampaign.objective && (
-                        <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                          <span className="font-semibold text-slate-800">
+                        <div className="mt-3 rounded-lg bg-slate-950/70 px-3 py-2 text-xs text-slate-300">
+                          <span className="font-semibold text-slate-200">
                             Objective:
                           </span>{" "}
                           {
@@ -3001,7 +3178,7 @@ export default function CampaignsPage() {
                             selectedCampaign
                           )
                         }
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        className="rounded-lg border border-slate-700 bg-slate-900/90 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-950/70"
                       >
                         Edit
                       </button>
@@ -3013,9 +3190,25 @@ export default function CampaignsPage() {
                             selectedCampaign
                           )
                         }
-                        className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-700"
+                        className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700"
                       >
                         Update Performance
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleExportPDF}
+                        className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-sky-100"
+                      >
+                        📄 Export PDF
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleExportCSV}
+                        className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                      >
+                        📊 Export CSV
                       </button>
 
                       <button
@@ -3067,7 +3260,7 @@ export default function CampaignsPage() {
 
                 {/* TABS */}
 
-                <div className="mt-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                <div className="mt-6 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/90">
                   <div className="flex min-w-max">
                     {(
                       [
@@ -3117,8 +3310,8 @@ export default function CampaignsPage() {
                           className={`border-b-2 px-5 py-3 text-xs font-semibold transition ${
                             activeTab ===
                             value
-                              ? "border-sky-500 text-sky-700"
-                              : "border-transparent text-slate-500 hover:text-slate-800"
+                              ? "border-indigo-500 text-indigo-700"
+                              : "border-transparent text-slate-400 hover:text-slate-200"
                           }`}
                         >
                           {
@@ -3131,10 +3324,10 @@ export default function CampaignsPage() {
                 </div>
 
                 {detailsLoading ? (
-                  <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-10 text-center">
-                    <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-sky-500" />
+                  <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/90 p-10 text-center">
+                    <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600" />
 
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-slate-400">
                       Loading campaign analytics...
                     </p>
                   </div>
@@ -3645,8 +3838,8 @@ export default function CampaignsPage() {
 
                         </div>
 
-                        <div className="rounded-2xl border border-slate-200 bg-white p-6">
-                          <h3 className="text-base font-bold text-slate-900">
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6">
+                          <h3 className="text-base font-bold text-white">
                             Audience Growth Summary
                           </h3>
 
@@ -3754,10 +3947,10 @@ export default function CampaignsPage() {
                           </div>
                         </ChartCard>
 
-                        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                        <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/90">
 
-                          <div className="border-b border-slate-200 px-5 py-4">
-                            <h3 className="font-bold text-slate-900">
+                          <div className="border-b border-slate-800 px-5 py-4">
+                            <h3 className="font-bold text-white">
                               Recorded Performance
                             </h3>
                           </div>
@@ -3765,7 +3958,7 @@ export default function CampaignsPage() {
                           <div className="overflow-x-auto">
                             <table className="w-full min-w-[760px] text-sm">
 
-                              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                              <thead className="bg-slate-950/70 text-left text-xs uppercase tracking-wide text-slate-400">
 
                                 <tr>
                                   <th className="px-5 py-3">
@@ -3800,7 +3993,7 @@ export default function CampaignsPage() {
                                       colSpan={
                                         5
                                       }
-                                      className="px-5 py-10 text-center text-sm text-slate-500"
+                                      className="px-5 py-10 text-center text-sm text-slate-400"
                                     >
                                       No performance
                                       history
@@ -3819,34 +4012,34 @@ export default function CampaignsPage() {
                                           item.id ??
                                           index
                                         }
-                                        className="border-t border-slate-100"
+                                        className="border-t border-slate-800/80"
                                       >
 
-                                        <td className="px-5 py-4 text-slate-700">
+                                        <td className="px-5 py-4 text-slate-300">
                                           {formatDate(
                                             item.recorded_at
                                           )}
                                         </td>
 
-                                        <td className="px-5 py-4 font-medium text-slate-900">
+                                        <td className="px-5 py-4 font-medium text-white">
                                           {formatNumber(
                                             item.reach
                                           )}
                                         </td>
 
-                                        <td className="px-5 py-4 text-slate-700">
+                                        <td className="px-5 py-4 text-slate-300">
                                           {formatNumber(
                                             item.engagement
                                           )}
                                         </td>
 
-                                        <td className="px-5 py-4 text-slate-700">
+                                        <td className="px-5 py-4 text-slate-300">
                                           {formatNumber(
                                             item.clicks
                                           )}
                                         </td>
 
-                                        <td className="px-5 py-4 text-slate-700">
+                                        <td className="px-5 py-4 text-slate-300">
                                           {formatPercent(
                                             item.roi
                                           )}
@@ -3904,23 +4097,23 @@ export default function CampaignsPage() {
 
                         </div>
 
-                        <div className="rounded-2xl border border-slate-200 bg-white p-6">
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6">
 
                           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 
                             <div>
-                              <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
                                 Campaign Report
                               </p>
 
-                              <h3 className="mt-1 text-xl font-bold text-slate-900">
+                              <h3 className="mt-1 text-xl font-bold text-white">
                                 {
                                   report?.campaign_name ??
                                   selectedCampaign.name
                                 }
                               </h3>
 
-                              <p className="mt-1 text-sm text-slate-500">
+                              <p className="mt-1 text-sm text-slate-400">
                                 {
                                   report?.platform ??
                                   selectedCampaign.platform
@@ -3938,17 +4131,35 @@ export default function CampaignsPage() {
                               </p>
                             </div>
 
-                            <span
-                              className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase ${statusClass(
-                                report?.status ??
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase ${statusClass(
+                                  report?.status ??
+                                    selectedCampaign.status
+                                )}`}
+                              >
+                                {
+                                  report?.status ??
                                   selectedCampaign.status
-                              )}`}
-                            >
-                              {
-                                report?.status ??
-                                selectedCampaign.status
-                              }
-                            </span>
+                                }
+                              </span>
+
+                              <button
+                                type="button"
+                                onClick={handleExportPDF}
+                                className="rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-sky-100 transition shadow-sm"
+                              >
+                                📄 Export PDF
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={handleExportCSV}
+                                className="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition shadow-sm"
+                              >
+                                📊 Export CSV / Excel
+                              </button>
+                            </div>
                           </div>
 
                           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -4020,13 +4231,13 @@ export default function CampaignsPage() {
                           </div>
                         </div>
 
-                        <div className="rounded-2xl border border-slate-200 bg-white p-6">
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6">
 
-                          <h3 className="text-base font-bold text-slate-900">
+                          <h3 className="text-base font-bold text-white">
                             Campaign Comparison
                           </h3>
 
-                          <p className="mt-1 text-sm text-slate-500">
+                          <p className="mt-1 text-sm text-slate-400">
                             Compare campaign ROI and performance.
                           </p>
 
@@ -4083,7 +4294,7 @@ export default function CampaignsPage() {
                           <div className="mt-6 overflow-x-auto">
                             <table className="w-full min-w-[780px] text-sm">
 
-                              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                              <thead className="bg-slate-950/70 text-left text-xs uppercase tracking-wide text-slate-400">
 
                                 <tr>
                                   <th className="px-4 py-3">
@@ -4127,16 +4338,16 @@ export default function CampaignsPage() {
                                       key={
                                         item.id
                                       }
-                                      className="border-t border-slate-100"
+                                      className="border-t border-slate-800/80"
                                     >
 
-                                      <td className="px-4 py-3 font-semibold text-slate-900">
+                                      <td className="px-4 py-3 font-semibold text-white">
                                         {
                                           item.campaign_name
                                         }
                                       </td>
 
-                                      <td className="px-4 py-3 text-slate-600">
+                                      <td className="px-4 py-3 text-slate-300">
                                         {
                                           item.platform
                                         }
@@ -4187,15 +4398,15 @@ export default function CampaignsPage() {
 
                     {activeTab ===
                       "posts" && (
-                      <div className="rounded-2xl border border-slate-200 bg-white">
+                      <div className="rounded-2xl border border-slate-800 bg-slate-900/90">
 
-                        <div className="border-b border-slate-200 px-6 py-5">
+                        <div className="border-b border-slate-800 px-6 py-5">
 
-                          <h3 className="text-base font-bold text-slate-900">
+                          <h3 className="text-base font-bold text-white">
                             Campaign Posts
                           </h3>
 
-                          <p className="mt-1 text-sm text-slate-500">
+                          <p className="mt-1 text-sm text-slate-400">
                             Content grouped under this campaign.
                           </p>
 
@@ -4205,11 +4416,11 @@ export default function CampaignsPage() {
                         0 ? (
                           <div className="px-6 py-12 text-center">
 
-                            <p className="text-sm font-semibold text-slate-700">
+                            <p className="text-sm font-semibold text-slate-300">
                               No posts linked to this campaign.
                             </p>
 
-                            <p className="mt-1 text-xs text-slate-500">
+                            <p className="mt-1 text-xs text-slate-400">
                               Add posts from the Create Post page.
                             </p>
 
@@ -4232,7 +4443,7 @@ export default function CampaignsPage() {
 
                                     <div className="min-w-0">
 
-                                      <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                                      <p className="whitespace-pre-wrap text-sm leading-6 text-slate-300">
                                         {
                                           post.content
                                         }
@@ -4248,7 +4459,7 @@ export default function CampaignsPage() {
                                               key={
                                                 platform
                                               }
-                                              className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600"
+                                              className="rounded-full bg-slate-800/80 px-2.5 py-1 text-[10px] font-semibold text-slate-300"
                                             >
                                               {
                                                 platform
@@ -4272,10 +4483,10 @@ export default function CampaignsPage() {
 
                                   </div>
 
-                                  <div className="mt-4 grid gap-3 text-xs text-slate-500 md:grid-cols-3">
+                                  <div className="mt-4 grid gap-3 text-xs text-slate-400 md:grid-cols-3">
 
                                     <div>
-                                      <span className="font-semibold text-slate-700">
+                                      <span className="font-semibold text-slate-300">
                                         Created:
                                       </span>{" "}
                                       {formatDate(
@@ -4284,7 +4495,7 @@ export default function CampaignsPage() {
                                     </div>
 
                                     <div>
-                                      <span className="font-semibold text-slate-700">
+                                      <span className="font-semibold text-slate-300">
                                         Scheduled:
                                       </span>{" "}
                                       {formatDate(
@@ -4293,7 +4504,7 @@ export default function CampaignsPage() {
                                     </div>
 
                                     <div>
-                                      <span className="font-semibold text-slate-700">
+                                      <span className="font-semibold text-slate-300">
                                         Published:
                                       </span>{" "}
                                       {formatDate(
@@ -4346,7 +4557,7 @@ export default function CampaignsPage() {
               setForm={setForm}
             />
 
-            <div className="flex justify-end gap-3 border-t border-slate-200 pt-5">
+            <div className="flex justify-end gap-3 border-t border-slate-800 pt-5">
 
               <button
                 type="button"
@@ -4355,14 +4566,14 @@ export default function CampaignsPage() {
                     false
                   )
                 }
-                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-950/70"
               >
                 Cancel
               </button>
 
               <button
                 type="submit"
-                className="rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-700"
+                className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
               >
                 Create Campaign
               </button>
@@ -4398,7 +4609,7 @@ export default function CampaignsPage() {
                 setForm={setForm}
               />
 
-              <div className="flex justify-end gap-3 border-t border-slate-200 pt-5">
+              <div className="flex justify-end gap-3 border-t border-slate-800 pt-5">
 
                 <button
                   type="button"
@@ -4407,14 +4618,14 @@ export default function CampaignsPage() {
                       false
                     )
                   }
-                  className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-950/70"
                 >
                   Cancel
                 </button>
 
                 <button
                   type="submit"
-                  className="rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-700"
+                  className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
                 >
                   Save Changes
                 </button>
@@ -4560,15 +4771,15 @@ export default function CampaignsPage() {
 
               </div>
 
-              <div className="rounded-xl border border-sky-100 bg-sky-50 p-4">
-                <p className="text-xs leading-5 text-sky-800">
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4">
+                <p className="text-xs leading-5 text-indigo-800">
                   Updating performance stores
                   the current campaign metrics and
                   adds a performance-history record.
                 </p>
               </div>
 
-              <div className="flex justify-end gap-3 border-t border-slate-200 pt-5">
+              <div className="flex justify-end gap-3 border-t border-slate-800 pt-5">
 
                 <button
                   type="button"
@@ -4577,14 +4788,14 @@ export default function CampaignsPage() {
                       false
                     )
                   }
-                  className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-950/70"
                 >
                   Cancel
                 </button>
 
                 <button
                   type="submit"
-                  className="rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-700"
+                  className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
                 >
                   Save Performance
                 </button>
@@ -4612,17 +4823,17 @@ function SummaryCard({
   subtitle: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-sm">
 
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
         {title}
       </p>
 
-      <p className="mt-3 text-2xl font-bold text-slate-900">
+      <p className="mt-3 text-2xl font-bold text-white">
         {value}
       </p>
 
-      <p className="mt-1 text-xs text-slate-500">
+      <p className="mt-1 text-xs text-slate-400">
         {subtitle}
       </p>
 
@@ -4638,13 +4849,13 @@ function StatCard({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
 
-      <p className="text-xs font-semibold text-slate-500">
+      <p className="text-xs font-semibold text-slate-400">
         {label}
       </p>
 
-      <p className="mt-2 text-lg font-bold text-slate-900">
+      <p className="mt-2 text-lg font-bold text-white">
         {value}
       </p>
 
@@ -4660,13 +4871,13 @@ function MetricMini({
   value: string;
 }) {
   return (
-    <div className="rounded-lg bg-white/80 p-2.5">
+    <div className="rounded-lg bg-slate-950/80 p-2.5">
 
       <p className="text-[10px] uppercase tracking-wide text-slate-400">
         {label}
       </p>
 
-      <p className="mt-1 text-sm font-bold text-slate-800">
+      <p className="mt-1 text-sm font-bold text-slate-200">
         {value}
       </p>
 
@@ -4684,15 +4895,15 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-sm">
 
       <div className="mb-5">
 
-        <h3 className="text-base font-bold text-slate-900">
+        <h3 className="text-base font-bold text-white">
           {title}
         </h3>
 
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-slate-400">
           {subtitle}
         </p>
 
@@ -4714,15 +4925,15 @@ function ProgressCard({
   progress: number;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-sm">
 
       <div className="flex items-center justify-between gap-3">
 
-        <p className="text-sm font-semibold text-slate-700">
+        <p className="text-sm font-semibold text-slate-300">
           {title}
         </p>
 
-        <span className="text-sm font-bold text-slate-900">
+        <span className="text-sm font-bold text-white">
           {formatPercent(
             value
           )}
@@ -4730,10 +4941,10 @@ function ProgressCard({
 
       </div>
 
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-800/80">
 
         <div
-          className="h-full rounded-full bg-sky-500 transition-all"
+          className="h-full rounded-full bg-indigo-500 transition-all"
           style={{
             width: `${Math.min(
               100,
@@ -4761,13 +4972,13 @@ function InfoCard({
   subtitle?: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
+    <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5">
 
-      <p className="text-xs font-semibold text-slate-500">
+      <p className="text-xs font-semibold text-slate-400">
         {title}
       </p>
 
-      <p className="mt-2 text-xl font-bold text-slate-900">
+      <p className="mt-2 text-xl font-bold text-white">
         {value}
       </p>
 
@@ -4789,13 +5000,13 @@ function MetricRow({
   value: string;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+    <div className="flex items-center justify-between rounded-xl border border-slate-800/80 bg-slate-950/70 px-4 py-3">
 
-      <span className="text-sm text-slate-600">
+      <span className="text-sm text-slate-300">
         {label}
       </span>
 
-      <span className="font-bold text-slate-900">
+      <span className="font-bold text-white">
         {value}
       </span>
 
@@ -4811,13 +5022,13 @@ function ReportMetric({
   value: string;
 }) {
   return (
-    <div className="rounded-xl bg-slate-50 p-4">
+    <div className="rounded-xl bg-slate-950/70 p-4">
 
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-slate-400">
         {label}
       </p>
 
-      <p className="mt-2 font-bold text-slate-900">
+      <p className="mt-2 font-bold text-white">
         {value}
       </p>
 
@@ -4851,7 +5062,7 @@ function NativeField({
   return (
     <label className="block">
 
-      <span className="mb-2 block text-xs font-semibold text-slate-700">
+      <span className="mb-2 block text-xs font-semibold text-slate-300">
         {label}
       </span>
 
@@ -4864,7 +5075,8 @@ function NativeField({
         }
         step={step}
         required={required}
-        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+        style={{ colorScheme: "dark", color: "#f8fafc", backgroundColor: "#0f172a" }}
+        className="w-full rounded-lg border border-slate-700 bg-slate-900/90 px-3 py-2.5 text-sm text-slate-200 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
       />
 
     </label>
@@ -4937,7 +5149,7 @@ function CampaignFormFields({
 
         <label className="block">
 
-          <span className="mb-2 block text-xs font-semibold text-slate-700">
+          <span className="mb-2 block text-xs font-semibold text-slate-300">
             Platform
           </span>
 
@@ -4958,7 +5170,7 @@ function CampaignFormFields({
                 })
               )
             }
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+            className="w-full rounded-lg border border-slate-700 bg-slate-900/90 px-3 py-2.5 text-sm text-slate-200 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
           >
             <option>
               Facebook
@@ -5197,13 +5409,13 @@ function Modal({
   children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
 
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-slate-900 border border-slate-800 text-white shadow-2xl">
 
-        <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
+        <div className="sticky top-0 flex items-center justify-between border-b border-slate-800 bg-slate-900/90 px-6 py-4">
 
-          <h2 className="text-lg font-bold text-slate-900">
+          <h2 className="text-lg font-bold text-white">
             {title}
           </h2>
 
@@ -5212,7 +5424,7 @@ function Modal({
             onClick={
               onClose
             }
-            className="rounded-lg p-2 text-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="rounded-lg p-2 text-xl text-slate-400 hover:bg-slate-800/80 hover:text-slate-300"
           >
             ×
           </button>

@@ -108,25 +108,21 @@ export async function loginUser(
 ============================================================ */
 
 function authHeaders(): HeadersInit {
-  if (typeof window === "undefined") {
-    return {
-      "Content-Type": "application/json",
-    };
-  }
-
-  const token =
-    localStorage.getItem("access_token");
-
-  if (!token) {
-    throw new Error(
-      "You are not logged in."
-    );
-  }
-
-  return {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
   };
+
+  if (typeof window !== "undefined") {
+    const token =
+      localStorage.getItem("access_token") ||
+      localStorage.getItem("token");
+
+    if (token && token.trim()) {
+      headers["Authorization"] = `Bearer ${token.trim()}`;
+    }
+  }
+
+  return headers;
 }
 
 /* ============================================================
@@ -209,6 +205,29 @@ export async function connectSocialAccount(
   return data;
 }
 
+export async function deleteSocialAccount(
+  accountId: number
+): Promise<SimpleMessageResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/social-accounts/${accountId}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(),
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data.detail ||
+        "Failed to disconnect account"
+    );
+  }
+
+  return data;
+}
+
 /* ============================================================
    LINKEDIN OAUTH
 ============================================================ */
@@ -247,9 +266,47 @@ export type CreatePostPayload = {
   content: string;
   platforms: string[];
   content_type: string;
+  media_url?: string | null;
   status: "draft" | "scheduled";
   scheduled_at: string | null;
 };
+
+/* ============================================================
+   UPLOAD MEDIA (IMAGES / VIDEOS)
+============================================================ */
+
+export async function uploadMedia(file: File): Promise<{
+  success: boolean;
+  url: string;
+  filename: string;
+  saved_as: string;
+  content_type: string;
+  media_type: "image" | "video";
+  size: number;
+  message: string;
+}> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/media/upload`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.detail || "Failed to upload media file");
+  }
+
+  return data;
+}
 
 export async function createPost(
   postData: CreatePostPayload
@@ -530,7 +587,8 @@ export async function changePassword(
 ============================================================ */
 
 export async function publishLinkedInPost(
-  content: string
+  content: string,
+  mediaUrl?: string | null
 ): Promise<PostResponse> {
   const response = await fetch(
     `${API_BASE_URL}/linkedin/publish`,
@@ -539,6 +597,7 @@ export async function publishLinkedInPost(
       headers: authHeaders(),
       body: JSON.stringify({
         content,
+        media_url: mediaUrl || null,
       }),
     }
   );
@@ -552,5 +611,104 @@ export async function publishLinkedInPost(
     );
   }
 
+  return data;
+}
+
+/* ============================================================
+   PLATFORM CREDENTIALS & PUBLIC-APIS INTEGRATION
+   Reference: https://github.com/public-apis/public-apis
+============================================================ */
+
+export interface PlatformConfigItem {
+  name: string;
+  category: string;
+  base_url: string;
+  docs_url: string;
+  public_apis_entry: string;
+  auth_types: string[];
+  fields: { key: string; label: string; required: boolean; type: string }[];
+  is_connected: boolean;
+  account_name: string | null;
+  platform_user_id: string | null;
+  status: string;
+  last_synced_at: string | null;
+}
+
+export async function getPlatformConfigs(): Promise<Record<string, PlatformConfigItem>> {
+  const response = await fetch(`${API_BASE_URL}/platforms/config`, {
+    headers: authHeaders(),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.detail || "Failed to load platform configurations");
+  }
+  return data;
+}
+
+export async function testPlatformConnection(
+  platform: string,
+  credentials: Record<string, string>
+): Promise<{ valid: boolean; message?: string; error?: string; [key: string]: unknown }> {
+  const response = await fetch(`${API_BASE_URL}/platforms/test-connection`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      platform,
+      credentials,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.detail || "Connection test failed");
+  }
+  return data;
+}
+
+export async function connectPlatformKeys(
+  platform: string,
+  credentials: Record<string, string>,
+  accountName?: string
+): Promise<{ success: boolean; message: string; account: any }> {
+  const response = await fetch(`${API_BASE_URL}/platforms/connect-keys`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      platform,
+      account_name: accountName,
+      credentials,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.detail || "Failed to connect platform API keys");
+  }
+  return data;
+}
+
+export async function publishMultiPlatform(
+  content: string,
+  platforms: string[],
+  mediaUrl?: string | null
+): Promise<{ success: boolean; message: string; dispatched_platforms: Record<string, any> }> {
+  const response = await fetch(`${API_BASE_URL}/publish/multi-platform`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      content,
+      platforms,
+      media_url: mediaUrl || null,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("Your session has expired. Please log in again to publish.");
+    }
+    throw new Error(data.detail || "Multi-platform publishing failed");
+  }
   return data;
 }

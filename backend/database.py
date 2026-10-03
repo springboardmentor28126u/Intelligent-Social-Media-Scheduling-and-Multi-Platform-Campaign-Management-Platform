@@ -38,27 +38,32 @@ engine = create_engine(
 # CHECK WHICH DATABASE WE ARE CONNECTED TO
 # ============================================================
 
-with engine.connect() as connection:
+try:
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    current_database(),
+                    current_user,
+                    current_schema(),
+                    inet_server_addr()
+            """)
+        )
 
-    result = connection.execute(
-        text("""
-            SELECT
-                current_database(),
-                current_user,
-                current_schema(),
-                inet_server_addr()
-        """)
-    )
+        row = result.fetchone()
 
-    row = result.fetchone()
-
+        print("====================================")
+        print("DATABASE CONNECTION DETAILS")
+        print("====================================")
+        print("Database:", row[0] if row else "N/A")
+        print("User:", row[1] if row else "N/A")
+        print("Schema:", row[2] if row else "N/A")
+        print("Server:", row[3] if row else "N/A")
+        print("====================================")
+except Exception as e:
     print("====================================")
-    print("DATABASE CONNECTION DETAILS")
-    print("====================================")
-    print("Database:", row[0])
-    print("User:", row[1])
-    print("Schema:", row[2])
-    print("Server:", row[3])
+    print("DATABASE INFO: Could not connect to remote PostgreSQL during startup check.")
+    print("Detail:", str(e))
     print("====================================")
 
 

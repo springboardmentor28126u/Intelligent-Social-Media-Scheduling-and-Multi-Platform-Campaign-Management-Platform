@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const plexMono = IBM_Plex_Mono({
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-plex-mono",
+  variable: "--font-sans",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "SocialPilot",
-  description: "Social Media Scheduler & Campaign Management Platform",
+  title: "SocialPilot — Social Media Scheduler & Campaign Management Platform",
+  description:
+    "Centralized social media scheduling, multi-platform publishing, campaign tracking, and analytics reporting.",
 };
 
 export default function RootLayout({
@@ -20,10 +20,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={plexMono.variable}>
+    <html lang="en" className={`dark ${inter.variable}`}>
+      <body className="font-sans antialiased text-slate-100 bg-[#090d16] selection:bg-indigo-500 selection:text-white min-h-screen">
         {children}
       </body>
     </html>
   );
 }
+

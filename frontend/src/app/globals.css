@@ -1,71 +1,65 @@
 @import "tailwindcss";
 
 /* =========================================================
-   SOCIALPILOT — GLOBAL DESIGN SYSTEM
-   Light SaaS UI
-   White + Slate + Sky Blue Accent
+   SOCIALPILOT — MODERN ENTERPRISE SAAS DESIGN SYSTEM
+   Modern Slate + Electric Indigo & Royal Blue Accent
    ========================================================= */
 
 :root {
-  /* ---------- Background ---------- */
-  --sp-bg: #f1f5f9;
-  --sp-surface: #ffffff;
-  --sp-card: #ffffff;
+  /* ---------- Background & Surfaces (Modern Executive Dark) ---------- */
+  --sp-bg: #090d16;
+  --sp-surface: #0f172a;
+  --sp-card: #111827;
 
   /* ---------- Text ---------- */
-  --sp-text: #1e293b;
-  --sp-text-secondary: #475569;
+  --sp-text: #f8fafc;
+  --sp-text-secondary: #94a3b8;
   --sp-muted: #64748b;
 
   /* ---------- Borders ---------- */
-  --sp-border: #b8c4d1;
-  --sp-border-light: #d7dee7;
-  --sp-border-strong: #94a3b8;
+  --sp-border: #1e293b;
+  --sp-border-light: #162033;
+  --sp-border-strong: #334155;
 
-  /* ---------- Sky Blue ---------- */
-  --sp-blue: #38bdf8;
-  --sp-blue-dark: #0284c7;
-  --sp-blue-light: #e0f2fe;
-  --sp-blue-soft: #bae6fd;
+  /* ---------- Modern Electric Indigo & Royal Blue ---------- */
+  --sp-blue: #6366f1;
+  --sp-blue-dark: #4f46e5;
+  --sp-blue-light: rgba(99, 102, 241, 0.15);
+  --sp-blue-soft: rgba(99, 102, 241, 0.28);
 
   /* ---------- Sidebar ---------- */
-  --sp-sidebar: #e2e8f0;
-  --sp-sidebar-hover: #d8e1eb;
-  --sp-sidebar-active: #ffffff;
-  --sp-sidebar-border: #b8c4d1;
+  --sp-sidebar: #060911;
+  --sp-sidebar-hover: #0f172a;
+  --sp-sidebar-active: #4f46e5;
+  --sp-sidebar-border: #1e293b;
 
   /* ---------- Status ---------- */
-  --sp-success: #16a34a;
-  --sp-success-bg: #f0fdf4;
+  --sp-success: #10b981;
+  --sp-success-bg: rgba(16, 185, 129, 0.12);
 
-  --sp-warning: #d97706;
-  --sp-warning-bg: #fffbeb;
+  --sp-warning: #f59e0b;
+  --sp-warning-bg: rgba(245, 158, 11, 0.12);
 
-  --sp-danger: #dc2626;
-  --sp-danger-bg: #fef2f2;
+  --sp-danger: #ef4444;
+  --sp-danger-bg: rgba(239, 68, 68, 0.12);
 
-  --sp-purple: #7c3aed;
-  --sp-purple-bg: #f5f3ff;
+  --sp-purple: #a855f7;
+  --sp-purple-bg: rgba(168, 85, 247, 0.12);
 
   /* ---------- Shadows ---------- */
-  --sp-shadow-sm:
-    0 1px 3px rgba(15, 23, 42, 0.10);
-
-  --sp-shadow:
-    0 3px 10px rgba(15, 23, 42, 0.09);
-
-  --sp-shadow-lg:
-    0 10px 30px rgba(15, 23, 42, 0.13);
+  --sp-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --sp-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
+  --sp-shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -4px rgba(0, 0, 0, 0.6);
 
   /* ---------- Radius ---------- */
-  --sp-radius-sm: 6px;
-  --sp-radius: 10px;
-  --sp-radius-lg: 14px;
+  --sp-radius-sm: 8px;
+  --sp-radius: 12px;
+  --sp-radius-lg: 16px;
 }
 
 
 /* =========================================================
-   RESET
+   RESET & BASE
    ========================================================= */
 
 * {
@@ -74,25 +68,23 @@
 
 html {
   background: var(--sp-bg);
-  color-scheme: light;
+  color-scheme: dark;
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
   padding: 0;
-
   background: var(--sp-bg);
   color: var(--sp-text);
-
-  font-family:
-    var(--font-plex-mono),
-    "IBM Plex Mono",
-    monospace;
-
+  font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 14px;
   font-weight: 400;
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
 
 
 /* =========================================================
@@ -106,32 +98,29 @@ h4,
 h5,
 h6 {
   margin: 0;
-
   color: var(--sp-text);
-
-  font-family:
-    var(--font-plex-mono),
-    "IBM Plex Mono",
-    monospace;
+  font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: -0.02em;
 }
 
 h1 {
-  font-size: 25px;
-  line-height: 1.3;
+  font-size: 26px;
+  line-height: 1.25;
   font-weight: 700;
 }
 
 h2 {
-  font-size: 19px;
-  line-height: 1.4;
+  font-size: 20px;
+  line-height: 1.35;
   font-weight: 700;
 }
 
 h3 {
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 16px;
+  line-height: 1.45;
   font-weight: 600;
 }
+
 
 p {
   margin: 0;
@@ -544,12 +533,13 @@ select {
 
   padding: 9px 12px;
 
-  background: #ffffff;
+  background: #0f172a;
 
   border: 1px solid var(--sp-border-strong);
   border-radius: var(--sp-radius);
 
-  color: var(--sp-text);
+  color: #f8fafc;
+  color-scheme: dark;
 
   font-family: inherit;
   font-size: 14px;
@@ -558,6 +548,24 @@ select {
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
+}
+
+select option {
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+
+input[type="date"],
+input[type="time"] {
+  color-scheme: dark;
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
 }
 
 textarea {
@@ -757,18 +765,20 @@ select:focus {
   align-items: center;
   justify-content: center;
 
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
 
-  background: var(--sp-blue-light);
+  background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
 
-  border: 1px solid var(--sp-blue-soft);
-  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
 
-  color: var(--sp-blue-dark);
+  color: #ffffff;
 
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 800;
+
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.25);
 }
 
 .sp-brand-name {
@@ -801,16 +811,16 @@ select:focus {
 
   min-height: 36px;
 
-  padding: 7px 11px;
+  padding: 7px 12px;
 
   background: transparent;
 
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 9px;
 
   color: var(--sp-text-secondary);
 
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
 
   white-space: nowrap;
@@ -834,9 +844,9 @@ select:focus {
 
   border-color: var(--sp-blue-soft);
 
-  color: #0369a1;
+  color: var(--sp-blue);
 
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .sp-nav-icon {
