@@ -48,19 +48,19 @@ def run_tests():
         data_connect = res_connect.json()
         assert "auth_url" in data_connect, "auth_url missing in connect response"
         assert "facebook" in data_connect["platform"], "platform mismatch"
-        assert "pages_show_list" in data_connect["auth_url"] or "UNCONFIGURED" in data_connect["auth_url"], "Scopes missing"
+        assert "config_id" in data_connect["auth_url"] or "pages_show_list" in data_connect["auth_url"] or "UNCONFIGURED" in data_connect["auth_url"], "Auth config missing"
         print(f"[OK] [Test A] Facebook OAuth endpoint generated URL: {data_connect['auth_url'][:60]}...")
 
-        # ── Test B: Facebook Callback Works ───────────────────────────────────
+        # ── Test B: Facebook Callback Works (/api/facebook/callback and /social-auth/facebook/call) ─
         state = data_connect["state"]
         res_callback = client.get(
-            f"/api/facebook/callback?code=demo_code&state={state}",
+            f"/social-auth/facebook/call?code=demo_code&state={state}",
             follow_redirects=False
         )
         assert res_callback.status_code in [302, 307], f"Callback redirect failed: {res_callback.status_code}"
         location = res_callback.headers.get("location", "")
         assert "connected=facebook" in location, f"Callback redirect target invalid: {location}"
-        print(f"[OK] [Test B] Facebook callback redirected to: {location}")
+        print(f"[OK] [Test B] Facebook callback (/social-auth/facebook/call) redirected to: {location}")
 
         # ── Test E: Connected Facebook Page appears in SocialPilot ────────────
         res_status = client.get("/api/facebook/status", headers=headers)

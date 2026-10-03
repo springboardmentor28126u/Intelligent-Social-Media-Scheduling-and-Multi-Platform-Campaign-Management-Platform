@@ -52,9 +52,10 @@ class Settings(BaseSettings):
     # Facebook (Meta Business / Page Management)
     FACEBOOK_APP_ID: str = ""
     FACEBOOK_APP_SECRET: str = ""
-    FACEBOOK_CLIENT_ID: str = ""
+    FACEBOOK_CLIENT_ID: str = "1640248207501817"
     FACEBOOK_CLIENT_SECRET: str = ""
-    FACEBOOK_REDIRECT_URI: str = "http://localhost:8000/api/facebook/callback"
+    FACEBOOK_REDIRECT_URI: str = "https://guise-reclusive-sample.ngrok-free.dev/social-auth/facebook/call"
+    FACEBOOK_CONFIG_ID: str = "1746943613275567"
     FACEBOOK_SCOPES: str = "pages_show_list,pages_read_engagement,pages_manage_posts"
     META_APP_ID: str = ""
     META_APP_SECRET: str = ""
@@ -73,7 +74,7 @@ class Settings(BaseSettings):
     LINKEDIN_CLIENT_ID: str = ""
     LINKEDIN_CLIENT_SECRET: str = ""
     LINKEDIN_REDIRECT_URI: str = "http://localhost:8000/api/linkedin/callback"
-    LINKEDIN_SCOPES: str = "w_member_social openid profile email r_member_profileAnalytics"
+    LINKEDIN_SCOPES: str = "w_member_social openid profile email"
 
     # Twitter / X (OAuth 2.0 PKCE)
     TWITTER_CLIENT_ID: str = ""

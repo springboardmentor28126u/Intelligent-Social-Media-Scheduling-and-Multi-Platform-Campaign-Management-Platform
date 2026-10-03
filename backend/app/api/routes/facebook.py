@@ -1,4 +1,4 @@
-import uuid
+import urllib.parse
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel
@@ -25,6 +25,9 @@ router = APIRouter(
     prefix="/api/facebook",
     tags=["Facebook Integration"]
 )
+
+# Direct root-level callback router for /social-auth/facebook/call
+callback_router = APIRouter(tags=["Facebook OAuth Callback"])
 
 
 class FacebookVerifyRequest(BaseModel):
@@ -66,7 +69,7 @@ def get_facebook_auth_url(
     effective_redirect = (
         redirect_uri or
         settings.FACEBOOK_REDIRECT_URI or
-        f"{settings.BACKEND_URL}/api/facebook/callback"
+        f"{settings.BACKEND_URL}/social-auth/facebook/call"
     )
 
     is_configured = "facebook" in list_configured_platforms()
@@ -88,38 +91,54 @@ def get_facebook_auth_url(
 
 
 @router.get("/callback")
+@callback_router.get("/social-auth/facebook/call")
 def facebook_oauth_callback(
     code: Optional[str] = Query(None),
     state: Optional[str] = Query(None),
     error: Optional[str] = Query(None),
     error_description: Optional[str] = Query(None),
+    error_reason: Optional[str] = Query(None),
+    error_code: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
     OAuth 2.0 callback endpoint invoked by Meta after user authorization.
     Exchanges code for user access token and links the user's primary Facebook Page.
+    Handles user cancellations, expired codes, invalid states, and API errors.
     """
     frontend_redirect_url = f"{settings.FRONTEND_URL}/accounts"
 
-    if error:
-        err_msg = error_description or error
-        if "user_cancelled" in err_msg.lower() or "access_denied" in err_msg.lower():
-            err_msg = "Facebook authorization was denied by the user."
+    # 1. Handle user cancellation or Meta OAuth error responses
+    if error or error_reason or error_description:
+        err_msg = error_description or error_reason or error or "Facebook authorization failed"
+        err_msg_lower = err_msg.lower()
+        if "user_cancelled" in err_msg_lower or "access_denied" in err_msg_lower or "user_denied" in err_msg_lower:
+            user_msg = "Facebook authorization was cancelled by the user."
+        elif "permissions" in err_msg_lower:
+            user_msg = "Required Facebook permissions were not granted."
+        else:
+            user_msg = f"Facebook error: {err_msg}"
+
+        safe_err = urllib.parse.quote_plus(user_msg[:200])
         return RedirectResponse(
-            url=f"{frontend_redirect_url}?error={err_msg}&platform=facebook",
+            url=f"{frontend_redirect_url}?error={safe_err}&platform=facebook",
             status_code=302
         )
 
+    # 2. Check for missing authorization code
     if not code:
+        safe_err = urllib.parse.quote_plus("Missing authorization code from Facebook.")
         return RedirectResponse(
-            url=f"{frontend_redirect_url}?error=Missing+authorization+code&platform=facebook",
+            url=f"{frontend_redirect_url}?error={safe_err}&platform=facebook",
             status_code=302
         )
 
+    # 3. Cryptographic state verification (CSRF & timeout protection)
     state_data = verify_oauth_state(state) if state else None
     if not state_data or not state_data.get("user_id"):
+        safe_err = urllib.parse.quote_plus("Invalid or expired OAuth state. Please try connecting again.")
         return RedirectResponse(
-            url=f"{frontend_redirect_url}?error=Invalid+or+expired+OAuth+state.+Please+try+connecting+again.&platform=facebook",
+            url=f"{frontend_redirect_url}?error={safe_err}&platform=facebook",
             status_code=302
         )
 
@@ -128,7 +147,7 @@ def facebook_oauth_callback(
     try:
         effective_redirect = (
             settings.FACEBOOK_REDIRECT_URI or
-            f"{settings.BACKEND_URL}/api/facebook/callback"
+            f"{settings.BACKEND_URL}/social-auth/facebook/call"
         )
         provider = FacebookProvider()
         token_data = provider.exchange_code_for_token(code=code, redirect_uri=effective_redirect)
@@ -213,8 +232,8 @@ def facebook_oauth_callback(
         )
 
     except Exception as e:
-        error_text = str(e)
-        safe_error = error_text.split("\n")[0][:150]
+        error_text = str(e).replace("\n", " ")
+        safe_error = urllib.parse.quote_plus(error_text[:200])
         return RedirectResponse(
             url=f"{frontend_redirect_url}?error={safe_error}&platform=facebook",
             status_code=302

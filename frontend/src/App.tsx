@@ -5,6 +5,7 @@ import DashboardLayout from "./layouts/DashboardLayout";
 
 // Pages
 import LandingPage from "./pages/LandingPage";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -52,6 +53,7 @@ export default function App() {
         <Routes>
           {/* Public Pages */}
           <Route path="/landing" element={<LandingPage />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />

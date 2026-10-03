@@ -78,7 +78,7 @@ class LinkedInProvider(SocialProvider):
             or cfg.LINKEDIN_REDIRECT_URI
             or "http://localhost:8000/api/linkedin/callback"
         )
-        raw_scopes = getattr(cfg, "LINKEDIN_SCOPES", "") or "w_member_social openid profile email r_member_profileAnalytics"
+        raw_scopes = getattr(cfg, "LINKEDIN_SCOPES", "") or "w_member_social openid profile email"
         # Normalize whitespace in scopes
         scopes = " ".join(raw_scopes.split())
 

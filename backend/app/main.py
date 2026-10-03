@@ -28,7 +28,7 @@ from app.api.routes.admin import router as admin_router
 from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.linkedin import router as linkedin_router
 from app.api.routes.instagram import router as instagram_router
-from app.api.routes.facebook import router as facebook_router
+from app.api.routes.facebook import router as facebook_router, callback_router as facebook_callback_router
 
 
 
@@ -155,6 +155,8 @@ app.include_router(dashboard_router)
 app.include_router(linkedin_router)
 app.include_router(instagram_router)
 app.include_router(facebook_router)
+app.include_router(facebook_callback_router)
+
 
 
 @app.exception_handler(Exception)

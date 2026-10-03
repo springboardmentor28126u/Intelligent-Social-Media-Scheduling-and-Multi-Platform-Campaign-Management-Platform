@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
   Zap,
   Sparkles,
@@ -428,7 +428,15 @@ export default function LandingPage() {
             <span>– Enterprise Social Media Operations Platform</span>
           </div>
 
-          <p>© 2026 SocialPilot Technologies. All rights reserved.</p>
+          <div className="flex items-center gap-6">
+            <Link
+              to="/privacy-policy"
+              className="text-slate-400 hover:text-blue-400 transition font-medium"
+            >
+              Privacy Policy
+            </Link>
+            <p>© 2026 SocialPilot Technologies. All rights reserved.</p>
+          </div>
         </div>
       </footer>
     </div>

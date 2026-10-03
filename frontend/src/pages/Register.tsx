@@ -236,11 +236,18 @@ export default function Register() {
             </button>
           </form>
 
-          <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-500">
-            Already have an account?{" "}
-            <Link to="/login" className="font-bold text-blue-600 hover:text-blue-700">
-              Sign in
-            </Link>
+          <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-500 space-y-2">
+            <div>
+              Already have an account?{" "}
+              <Link to="/login" className="font-bold text-blue-600 hover:text-blue-700">
+                Sign in
+              </Link>
+            </div>
+            <div>
+              <Link to="/privacy-policy" className="text-[11px] text-slate-400 hover:text-blue-600 underline">
+                Privacy Policy
+              </Link>
+            </div>
           </div>
         </div>
       </div>

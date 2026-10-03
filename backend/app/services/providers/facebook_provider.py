@@ -39,31 +39,30 @@ class FacebookProvider(SocialProvider):
 
     def _get_app_id(self) -> str:
         raw_id = (
-            getattr(settings, "FACEBOOK_APP_ID", "") or
             getattr(settings, "FACEBOOK_CLIENT_ID", "") or
+            getattr(settings, "FACEBOOK_APP_ID", "") or
             getattr(settings, "META_APP_ID", "") or
-            getattr(settings, "INSTAGRAM_APP_ID", "") or
-            getattr(settings, "INSTAGRAM_CLIENT_ID", "") or
             ""
         )
         return str(raw_id).strip().strip("'").strip('"')
 
     def _get_app_secret(self) -> str:
         raw_secret = (
-            getattr(settings, "FACEBOOK_APP_SECRET", "") or
             getattr(settings, "FACEBOOK_CLIENT_SECRET", "") or
+            getattr(settings, "FACEBOOK_APP_SECRET", "") or
             getattr(settings, "META_APP_SECRET", "") or
-            getattr(settings, "INSTAGRAM_APP_SECRET", "") or
-            getattr(settings, "INSTAGRAM_CLIENT_SECRET", "") or
             ""
         )
         return str(raw_secret).strip().strip("'").strip('"')
 
+    def _get_config_id(self) -> str:
+        raw_config = getattr(settings, "FACEBOOK_CONFIG_ID", "") or ""
+        return str(raw_config).strip().strip("'").strip('"')
 
     def _get_redirect_uri(self) -> str:
         return (
-            settings.FACEBOOK_REDIRECT_URI or
-            f"{settings.BACKEND_URL}/api/facebook/callback"
+            getattr(settings, "FACEBOOK_REDIRECT_URI", "") or
+            f"{settings.BACKEND_URL}/social-auth/facebook/call"
         )
 
     def _is_configured(self) -> bool:
@@ -72,7 +71,7 @@ class FacebookProvider(SocialProvider):
     def get_auth_url(self, state: str, redirect_uri: Optional[str] = None) -> str:
         """
         Generate Meta OAuth 2.0 authorization URL for Facebook Page management.
-        Requests only required permissions for page listing, engagement reading, and posting.
+        Supports Meta Login for Business (config_id) and granular scope fallback.
         """
         app_id = self._get_app_id()
         effective_redirect = redirect_uri or self._get_redirect_uri()
@@ -81,6 +80,17 @@ class FacebookProvider(SocialProvider):
             return (
                 f"https://www.facebook.com/v19.0/dialog/oauth"
                 f"?client_id=UNCONFIGURED&redirect_uri={effective_redirect}&state={state}"
+            )
+
+        config_id = self._get_config_id()
+        if config_id:
+            return (
+                f"https://www.facebook.com/v19.0/dialog/oauth"
+                f"?client_id={app_id}"
+                f"&redirect_uri={effective_redirect}"
+                f"&config_id={config_id}"
+                f"&state={state}"
+                f"&response_type=code"
             )
 
         scopes = (
@@ -130,8 +140,17 @@ class FacebookProvider(SocialProvider):
 
             if not token_resp.ok:
                 err_data = token_resp.json() if "application/json" in token_resp.headers.get("content-type", "") else {}
-                err_msg = err_data.get("error", {}).get("message", token_resp.text)
-                raise ValueError(f"Facebook token exchange failed: {err_msg}")
+                err_obj = err_data.get("error", {})
+                err_msg = err_obj.get("message") or token_resp.text
+                err_code = err_obj.get("code")
+                err_subcode = err_obj.get("error_subcode")
+
+                if err_code == 100 and "redirect_uri" in err_msg.lower():
+                    raise ValueError(f"Facebook Redirect URI Mismatch: {err_msg}")
+                elif err_code in [100, 190] and ("code has expired" in err_msg.lower() or "code has already been used" in err_msg.lower()):
+                    raise ValueError("Facebook authorization code expired or already used. Please initiate connection again.")
+                else:
+                    raise ValueError(f"Facebook token exchange failed ({err_code or token_resp.status_code}): {err_msg}")
 
             token_data = token_resp.json()
             short_token = token_data.get("access_token", "")
