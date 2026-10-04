@@ -13,11 +13,42 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     role = Column(String, default="Content Creator")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    preferences = Column(JSON, nullable=True, default=dict)
+    is_active = Column(Boolean, default=True)
 
     social_accounts = relationship("SocialAccount", back_populates="owner")
     posts = relationship("Post", back_populates="user", cascade="all, delete-orphan")
     campaigns = relationship("Campaign", back_populates="owner")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+    media = relationship("Media", back_populates="user", cascade="all, delete-orphan")
+
+
+class Media(Base):
+    __tablename__ = "media"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    filename = Column(String, nullable=False)
+    original_filename = Column(String, nullable=False)
+    file_path = Column(String, nullable=False)
+    file_url = Column(String, nullable=False)
+    media_type = Column(String, nullable=False)  # 'image' or 'video'
+    mime_type = Column(String, nullable=True)
+    size_bytes = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="media")
+
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+    key = Column(String, primary_key=True, index=True)
+    value = Column(JSON, nullable=False)
+    category = Column(String, default="general")
+    description = Column(String, nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
 
 
 class SocialAccount(Base):

@@ -22,12 +22,15 @@ def _fetch_platform_stats(db, pp: models.PostPlatform):
         return {**base, "available": False, "reason": "Not published yet"}
 
     account = pp.social_account
+    if not account:
+        return {**base, "available": False, "reason": "Social account disconnected"}
+
     platform_lower = pp.platform.lower()
 
     try:
         if platform_lower == "linkedin":
             success, result = get_linkedin_post_stats(account.access_token, pp.external_post_id)
-            if not success and "403" in str(result) and "ACCESS_DENIED" in str(result):
+            if not success and ("403" in str(result) or "ACCESS_DENIED" in str(result)):
                 return {
                     **base,
                     "available": False,
@@ -55,6 +58,75 @@ def _fetch_platform_stats(db, pp: models.PostPlatform):
 
     return {**base, "available": True, **result}
 
+@router.get("/overview")
+def get_overview_analytics(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    posts = db.query(models.Post).filter(
+        models.Post.user_id == current_user.id,
+    ).order_by(models.Post.created_at.desc()).all()
+
+    totals = {"likes": 0, "comments": 0, "views": 0, "reach": 0, "shares": 0, "saved": 0}
+    platform_map = {}
+    post_results = []
+    published_count = 0
+    scheduled_count = 0
+    draft_count = 0
+    failed_count = 0
+
+    for post in posts:
+        st = (post.status or "").lower()
+        if st == "published":
+            published_count += 1
+        elif st == "scheduled":
+            scheduled_count += 1
+        elif st == "draft":
+            draft_count += 1
+        elif st == "failed":
+            failed_count += 1
+
+        platform_stats = [_fetch_platform_stats(db, pp) for pp in post.platform_posts]
+        for s in platform_stats:
+            p_name = s.get("platform", "").capitalize()
+            if p_name not in platform_map:
+                platform_map[p_name] = {
+                    "platform": p_name,
+                    "likes": 0,
+                    "comments": 0,
+                    "shares": 0,
+                    "views": 0,
+                    "reach": 0,
+                    "saved": 0,
+                    "posts_count": 0,
+                }
+            if s.get("status") == "published":
+                platform_map[p_name]["posts_count"] += 1
+            if s.get("available"):
+                for key in totals:
+                    val = s.get(key, 0)
+                    totals[key] += val
+                    platform_map[p_name][key] += val
+
+        post_results.append({
+            "post_id": post.id,
+            "title": post.title,
+            "campaign_id": post.campaign_id,
+            "platforms": platform_stats,
+        })
+
+    return {
+        "totals": totals,
+        "total_posts": len(posts),
+        "published_posts": published_count,
+        "scheduled_posts": scheduled_count,
+        "draft_posts": draft_count,
+        "failed_posts": failed_count,
+        "platform_summary": list(platform_map.values()),
+        "posts": post_results,
+    }
+
+
 @router.get("/posts/{post_id}")
 def get_post_analytics(
     post_id: int,
@@ -70,6 +142,8 @@ def get_post_analytics(
 
     return {
         "post_id": post.id,
+        "title": post.title,
+        "campaign_id": post.campaign_id,
         "platforms": [_fetch_platform_stats(db, pp) for pp in post.platform_posts],
     }
 
@@ -102,6 +176,7 @@ def get_campaign_analytics(
         post_results.append({
             "post_id": post.id,
             "title": post.title,
+            "campaign_id": post.campaign_id,
             "platforms": platform_stats,
         })
 
@@ -110,4 +185,4 @@ def get_campaign_analytics(
         "campaign_name": campaign.name,
         "totals": totals,
         "posts": post_results,
-    }
+    }

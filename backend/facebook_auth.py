@@ -21,16 +21,15 @@ GRAPH = "https://graph.facebook.com/v22.0"
 
 @router.get("/login")
 def facebook_login(token: str):
-    if not APP_ID or not REDIRECT_URI or not CONFIG_ID:
+    if not APP_ID or not REDIRECT_URI:
         raise HTTPException(500, "Facebook app is not configured (missing env vars)")
 
     params = httpx.QueryParams(
         {
             "client_id": APP_ID,
             "redirect_uri": REDIRECT_URI,
-            "config_id": CONFIG_ID,
             "response_type": "code",
-            "override_default_response_type": "true",
+            "scope": "pages_show_list,pages_manage_posts,pages_read_engagement,pages_manage_engagement",
             "state": token,
         }
     )

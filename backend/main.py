@@ -1,9 +1,9 @@
 import os
-import uuid
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Request
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import List
 from database import get_db, engine
 from config import MEDIA_DIR
@@ -15,13 +15,26 @@ from campaigns import router as campaigns_router
 from analytics import router as analytics_router
 from notifications import router as notifications_router
 from reports import router as reports_router
+from media_router import router as media_router
+from admin_router import router as admin_router
 import instagram_auth
 import facebook_auth
 import x_auth
 
-app = FastAPI()
-app.include_router(campaigns_router)
-app.include_router(posts_router)
+# Ensure tables and columns exist
+try:
+    models.Base.metadata.create_all(bind=engine)
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSONB DEFAULT '{}'::jsonb"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE"))
+        conn.commit()
+except Exception as e:
+    print(f"Database initialization warning: {e}")
+
+app = FastAPI(title="SocialPilot API", version="2.0.0")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -30,6 +43,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include all routers
+app.include_router(campaigns_router)
+app.include_router(posts_router)
+app.include_router(media_router)
+app.include_router(admin_router)
 app.include_router(linkedin_router)
 app.include_router(youtube_router)
 app.include_router(instagram_auth.router)
@@ -39,42 +57,7 @@ app.include_router(analytics_router)
 app.include_router(notifications_router)
 app.include_router(reports_router)
 
-ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".webm"}
-ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-ALLOWED_MEDIA_EXTENSIONS = ALLOWED_VIDEO_EXTENSIONS | ALLOWED_IMAGE_EXTENSIONS
-MAX_UPLOAD_SIZE_BYTES = 200 * 1024 * 1024
-
-@app.post("/media/upload")
-async def upload_media(
-    request: Request,
-    file: UploadFile = File(...),
-    current_user: models.User = Depends(auth.get_current_user)
-):
-    ext = os.path.splitext(file.filename)[1].lower()
-    if ext not in ALLOWED_MEDIA_EXTENSIONS:
-        raise HTTPException(status_code=400, detail=f"Unsupported file type '{ext}'. Allowed: {ALLOWED_MEDIA_EXTENSIONS}")
-
-    unique_name = f"{uuid.uuid4().hex}{ext}"
-    save_path = os.path.join(MEDIA_DIR, unique_name)
-
-    size = 0
-    with open(save_path, "wb") as out_file:
-        while True:
-            chunk = await file.read(1024 * 1024)
-            if not chunk:
-                break
-            size += len(chunk)
-            if size > MAX_UPLOAD_SIZE_BYTES:
-                out_file.close()
-                os.remove(save_path)
-                raise HTTPException(status_code=400, detail="File too large (max 200MB)")
-            out_file.write(chunk)
-
-    file_url = str(request.base_url).rstrip("/") + "/media/" + unique_name
-    media_type = "image" if ext in ALLOWED_IMAGE_EXTENSIONS else "video"
-    return {"url": file_url, "filename": unique_name, "size_bytes": size, "media_type": media_type}
-
-
+# Mount static media directory
 app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 
 
@@ -82,22 +65,36 @@ app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 def read_root():
     return {"message": "SocialPilot backend is running!"}
 
+
 @app.post("/register", response_model=schemas.UserOut)
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    # Check if signups are enabled in admin system settings
+    signup_setting = db.query(models.SystemSetting).filter(models.SystemSetting.key == "allow_signups").first()
+    if signup_setting and signup_setting.value is False:
+        raise HTTPException(
+            status_code=403,
+            detail="User registration is currently disabled by administrator.",
+        )
+
     existing_user = db.query(models.User).filter(models.User.email == user.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
+
+    default_role_setting = db.query(models.SystemSetting).filter(models.SystemSetting.key == "default_user_role").first()
+    role_to_assign = user.role or (default_role_setting.value if default_role_setting and default_role_setting.value else "Content Creator")
 
     new_user = models.User(
         name=user.name,
         email=user.email,
         password_hash=auth.hash_password(user.password),
-        role="Content Creator"
+        role=role_to_assign,
+        preferences={},
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     return new_user
+
 
 @app.post("/login")
 def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
@@ -108,31 +105,35 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
     token = auth.create_access_token({"sub": db_user.email, "role": db_user.role})
     return {"access_token": token, "token_type": "bearer"}
 
+
 @app.get("/me", response_model=schemas.UserOut)
 def read_current_user(current_user: models.User = Depends(auth.get_current_user)):
     return current_user
 
-@app.get("/admin/users", response_model=List[schemas.UserOut])
-def list_all_users(
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.require_role(["Administrator"]))
-):
-    return db.query(models.User).all()
 
-@app.put("/admin/users/{user_id}/role", response_model=schemas.UserOut)
-def update_user_role(
-    user_id: int,
-    role_data: schemas.UserRoleUpdate,
+@app.put("/me", response_model=schemas.UserOut)
+def update_current_user(
+    profile_data: schemas.UserProfileUpdate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.require_role(["Administrator"]))
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    user.role = role_data.role
+    if profile_data.name is not None:
+        current_user.name = profile_data.name
+    if profile_data.email is not None and profile_data.email != current_user.email:
+        existing = db.query(models.User).filter(models.User.email == profile_data.email).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already in use")
+        current_user.email = profile_data.email
+    if profile_data.password is not None and profile_data.password.strip():
+        current_user.password_hash = auth.hash_password(profile_data.password)
+    if profile_data.preferences is not None:
+        existing_prefs = dict(current_user.preferences or {})
+        existing_prefs.update(profile_data.preferences)
+        current_user.preferences = existing_prefs
     db.commit()
-    db.refresh(user)
-    return user
+    db.refresh(current_user)
+    return current_user
+
 
 @app.post("/social-accounts", response_model=schemas.SocialAccountOut)
 def connect_social_account(
@@ -151,12 +152,14 @@ def connect_social_account(
     db.refresh(new_account)
     return new_account
 
+
 @app.get("/social-accounts", response_model=List[schemas.SocialAccountOut])
 def list_social_accounts(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
     return db.query(models.SocialAccount).filter(models.SocialAccount.user_id == current_user.id).all()
+
 
 @app.delete("/social-accounts/{account_id}")
 def disconnect_social_account(

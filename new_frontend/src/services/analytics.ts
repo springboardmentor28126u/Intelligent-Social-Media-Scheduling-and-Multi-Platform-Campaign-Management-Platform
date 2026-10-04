@@ -1,5 +1,5 @@
 import { API_BASE } from './campaigns';
-import type { CampaignAnalytics, PostAnalytics } from '@/types/analytics';
+import type { CampaignAnalytics, PostAnalytics, OverviewAnalytics } from '@/types/analytics';
 
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem('token');
@@ -10,6 +10,17 @@ function getAuthHeaders(): HeadersInit {
     headers['Authorization'] = `Bearer ${token}`;
   }
   return headers;
+}
+
+export async function getOverviewAnalytics(): Promise<OverviewAnalytics> {
+  const response = await fetch(`${API_BASE}/analytics/overview`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to fetch analytics overview' }));
+    throw new Error(err.detail || 'Failed to fetch analytics overview');
+  }
+  return response.json();
 }
 
 export async function getCampaignAnalytics(campaignId: number): Promise<CampaignAnalytics> {
@@ -33,3 +44,4 @@ export async function getPostAnalytics(postId: number): Promise<PostAnalytics> {
   }
   return response.json();
 }
+

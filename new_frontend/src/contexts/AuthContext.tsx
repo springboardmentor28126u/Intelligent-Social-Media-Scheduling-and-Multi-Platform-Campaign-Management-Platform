@@ -186,15 +186,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsers([]);
   };
 
-  const toggleUserRole = (userId: string) => {
-    // Backend doesn't support updating user roles, so we do it in local state
+  const toggleUserRole = async (userId: string) => {
+    const targetUser = users.find((u) => u.id === userId);
+    if (!targetUser) return;
+    const newFrontendRole: UserRole = targetUser.role === 'admin' ? 'creator' : 'admin';
+    const newBackendRole = mapFrontendRole(newFrontendRole);
+
     setUsers((prevUsers) =>
       prevUsers.map((u) =>
         u.id === userId
-          ? { ...u, role: u.role === 'admin' ? 'creator' : 'admin', updated_at: new Date().toISOString() }
+          ? { ...u, role: newFrontendRole, updated_at: new Date().toISOString() }
           : u
       )
     );
+
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/admin/users/${userId}/role`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ role: newBackendRole }),
+      });
+      if (!response.ok) {
+        setUsers((prevUsers) =>
+          prevUsers.map((u) =>
+            u.id === userId
+              ? { ...u, role: targetUser.role, updated_at: new Date().toISOString() }
+              : u
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Failed to update user role:', err);
+      setUsers((prevUsers) =>
+        prevUsers.map((u) =>
+          u.id === userId
+            ? { ...u, role: targetUser.role, updated_at: new Date().toISOString() }
+            : u
+        )
+      );
+    }
   };
 
   const value: AuthContextValue = {

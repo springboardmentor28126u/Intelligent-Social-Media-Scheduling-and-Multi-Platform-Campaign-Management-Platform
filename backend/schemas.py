@@ -18,11 +18,69 @@ class UserOut(BaseModel):
     name: str
     email: str
     role: str
+    created_at: Optional[datetime] = None
+    preferences: Optional[dict] = None
+    is_active: Optional[bool] = True
     class Config:
         from_attributes = True
 
 class UserRoleUpdate(BaseModel):
     role: str
+
+class UserProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    preferences: Optional[dict] = None
+
+class MediaOut(BaseModel):
+    id: int
+    user_id: int
+    filename: str
+    original_filename: str
+    file_url: str
+    media_type: str
+    mime_type: Optional[str] = None
+    size_bytes: int
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+class MediaListResponse(BaseModel):
+    items: List[MediaOut]
+    total: int
+    total_size_bytes: int
+
+class AdminSettingsSchema(BaseModel):
+    allow_signups: bool = True
+    require_approval: bool = False
+    max_upload_size_mb: int = 200
+    default_user_role: str = "Content Creator"
+    maintenance_mode: bool = False
+    system_announcement: Optional[str] = ""
+    allowed_platforms: List[str] = ["instagram", "facebook", "linkedin", "youtube", "x"]
+    email_notifications: bool = True
+
+class AdminStatsOut(BaseModel):
+    total_users: int
+    admin_count: int
+    creator_count: int
+    new_users_this_week: int
+    total_posts: int
+    scheduled_posts: int
+    published_posts: int
+    active_campaigns: int
+    connected_accounts: int
+    total_media_count: int
+    total_media_bytes: int
+
+class AdminAnalyticsOut(BaseModel):
+    stats: AdminStatsOut
+    user_growth: List[dict]
+    role_distribution: dict
+    post_status_distribution: dict
+    platform_distribution: dict
+
 
 class SocialAccountCreate(BaseModel):
     platform: str

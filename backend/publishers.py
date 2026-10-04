@@ -232,7 +232,10 @@ def get_youtube_video_stats(db, social_account, video_id: str):
     Fetches view/like/comment counts for a YouTube video.
     Returns (success: bool, stats_dict_or_error)
     """
-    access_token = get_valid_youtube_token(db, social_account)
+    try:
+        access_token = get_valid_youtube_token(db, social_account)
+    except Exception as e:
+        return False, f"YouTube token error: {e}"
 
     response = httpx.get(
         YOUTUBE_VIDEOS_URL,
@@ -424,26 +427,72 @@ def get_instagram_post_insights(db, social_account, ig_media_id: str):
     Fetches reach/likes/comments/shares/saved for an Instagram post.
     Returns (success: bool, stats_dict_or_error)
     """
-    access_token = get_valid_instagram_token(db, social_account)
+    try:
+        access_token = get_valid_instagram_token(db, social_account)
+    except Exception as e:
+        return False, f"Instagram token error: {e}"
 
-    response = httpx.get(
-        f"{INSTAGRAM_GRAPH_URL}/{ig_media_id}/insights",
+    likes = 0
+    comments = 0
+    reach = 0
+    shares = 0
+    saved = 0
+    has_any_data = False
+
+    # 1. Fetch direct media counts (like_count, comments_count)
+    media_resp = httpx.get(
+        f"{INSTAGRAM_GRAPH_URL}/{ig_media_id}",
         params={
-            "metric": "reach,likes,comments,shares,saved",
+            "fields": "like_count,comments_count,media_type",
             "access_token": access_token,
         },
     )
-    if response.status_code != 200:
-        return False, f"Instagram API error {response.status_code}: {response.text}"
+    if media_resp.status_code == 200:
+        mdata = media_resp.json()
+        likes = mdata.get("like_count", 0)
+        comments = mdata.get("comments_count", 0)
+        has_any_data = True
+    elif media_resp.status_code != 200:
+        return False, f"Instagram API error {media_resp.status_code}: {media_resp.text}"
 
-    data = response.json().get("data", [])
-    stats = {item["name"]: item["values"][0]["value"] for item in data}
+    # 2. Fetch insights (reach, saved, shares, total_interactions)
+    insights_resp = httpx.get(
+        f"{INSTAGRAM_GRAPH_URL}/{ig_media_id}/insights",
+        params={
+            "metric": "reach,likes,comments,shares,saved,total_interactions",
+            "access_token": access_token,
+        },
+    )
+    if insights_resp.status_code == 200:
+        for item in insights_resp.json().get("data", []):
+            name = item.get("name")
+            val = 0
+            if "values" in item and item["values"]:
+                val = item["values"][0].get("value", 0)
+            elif "total_value" in item:
+                val = item["total_value"].get("value", 0)
+
+            if name == "reach":
+                reach = val
+            elif name == "shares":
+                shares = val
+            elif name == "saved":
+                saved = val
+            elif name == "likes" and likes == 0:
+                likes = val
+            elif name == "comments" and comments == 0:
+                comments = val
+        has_any_data = True
+
+    if not has_any_data:
+        return False, f"Instagram API error {media_resp.status_code}: {media_resp.text}"
+
     return True, {
-        "reach": stats.get("reach", 0),
-        "likes": stats.get("likes", 0),
-        "comments": stats.get("comments", 0),
-        "shares": stats.get("shares", 0),
-        "saved": stats.get("saved", 0),
+        "reach": reach,
+        "likes": likes,
+        "comments": comments,
+        "shares": shares,
+        "saved": saved,
     }
 
 
