@@ -13,6 +13,8 @@ import CalendarPage from "../pages/CalendarPage";
 import SocialAccountsPage from "../pages/SocialAccountsPage";
 import CampaignsPage from "../pages/CampaignsPage";
 import AnalyticsPage from "../pages/AnalyticsPage";
+import TeamsPage from "../pages/TeamsPage";
+import NotificationsPage from "../pages/NotificationsPage";
 
 export default function AppRoutes() {
   return (
@@ -36,6 +38,9 @@ export default function AppRoutes() {
 
       <Route path="/campaigns" element={<CampaignsPage />} />
       <Route path="/analytics" element={<AnalyticsPage />} />
+
+      <Route path="/teams" element={<TeamsPage />} />
+      <Route path="/notifications" element={<NotificationsPage />} />
     </Routes>
   );
 }

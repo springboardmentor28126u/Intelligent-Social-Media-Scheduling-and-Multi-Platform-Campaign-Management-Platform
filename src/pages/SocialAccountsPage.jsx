@@ -3,875 +3,411 @@ import { useNavigate } from "react-router-dom";
 import "./DashboardPage.css";
 import api from "../services/api";
 
-const DashboardPage = () => {
+const platforms = [
+  { key: "instagram", name: "Instagram", icon: "📷" },
+  { key: "facebook", name: "Facebook", icon: "📘" },
+  { key: "twitter", name: "X (Twitter)", icon: "𝕏" },
+  { key: "linkedin", name: "LinkedIn", icon: "💼" },
+  { key: "youtube", name: "YouTube", icon: "▶️" },
+  { key: "pinterest", name: "Pinterest", icon: "📌" },
+];
+
+const SocialAccountsPage = () => {
   const navigate = useNavigate();
 
-  const [posts, setPosts] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(null);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+  const loadAccounts = async () => {
     try {
-      const [postsResponse, accountsResponse] = await Promise.all([
-        api.get("/posts"),
-        api.get("/social-accounts/"),
-      ]);
+      setError("");
 
-      setPosts(
-        postsResponse.data.posts || postsResponse.data || []
+      const response = await api.get("/social-accounts/");
+      setAccounts(response.data || []);
+    } catch (err) {
+      console.error("Social accounts loading error:", err);
+
+      setError(
+        err.response?.data?.detail ||
+          "Unable to load social accounts."
       );
-
-      setAccounts(accountsResponse.data || []);
-    } catch (error) {
-      console.error("Dashboard loading error:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  // =========================
-  // POST STATISTICS
-  // =========================
+  useEffect(() => {
+    loadAccounts();
+  }, []);
 
-  const scheduledPosts = posts.filter(
-    (post) => post.status?.toLowerCase() === "scheduled"
-  );
-
-  const publishedPosts = posts.filter(
-    (post) => post.status?.toLowerCase() === "published"
-  );
-
-  const failedPosts = posts.filter(
-    (post) => post.status?.toLowerCase() === "failed"
-  );
-
-  const draftPosts = posts.filter(
-    (post) => post.status?.toLowerCase() === "draft"
-  );
-
-  const publishingPosts = posts.filter(
-    (post) => post.status?.toLowerCase() === "publishing"
-  );
-
-  const connectedAccounts = accounts.filter(
-    (account) =>
-      account.is_active &&
-      account.status?.toLowerCase() === "connected"
-  );
-
-  // =========================
-  // RECENT POSTS
-  // =========================
-
-  const recentPosts = [...posts]
-    .sort((a, b) => {
-      const dateA = new Date(
-        a.created_at || a.scheduled_at || 0
-      );
-
-      const dateB = new Date(
-        b.created_at || b.scheduled_at || 0
-      );
-
-      return dateB - dateA;
-    })
-    .slice(0, 6);
-
-  // =========================
-  // UPCOMING POSTS
-  // =========================
-
-  const upcomingPosts = [...scheduledPosts]
-    .sort(
-      (a, b) =>
-        new Date(a.scheduled_at) -
-        new Date(b.scheduled_at)
-    )
-    .slice(0, 5);
-
-  // =========================
-  // DATE FORMATTER
-  // =========================
-
-  const formatDate = (date) => {
-    if (!date) {
-      return "No date";
-    }
-
-    const parsedDate = new Date(date);
-
-    if (Number.isNaN(parsedDate.getTime())) {
-      return "No date";
-    }
-
-    return parsedDate.toLocaleString("en-IN", {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  };
-
-  // =========================
-  // STATUS FORMATTER
-  // =========================
-
-  const formatStatus = (status) => {
-    if (!status) {
-      return "Unknown";
-    }
-
-    return (
-      status.charAt(0).toUpperCase() +
-      status.slice(1).toLowerCase()
+  const getAccount = (platform) => {
+    return accounts.find(
+      (account) =>
+        account.platform?.toLowerCase() === platform.toLowerCase() &&
+        account.is_active !== false
     );
   };
 
-  // =========================
-  // PLATFORM NAME
-  // =========================
+  const handleConnect = async (platform) => {
+    try {
+      setActionLoading(platform);
+      setError("");
 
-  const getPlatformName = (platform) => {
-    if (!platform) {
-      return "Social";
+      const response = await api.get(
+        `/social-auth/${platform}/authorize`
+      );
+
+      if (!response.data?.authorization_url) {
+        throw new Error(
+          "Authorization URL was not returned by the server."
+        );
+      }
+
+      window.location.href = response.data.authorization_url;
+    } catch (err) {
+      console.error("Social account connection error:", err);
+
+      setError(
+        err.response?.data?.detail ||
+          err.message ||
+          `Unable to connect ${platform}.`
+      );
+
+      setActionLoading(null);
     }
-
-    const names = {
-      twitter: "X (Twitter)",
-      x: "X (Twitter)",
-      instagram: "Instagram",
-      facebook: "Facebook",
-      linkedin: "LinkedIn",
-      youtube: "YouTube",
-      pinterest: "Pinterest",
-    };
-
-    return (
-      names[platform.toLowerCase()] ||
-      platform
-    );
   };
 
-  // =========================
-  // GET POST PLATFORMS
-  // =========================
+  const handleDisconnect = async (account) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to disconnect ${
+        account.account_name || account.platform
+      }?`
+    );
 
-  const getPostPlatforms = (post) => {
-    if (post.social_accounts?.length) {
-      return post.social_accounts.map(
-        (account) =>
-          getPlatformName(account.platform)
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setActionLoading(account.id);
+      setError("");
+
+      await api.delete(`/social-accounts/${account.id}`);
+
+      await loadAccounts();
+    } catch (err) {
+      console.error("Social account disconnect error:", err);
+
+      setError(
+        err.response?.data?.detail ||
+          "Unable to disconnect the social account."
       );
+    } finally {
+      setActionLoading(null);
     }
+  };
 
-    if (post.platform) {
-      return [getPlatformName(post.platform)];
-    }
-
-    if (post.platforms?.length) {
-      return post.platforms.map(
-        (platform) =>
-          getPlatformName(platform)
-      );
-    }
-
-    return [];
+  const handleBack = () => {
+    navigate("/dashboard");
   };
 
   return (
     <div className="dashboard-container">
-
-      {/* ================= SIDEBAR ================= */}
-
       <aside className="sidebar">
-
         <div className="brand">
-          <span className="brand-icon">⚡</span>
+          <div className="brand-icon">S</div>
           <h2>SocialPilot</h2>
         </div>
 
         <nav className="nav-menu">
-
           <button
-            className="nav-item active"
+            className="nav-item"
             onClick={() => navigate("/dashboard")}
           >
-            <span>📊</span>
-            Dashboard
+            🏠 Dashboard
           </button>
 
           <button
             className="nav-item"
             onClick={() => navigate("/create-post")}
           >
-            <span>✏️</span>
-            Create Post
+            ✏️ Create Post
           </button>
 
           <button
             className="nav-item"
             onClick={() => navigate("/calendar")}
           >
-            <span>📅</span>
-            Calendar
+            📅 Calendar
+          </button>
+
+          <button
+            className="nav-item active"
+            onClick={() => navigate("/social-accounts")}
+          >
+            🔗 Social Accounts
           </button>
 
           <button
             className="nav-item"
-            onClick={() =>
-              alert("Campaigns page coming soon")
-            }
+            onClick={() => navigate("/campaigns")}
           >
-            <span>📢</span>
-            Campaigns
+            📣 Campaigns
           </button>
 
           <button
             className="nav-item"
-            onClick={() =>
-              alert("Analytics will be available in Milestone 3")
-            }
+            onClick={() => navigate("/analytics")}
           >
-            <span>📈</span>
-            Analytics
+            📊 Analytics
           </button>
 
           <button
             className="nav-item"
-            onClick={() =>
-              navigate("/social-accounts")
-            }
+            onClick={() => navigate("/profile")}
           >
-            <span>👥</span>
-            Accounts
+            👤 Profile
           </button>
-
-          <button
-            className="nav-item"
-            onClick={() =>
-              alert("Notifications page coming soon")
-            }
-          >
-            <span>🔔</span>
-            Notifications
-          </button>
-
-          <button
-            className="nav-item"
-            onClick={() =>
-              alert("Team page coming soon")
-            }
-          >
-            <span>🛡️</span>
-            Team
-          </button>
-
-          <button
-            className="nav-item"
-            onClick={() =>
-              navigate("/profile")
-            }
-          >
-            <span>👤</span>
-            Profile
-          </button>
-
         </nav>
 
-        {/* ================= SIDEBAR FOOTER ================= */}
-
         <div className="sidebar-footer">
-
-          <div className="user-profile">
-
-            <div className="avatar">
-              H
-            </div>
-
-            <div className="user-info">
-
-              <span className="user-name">
-                Himaja
-              </span>
-
-              <span className="user-role">
-                User
-              </span>
-
-            </div>
-
-          </div>
-
           <button
             className="logout-btn"
             onClick={() => {
-              localStorage.removeItem(
-                "access_token"
-              );
-
-              navigate("/login");
+              localStorage.removeItem("access_token");
+              navigate("/");
             }}
           >
             ↪ Logout
           </button>
-
         </div>
-
       </aside>
 
-      {/* ================= MAIN CONTENT ================= */}
-
       <main className="main-content">
-
-        {/* ================= HEADER ================= */}
-
-        <header className="dash-header">
-
+        <div className="dash-header">
           <div>
-
-            <h1>
-              Dashboard
-            </h1>
+            <h1>Social Accounts</h1>
 
             <p className="subtitle">
-              Manage your social media publishing
-              workspace.
+              Connect and manage your social media accounts
             </p>
-
           </div>
 
           <button
             className="action-btn"
-            onClick={() =>
-              navigate("/create-post")
-            }
+            onClick={handleBack}
           >
-            + Create Post
+            ← Dashboard
           </button>
-
-        </header>
-
-        {/* ================= WELCOME BANNER ================= */}
-
-        <div className="welcome-banner">
-
-          <span className="sparkle-icon">
-            ✨
-          </span>
-
-          <div>
-
-            <h3>
-              Welcome back, Himaja!
-            </h3>
-
-            <p>
-              Here's an overview of your
-              social media activity.
-            </p>
-
-          </div>
-
         </div>
 
-        {/* ================= ACTION GRID ================= */}
-
-        <div className="action-grid">
-
+        {error && (
           <div
-            className="action-card"
-            onClick={() =>
-              navigate("/create-post")
-            }
+            style={{
+              marginBottom: "20px",
+              padding: "14px 16px",
+              borderRadius: "8px",
+              border: "1px solid #fecaca",
+              background: "#fef2f2",
+              color: "#b91c1c",
+            }}
           >
-            <span>✏️</span>
-            Create Post
+            {error}
           </div>
-
-          <div
-            className="action-card"
-            onClick={() =>
-              navigate("/calendar")
-            }
-          >
-            <span>📅</span>
-            Calendar
-          </div>
-
-          <div
-            className="action-card"
-            onClick={() =>
-              navigate("/social-accounts")
-            }
-          >
-            <span>👥</span>
-            Social Accounts
-          </div>
-
-          <div
-            className="action-card"
-            onClick={() =>
-              navigate("/profile")
-            }
-          >
-            <span>👤</span>
-            Profile
-          </div>
-
-        </div>
-
-        {/* ================= LOADING ================= */}
+        )}
 
         {loading ? (
-
           <div
             style={{
               padding: "40px",
               textAlign: "center",
+              color: "#6b7280",
             }}
           >
-            Loading dashboard...
+            Loading social accounts...
           </div>
-
         ) : (
+          <section className="section-block">
+            <div className="section-header">
+              <div>
+                <h2>Connected Accounts</h2>
 
-          <>
-
-            {/* ================= METRICS GRID ================= */}
-
-            <div className="metrics-grid">
-
-              <div className="metric-card">
-
-                <div className="metric-info">
-
-                  <span className="metric-title">
-                    SCHEDULED POSTS
-                  </span>
-
-                  <span className="metric-value">
-                    {scheduledPosts.length}
-                  </span>
-
-                </div>
-
-                <div className="metric-icon">
-                  🕒
-                </div>
-
+                <p className="subtitle">
+                  Manage your connected social platforms.
+                </p>
               </div>
-
-              <div className="metric-card">
-
-                <div className="metric-info">
-
-                  <span className="metric-title">
-                    PUBLISHED
-                  </span>
-
-                  <span className="metric-value">
-                    {publishedPosts.length}
-                  </span>
-
-                </div>
-
-                <div className="metric-icon">
-                  ✓
-                </div>
-
-              </div>
-
-              <div className="metric-card">
-
-                <div className="metric-info">
-
-                  <span className="metric-title">
-                    FAILED POSTS
-                  </span>
-
-                  <span className="metric-value">
-                    {failedPosts.length}
-                  </span>
-
-                </div>
-
-                <div className="metric-icon">
-                  ⚠️
-                </div>
-
-              </div>
-
-              <div className="metric-card">
-
-                <div className="metric-info">
-
-                  <span className="metric-title">
-                    CONNECTED ACCOUNTS
-                  </span>
-
-                  <span className="metric-value">
-                    {connectedAccounts.length}
-                  </span>
-
-                </div>
-
-                <div className="metric-icon">
-                  👥
-                </div>
-
-              </div>
-
             </div>
 
-            {/* ================= RECENT POSTS ================= */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(280px, 1fr))",
+                gap: "20px",
+              }}
+            >
+              {platforms.map((platform) => {
+                const account = getAccount(platform.key);
 
-            <section className="section-block">
+                const isConnected = Boolean(account);
 
-              <div className="section-header">
+                const busy =
+                  actionLoading === platform.key ||
+                  actionLoading === account?.id;
 
-                <h2>
-                  Recent Posts
-                </h2>
-
-                <button
-                  className="link-btn"
-                  onClick={() =>
-                    navigate("/calendar")
-                  }
-                >
-                  View Calendar ↗
-                </button>
-
-              </div>
-
-              <div className="posts-list">
-
-                {recentPosts.length === 0 ? (
-
+                return (
                   <div
+                    key={platform.key}
                     style={{
-                      padding: "25px",
-                      textAlign: "center",
-                      color: "#6b7280",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "12px",
+                      padding: "22px",
+                      background: "#ffffff",
+                      boxShadow:
+                        "0 1px 3px rgba(0,0,0,0.05)",
                     }}
                   >
-                    No posts found.
-                  </div>
-
-                ) : (
-
-                  recentPosts.map(
-                    (post, idx) => {
-
-                      const platforms =
-                        getPostPlatforms(post);
-
-                      return (
-
-                        <div
-                          className="post-item"
-                          key={
-                            post.id || idx
-                          }
-                        >
-
-                          <div className="post-details">
-
-                            <h4>
-                              {post.content
-                                ? post.content.length > 70
-                                  ? `${post.content.substring(
-                                      0,
-                                      70
-                                    )}...`
-                                  : post.content
-                                : "Untitled Post"}
-                            </h4>
-
-                            <span className="post-date">
-                              {formatDate(
-                                post.created_at ||
-                                post.scheduled_at
-                              )}
-                            </span>
-
-                          </div>
-
-                          <div className="post-meta">
-
-                            <div className="tags">
-
-                              {platforms.length > 0 ? (
-
-                                platforms.map(
-                                  (
-                                    platform,
-                                    index
-                                  ) => (
-
-                                    <span
-                                      className="tag-platform"
-                                      key={
-                                        index
-                                      }
-                                    >
-                                      {platform}
-                                    </span>
-
-                                  )
-                                )
-
-                              ) : (
-
-                                <span className="tag-platform">
-                                  Social Media
-                                </span>
-
-                              )}
-
-                            </div>
-
-                            <span
-                              className={`status-badge ${(
-                                post.status ||
-                                "unknown"
-                              ).toLowerCase()}`}
-                            >
-                              {formatStatus(
-                                post.status
-                              )}
-                            </span>
-
-                          </div>
-
-                        </div>
-
-                      );
-                    }
-                  )
-
-                )}
-
-              </div>
-
-            </section>
-
-            {/* ================= UPCOMING POSTS ================= */}
-
-            <section className="section-block">
-
-              <div className="section-header">
-
-                <h2>
-                  Upcoming Scheduled Posts
-                </h2>
-
-                <button
-                  className="link-btn"
-                  onClick={() =>
-                    navigate("/calendar")
-                  }
-                >
-                  View Calendar ↗
-                </button>
-
-              </div>
-
-              <div className="posts-list">
-
-                {upcomingPosts.length === 0 ? (
-
-                  <div
-                    style={{
-                      padding: "25px",
-                      textAlign: "center",
-                      color: "#6b7280",
-                    }}
-                  >
-                    No upcoming scheduled posts.
-                  </div>
-
-                ) : (
-
-                  upcomingPosts.map(
-                    (post, idx) => {
-
-                      const platforms =
-                        getPostPlatforms(post);
-
-                      return (
-
-                        <div
-                          className="post-item"
-                          key={
-                            post.id || idx
-                          }
-                        >
-
-                          <div className="post-details">
-
-                            <h4>
-                              {post.content
-                                ? post.content.length > 70
-                                  ? `${post.content.substring(
-                                      0,
-                                      70
-                                    )}...`
-                                  : post.content
-                                : "Untitled Post"}
-                            </h4>
-
-                            <span className="post-date">
-                              🕒{" "}
-                              {formatDate(
-                                post.scheduled_at
-                              )}
-                            </span>
-
-                          </div>
-
-                          <div className="post-meta">
-
-                            <div className="tags">
-
-                              {platforms.map(
-                                (
-                                  platform,
-                                  index
-                                ) => (
-
-                                  <span
-                                    className="tag-platform"
-                                    key={
-                                      index
-                                    }
-                                  >
-                                    {platform}
-                                  </span>
-
-                                )
-                              )}
-
-                            </div>
-
-                            <span className="status-badge scheduled">
-                              Scheduled
-                            </span>
-
-                          </div>
-
-                        </div>
-
-                      );
-                    }
-                  )
-
-                )}
-
-              </div>
-
-            </section>
-
-            {/* ================= ACCOUNT SUMMARY ================= */}
-
-            <section className="section-block">
-
-              <div className="section-header">
-
-                <h2>
-                  Connected Accounts
-                </h2>
-
-                <button
-                  className="link-btn"
-                  onClick={() =>
-                    navigate(
-                      "/social-accounts"
-                    )
-                  }
-                >
-                  Manage Accounts ↗
-                </button>
-
-              </div>
-
-              <div className="campaigns-list">
-
-                {connectedAccounts.length ===
-                0 ? (
-
-                  <div
-                    style={{
-                      padding: "25px",
-                      textAlign: "center",
-                      color: "#6b7280",
-                    }}
-                  >
-                    No connected accounts.
-                  </div>
-
-                ) : (
-
-                  connectedAccounts.map(
-                    (account) => (
-
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: "18px",
+                      }}
+                    >
                       <div
-                        className="campaign-item"
-                        key={
-                          account.id
-                        }
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                        }}
                       >
+                        <span
+                          style={{
+                            fontSize: "28px",
+                          }}
+                        >
+                          {platform.icon}
+                        </span>
 
-                        <div className="campaign-info">
+                        <div>
+                          <h3
+                            style={{
+                              marginBottom: "4px",
+                              color: "#111827",
+                            }}
+                          >
+                            {platform.name}
+                          </h3>
 
-                          <div>
-
-                            <h4>
-                              {getPlatformName(
-                                account.platform
-                              )}
-                            </h4>
-
-                            <span className="campaign-dates">
-                              {account.account_name ||
-                                "Connected account"}
-                            </span>
-
-                          </div>
-
-                          <div className="campaign-status">
-
-                            <span className="active-badge">
-                              Connected
-                            </span>
-
-                          </div>
-
+                          <span
+                            style={{
+                              fontSize: "13px",
+                              color: "#6b7280",
+                            }}
+                          >
+                            {isConnected
+                              ? account.account_name ||
+                                "Connected account"
+                              : "Not connected"}
+                          </span>
                         </div>
-
                       </div>
 
-                    )
-                  )
+                      <span
+                        style={{
+                          padding: "5px 9px",
+                          borderRadius: "999px",
+                          fontSize: "12px",
+                          fontWeight: "600",
+                          background: isConnected
+                            ? "#d1fae5"
+                            : "#f3f4f6",
+                          color: isConnected
+                            ? "#047857"
+                            : "#6b7280",
+                        }}
+                      >
+                        {isConnected
+                          ? "Connected"
+                          : "Not Connected"}
+                      </span>
+                    </div>
 
-                )}
+                    {isConnected && (
+                      <div
+                        style={{
+                          marginBottom: "16px",
+                          fontSize: "13px",
+                          color: "#6b7280",
+                        }}
+                      >
+                        Account ID: {account.id}
+                      </div>
+                    )}
 
-              </div>
-
-            </section>
-
-          </>
-
+                    {isConnected ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          handleDisconnect(account)
+                        }
+                        style={{
+                          width: "100%",
+                          padding: "10px 16px",
+                          borderRadius: "8px",
+                          border: "1px solid #fecaca",
+                          background: "#ffffff",
+                          color: "#dc2626",
+                          fontWeight: "600",
+                          cursor: busy
+                            ? "not-allowed"
+                            : "pointer",
+                          opacity: busy ? 0.6 : 1,
+                        }}
+                      >
+                        {busy
+                          ? "Disconnecting..."
+                          : "Disconnect"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          handleConnect(platform.key)
+                        }
+                        style={{
+                          width: "100%",
+                          padding: "10px 16px",
+                          borderRadius: "8px",
+                          border: "none",
+                          background: "#10b981",
+                          color: "#ffffff",
+                          fontWeight: "600",
+                          cursor: busy
+                            ? "not-allowed"
+                            : "pointer",
+                          opacity: busy ? 0.6 : 1,
+                        }}
+                      >
+                        {busy
+                          ? "Connecting..."
+                          : `Connect ${platform.name}`}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
         )}
-
       </main>
-
     </div>
   );
 };
 
-export default DashboardPage;
+export default SocialAccountsPage;

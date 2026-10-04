@@ -210,18 +210,18 @@ const DashboardPage = () => {
 
           <button
             className="nav-item"
-            onClick={() => alert("Notifications page coming soon")}
+            onClick={() => navigate("/teams")}
           >
-            <span>🔔</span>
-            Notifications
+            <span>🛡️</span>
+            Teams
           </button>
 
           <button
             className="nav-item"
-            onClick={() => alert("Team page coming soon")}
+            onClick={() => navigate("/notifications")}
           >
-            <span>🛡️</span>
-            Team
+            <span>🔔</span>
+            Notifications
           </button>
 
           <button
@@ -260,7 +260,7 @@ const DashboardPage = () => {
             className="logout-btn"
             onClick={() => {
               localStorage.removeItem("access_token");
-              navigate("/login");
+              navigate("/");
             }}
           >
             ↪ Logout
