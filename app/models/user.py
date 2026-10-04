@@ -5,6 +5,7 @@ from sqlalchemy import DateTime, Enum as SQLEnum, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
+from sqlalchemy.orm import relationship
 
 
 class SystemRole(str, Enum):
@@ -70,3 +71,15 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    
+    notifications = relationship(
+    "Notification",
+    foreign_keys="Notification.user_id",
+    back_populates="user",
+    cascade="all, delete-orphan",
+)
+
+
+
+
+

@@ -388,7 +388,9 @@ class LinkedInIntegration(BaseSocialIntegration):
         if len(image_urns) == 1:
 
             payload["content"] = {
-                "media": image_urns[0]
+                "media":  {
+                    "id": image_urns[0]
+               }
             }
 
         elif len(image_urns) > 1:

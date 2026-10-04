@@ -189,6 +189,10 @@ class YouTubeIntegration(BaseSocialIntegration):
             )
 
         credentials = flow.credentials
+        print(
+           "YOUTUBE OAUTH DEBUG - refresh token received:",
+            bool(credentials.refresh_token),
+            )
 
         if not credentials.token:
             raise ValueError(

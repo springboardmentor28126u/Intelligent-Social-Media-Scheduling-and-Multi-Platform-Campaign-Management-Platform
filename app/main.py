@@ -1,5 +1,8 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from app.routes import notifications
+from app.routes import teams
 
 from app.routes import (
     admin,
@@ -15,6 +18,7 @@ from app.routes import (
 )
 
 app = FastAPI(title="SocialPilot API")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
@@ -34,6 +38,10 @@ app.include_router(social_auth.router)
 app.include_router(publishing_logs.router)
 app.include_router(admin.router)
 app.include_router(campaigns.router)
+app.include_router(notifications.router)
+app.include_router(teams.router)
+
+
 
 
 @app.get("/")

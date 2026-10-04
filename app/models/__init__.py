@@ -9,6 +9,10 @@ from app.models.post_media import (
     MediaType,
 )
 from app.models.campaign import Campaign
+from app.models.notification import Notification
+from app.models.team import Team
+from app.models.team_member import TeamMember
+from app.models.team_invitation import TeamInvitation
 
 
 __all__ = [
@@ -21,4 +25,5 @@ __all__ = [
     "PostMedia",
     "MediaType",
     "Campaign",
+    "Notification",
 ]
