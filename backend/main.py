@@ -17,6 +17,7 @@ from notifications import router as notifications_router
 from reports import router as reports_router
 from media_router import router as media_router
 from admin_router import router as admin_router
+from ai import router as ai_router
 import instagram_auth
 import facebook_auth
 import x_auth
@@ -56,7 +57,7 @@ app.include_router(x_auth.router)
 app.include_router(analytics_router)
 app.include_router(notifications_router)
 app.include_router(reports_router)
-
+app.include_router(ai_router)
 # Mount static media directory
 app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 
