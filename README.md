@@ -74,7 +74,7 @@ The available features depend on the APIs, permissions, and configurations provi
 ### 1. Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/springboardmentor28126u/Intelligent-Social-Media-Scheduling-and-Multi-Platform-Campaign-Management-Platform.git
 cd SocialPilot
 ```
 
