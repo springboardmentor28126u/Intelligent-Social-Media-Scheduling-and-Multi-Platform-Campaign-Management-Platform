@@ -1028,3 +1028,139 @@
     flex-direction: column;
   }
 }
+
+:root[data-theme="light"] .posts-page {
+  background:
+    radial-gradient(circle at 10% 0%, rgba(99, 102, 241, 0.06), transparent 32%),
+    radial-gradient(circle at 90% 10%, rgba(139, 92, 246, 0.04), transparent 28%),
+    var(--bg);
+  color: var(--text-h);
+}
+
+:root[data-theme="light"] .posts-page .posts-header h1,
+:root[data-theme="light"] .posts-page .posts-filter-title h2,
+:root[data-theme="light"] .posts-page .post-card-platform strong,
+:root[data-theme="light"] .posts-page .post-card-content p,
+:root[data-theme="light"] .posts-page .post-info-item strong {
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .posts-page .posts-welcome {
+  color: var(--accent) !important;
+}
+
+:root[data-theme="light"] .posts-page .posts-subtitle,
+:root[data-theme="light"] .posts-page .posts-filter-title > span,
+:root[data-theme="light"] .posts-page .post-card-platform small,
+:root[data-theme="light"] .posts-page .post-info-item small {
+  color: var(--text) !important;
+}
+
+:root[data-theme="light"] .posts-page .posts-calendar-button {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .posts-page .posts-stat-card {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+}
+
+:root[data-theme="light"] .posts-page .posts-stat-label {
+  color: var(--text) !important;
+}
+
+:root[data-theme="light"] .posts-page .posts-stat-number {
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .posts-page .posts-filter-buttons {
+  border-color: var(--border);
+  background: var(--surface-muted);
+}
+
+:root[data-theme="light"] .posts-page .posts-filter-buttons button {
+  color: var(--text) !important;
+}
+
+:root[data-theme="light"] .posts-page .posts-filter-buttons button:hover {
+  background: var(--bg-hover);
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .posts-page .posts-filter-buttons button.active {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--accent-strong) !important;
+}
+
+:root[data-theme="light"] .posts-page .post-card {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+:root[data-theme="light"] .posts-page .post-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
+}
+
+:root[data-theme="light"] .posts-page .post-platform-icon,
+:root[data-theme="light"] .posts-page .post-info-item,
+:root[data-theme="light"] .posts-page .post-info-item > span {
+  border-color: var(--border);
+  background: var(--surface-muted);
+}
+
+:root[data-theme="light"] .posts-page .post-card-content {
+  border-color: var(--border);
+}
+
+:root[data-theme="light"] .posts-page .post-status.draft {
+  border-color: #e9c36a;
+  background: #fff7df;
+  color: #8a5b00 !important;
+}
+
+:root[data-theme="light"] .posts-page .post-status.scheduled {
+  border-color: #a9c9fb;
+  background: #edf5ff;
+  color: #1d5ca8 !important;
+}
+
+:root[data-theme="light"] .posts-page .post-status.published {
+  border-color: #9fdec7;
+  background: #e9f8f1;
+  color: #13734f !important;
+}
+
+:root[data-theme="light"] .posts-page .post-status.failed {
+  border-color: #f0b0ba;
+  background: #fff0f2;
+  color: #b4233a !important;
+}
+
+:root[data-theme="light"] .posts-page .post-status.unknown {
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--text) !important;
+}
+
+:root[data-theme="light"] .posts-page .post-edit-button {
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--accent-strong) !important;
+}
+
+:root[data-theme="light"] .posts-page .post-schedule-button {
+  color: #1d5ca8 !important;
+}
+
+:root[data-theme="light"] .posts-page .post-publish-button {
+  color: #13734f !important;
+}
+
+:root[data-theme="light"] .posts-page .post-delete-button {
+  color: #b4233a !important;
+}

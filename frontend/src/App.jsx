@@ -8,6 +8,7 @@ import {
 } from "react-router-dom";
 import React from "react";
 
+import { useTheme } from "./context/ThemeContext";
 import "./App.css";
 
 import Register from "./pages/Register";
@@ -16,7 +17,7 @@ import Dashboard from "./pages/Dashboard";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import AdminDashboard from "./pages/AdminDashboard";
-import AdminUsers from "./pages/AdminUsers";
+import AdminSection from "./pages/AdminSection";
 import SocialAccounts from "./pages/SocialAccounts";
 import Posts from "./pages/Posts";
 import CreatePost from "./pages/CreatePost";
@@ -34,25 +35,8 @@ import WorkspaceLayout from "./components/WorkspaceLayout";
 
 function ThemeToggle() {
   const location = useLocation();
-  const [theme, setTheme] = React.useState(() => {
-    const savedTheme = localStorage.getItem("socialpilot-theme");
-    return savedTheme || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-  });
-
-  React.useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem("socialpilot-theme", theme);
-    window.dispatchEvent(new CustomEvent("socialpilot-theme-change", { detail: theme }));
-  }, [theme]);
-
-  React.useEffect(() => {
-    const syncTheme = (event) => setTheme(event.detail);
-    window.addEventListener("socialpilot-theme-change", syncTheme);
-    return () => window.removeEventListener("socialpilot-theme-change", syncTheme);
-  }, []);
-
-  const nextTheme = theme === "dark" ? "light" : "dark";
-  const workspaceRoute = /^\/(dashboard|analytics|campaigns|social-accounts|posts|create-post|calendar|drafts|publishing-|reports|notifications|settings|admin-)/.test(location.pathname);
+  const { theme, toggleTheme } = useTheme();
+  const workspaceRoute = /^\/(dashboard|analytics|campaigns|social-accounts|posts|create-post|calendar|drafts|publishing-|reports|notifications|settings|admin(?:\/|$)|admin-)/.test(location.pathname);
 
   if (workspaceRoute) return null;
 
@@ -60,9 +44,9 @@ function ThemeToggle() {
     <button
       className="theme-toggle"
       type="button"
-      onClick={() => setTheme(nextTheme)}
-      aria-label={`Switch to ${nextTheme} mode`}
-      title={`Switch to ${nextTheme} mode`}
+      onClick={toggleTheme}
+      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+      title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
     >
       <span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span>
     </button>
@@ -112,7 +96,8 @@ function AdminRoute({ children }) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const active = pathname === "/admin-users" ? "admin-users" : "admin";
+  const section = pathname.split("/")[2];
+  const active = section ? `admin-${section}` : "admin";
   return <WorkspaceLayout active={active} admin>{children}</WorkspaceLayout>;
 }
 
@@ -553,28 +538,10 @@ function App() {
             ADMIN DASHBOARD
         ================================================= */}
 
-        <Route
-          path="/admin-dashboard"
-          element={
-            <AdminRoute>
-              <AdminDashboard />
-            </AdminRoute>
-          }
-        />
-
-
-        {/* =================================================
-            ADMIN USER MANAGEMENT
-        ================================================= */}
-
-        <Route
-          path="/admin-users"
-          element={
-            <AdminRoute>
-              <AdminUsers />
-            </AdminRoute>
-          }
-        />
+        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="/admin/:section" element={<AdminRoute><AdminSection /></AdminRoute>} />
+        <Route path="/admin-dashboard" element={<AdminRoute><Navigate to="/admin" replace /></AdminRoute>} />
+        <Route path="/admin-users" element={<AdminRoute><Navigate to="/admin/users" replace /></AdminRoute>} />
 
 
         {/* =================================================

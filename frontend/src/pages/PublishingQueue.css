@@ -1138,6 +1138,141 @@
   color: #fb7185;
 }
 
+:root[data-theme="light"] .publishing-queue-page {
+  background:
+    radial-gradient(circle at 10% 0%, rgba(99, 102, 241, 0.06), transparent 30%),
+    radial-gradient(circle at 90% 10%, rgba(139, 92, 246, 0.04), transparent 28%),
+    var(--bg) !important;
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .publishing-queue-page .publishing-queue-header h1,
+:root[data-theme="light"] .publishing-queue-page .queue-summary-card strong,
+:root[data-theme="light"] .publishing-queue-page .publishing-queue-table td,
+:root[data-theme="light"] .publishing-queue-page .queue-platform,
+:root[data-theme="light"] .publishing-queue-page .queue-platform strong,
+:root[data-theme="light"] .publishing-queue-page .queue-post-id,
+:root[data-theme="light"] .publishing-queue-page .queue-content,
+:root[data-theme="light"] .publishing-queue-page .queue-date,
+:root[data-theme="light"] .publishing-queue-page .queue-detail-modal,
+:root[data-theme="light"] .publishing-queue-page .queue-detail-modal h2,
+:root[data-theme="light"] .publishing-queue-page .queue-detail-modal dd {
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .publishing-queue-page .queue-summary-card,
+:root[data-theme="light"] .publishing-queue-page .publishing-queue-card,
+:root[data-theme="light"] .publishing-queue-page .publishing-queue-table,
+:root[data-theme="light"] .publishing-queue-page .queue-toolbar,
+:root[data-theme="light"] .publishing-queue-page .queue-empty,
+:root[data-theme="light"] .publishing-queue-page .queue-detail-modal {
+  border-color: var(--border) !important;
+  background: var(--surface) !important;
+  color: var(--text-h) !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="light"] .publishing-queue-page .queue-summary-label,
+:root[data-theme="light"] .publishing-queue-page .publishing-queue-table th,
+:root[data-theme="light"] .publishing-queue-page .queue-toolbar label,
+:root[data-theme="light"] .publishing-queue-page .queue-platform small,
+:root[data-theme="light"] .publishing-queue-page .queue-date + .queue-time,
+:root[data-theme="light"] .publishing-queue-page .queue-time,
+:root[data-theme="light"] .publishing-queue-page .queue-muted,
+:root[data-theme="light"] .publishing-queue-page .queue-detail-modal dt,
+:root[data-theme="light"] .publishing-queue-page .queue-loading p,
+:root[data-theme="light"] .publishing-queue-page .queue-empty p {
+  color: var(--text) !important;
+}
+
+:root[data-theme="light"] .publishing-queue-page .publishing-queue-table thead {
+  background: var(--surface-muted) !important;
+}
+
+:root[data-theme="light"] .publishing-queue-page .publishing-queue-table th,
+:root[data-theme="light"] .publishing-queue-page .publishing-queue-table td,
+:root[data-theme="light"] .publishing-queue-page .queue-detail-modal dl div {
+  border-color: var(--border) !important;
+}
+
+:root[data-theme="light"] .publishing-queue-page .publishing-queue-table tbody tr:hover {
+  background: var(--bg-hover) !important;
+}
+
+:root[data-theme="light"] .publishing-queue-page .queue-toolbar input,
+:root[data-theme="light"] .publishing-queue-page .queue-toolbar select {
+  border-color: var(--border) !important;
+  background: var(--surface) !important;
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .publishing-queue-page .queue-refresh-button,
+:root[data-theme="light"] .publishing-queue-page .queue-row-actions button,
+:root[data-theme="light"] .publishing-queue-page .queue-bottom-actions button,
+:root[data-theme="light"] .publishing-queue-page .queue-modal-close {
+  border-color: var(--border) !important;
+  background: var(--surface-muted) !important;
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .publishing-queue-page .queue-refresh-button,
+:root[data-theme="light"] .publishing-queue-page .queue-refresh-button:hover {
+  border-color: var(--border) !important;
+  background: var(--surface-muted) !important;
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .publishing-queue-page .queue-platform-icon,
+:root[data-theme="light"] .publishing-queue-page .queue-summary-icon,
+:root[data-theme="light"] .publishing-queue-page .queue-empty-icon {
+  border-color: var(--border) !important;
+  background: var(--surface-muted) !important;
+}
+
+:root[data-theme="light"] .publishing-queue-page .queue-position {
+  border-color: var(--accent-soft) !important;
+  background: var(--accent-soft) !important;
+  color: var(--accent-strong) !important;
+}
+
+:root[data-theme="light"] .publishing-queue-page .queue-status.scheduled {
+  border-color: #e9c36a;
+  background: #fff7df;
+  color: #8a5b00 !important;
+}
+
+:root[data-theme="light"] .publishing-queue-page .queue-status.processing,
+:root[data-theme="light"] .publishing-queue-page .queue-status.queued {
+  border-color: #a9c9fb;
+  background: #edf5ff;
+  color: #1d5ca8 !important;
+}
+
+:root[data-theme="light"] .publishing-queue-page .queue-status.published {
+  border-color: #9fdec7;
+  background: #e9f8f1;
+  color: #13734f !important;
+}
+
+:root[data-theme="light"] .publishing-queue-page .queue-status.failed {
+  border-color: #f0b0ba;
+  background: #fff0f2;
+  color: #b4233a !important;
+}
+
+:root[data-theme="light"] .publishing-queue-page .queue-status.cancelled,
+:root[data-theme="light"] .publishing-queue-page .queue-status.unknown {
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--text) !important;
+}
+
+:root[data-theme="light"] .publishing-queue-page .queue-detail-error {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger) !important;
+}
+
 @media (max-width: 900px) {
   .queue-toolbar {
     grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -552,18 +552,17 @@ def publish_to_instagram(
     social_account=None
 ):
     """
-    Publish an Instagram image post.
+    Publish an Instagram image post or Reel.
 
-    Instagram publishing requires:
+    Supports:
+    - JPG/JPEG/PNG image posts
+    - MP4/MOV video Reels
 
-    1. Instagram access token
-    2. Instagram User ID
-    3. Publicly accessible image URL
-    4. Instagram content publishing permission
+    Instagram video publishing uses:
+        media_type=REELS
+        video_url=<public video URL>
 
-    The Instagram User ID is read from:
-
-        social_account.channel_id
+    The container is then polled until FINISHED before publishing.
     """
 
     # ========================================================
@@ -593,9 +592,7 @@ def publish_to_instagram(
             )
         }
 
-    print(
-        f"Instagram User ID: {instagram_user_id}"
-    )
+    print(f"Instagram User ID: {instagram_user_id}")
 
     # ========================================================
     # CHECK ACCESS TOKEN
@@ -617,8 +614,8 @@ def publish_to_instagram(
             "success": False,
             "platform": "instagram",
             "message": (
-                "Instagram publishing requires an image. "
-                "Please upload an image before publishing."
+                "Instagram publishing requires media. "
+                "Please upload an image or video before publishing."
             )
         }
 
@@ -626,9 +623,7 @@ def publish_to_instagram(
     # CREATE PUBLIC MEDIA URL
     # ========================================================
 
-    public_media_url, url_error = create_public_media_url(
-        media_url
-    )
+    public_media_url, url_error = create_public_media_url(media_url)
 
     if url_error:
         return {
@@ -637,9 +632,7 @@ def publish_to_instagram(
             "message": url_error
         }
 
-    print(
-        f"Instagram Media URL: {public_media_url}"
-    )
+    print(f"Instagram Media URL: {public_media_url}")
 
     # ========================================================
     # INSTAGRAM API VERSION
@@ -664,41 +657,81 @@ def publish_to_instagram(
         f"Application media type: {normalized_media_type}"
     )
 
-    # ========================================================
-    # CURRENTLY SUPPORT IMAGE
-    # ========================================================
+    # --------------------------------------------------------
+    # IMAGE TYPES
+    # --------------------------------------------------------
 
-    if normalized_media_type:
+    image_types = {
+        "image",
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "jpg",
+        "jpeg",
+        "png"
+    }
 
-        if normalized_media_type in [
-            "image/jpeg",
-            "image/jpg",
-            "jpg",
-            "jpeg"
-        ]:
-            normalized_media_type = "image"
+    # --------------------------------------------------------
+    # VIDEO TYPES
+    # --------------------------------------------------------
 
-        elif normalized_media_type in [
-            "video/mp4",
-            "mp4"
-        ]:
+    video_types = {
+        "video",
+        "video/mp4",
+        "video/quicktime",
+        "video/mov",
+        "mp4",
+        "mov"
+    }
+
+    # Normalize MIME types / frontend values
+
+    if normalized_media_type in image_types:
+        normalized_media_type = "image"
+
+    elif normalized_media_type in video_types:
+        normalized_media_type = "video"
+
+    elif normalized_media_type.startswith("video/"):
+        normalized_media_type = "video"
+
+    # --------------------------------------------------------
+    # IF MEDIA TYPE IS EMPTY
+    # --------------------------------------------------------
+    # Try to determine it from the uploaded file extension.
+
+    if not normalized_media_type:
+
+        media_path = str(media_url).lower().split("?")[0]
+
+        if media_path.endswith(
+            (".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm")
+        ):
             normalized_media_type = "video"
 
+        elif media_path.endswith(
+            (".jpg", ".jpeg", ".png", ".webp")
+        ):
+            normalized_media_type = "image"
+
     # ========================================================
-    # VIDEO NOT IMPLEMENTED IN THIS VERSION
+    # VALIDATE MEDIA TYPE
     # ========================================================
 
-    if normalized_media_type == "video":
-
+    if normalized_media_type not in {"image", "video"}:
         return {
             "success": False,
             "platform": "instagram",
             "message": (
-                "Instagram video publishing is not enabled "
-                "in this publisher version. "
-                "Please test with a JPG or JPEG image first."
+                "Instagram publishing supports "
+                "JPG/JPEG/PNG images and MP4/MOV videos."
             )
         }
+
+    print(
+        f"Instagram normalized media type: "
+        f"{normalized_media_type}"
+    )
 
     # ========================================================
     # CREATE INSTAGRAM MEDIA CONTAINER
@@ -710,32 +743,43 @@ def publish_to_instagram(
         f"{instagram_user_id}/media"
     )
 
-    # IMPORTANT:
-    #
-    # Do NOT send:
-    #
-    # "media_type": "image"
-    #
-    # for an IMAGE container.
-    #
-    # The previous error:
-    #
-    # "Only photo or video can be accepted as media type"
-    #
-    # happened because an incorrect media_type value was being
-    # passed to Instagram.
-    #
-    # For an image post we send image_url + caption only.
+    # ========================================================
+    # IMAGE CONTAINER
+    # ========================================================
 
-    container_data = {
-        "image_url": public_media_url,
-        "caption": content,
-        "access_token": access_token
-    }
+    if normalized_media_type == "image":
 
-    print(
-        "Creating Instagram media container..."
-    )
+        container_data = {
+            "image_url": public_media_url,
+            "caption": content or "",
+            "access_token": access_token
+        }
+
+        print(
+            "Creating Instagram IMAGE media container..."
+        )
+
+    # ========================================================
+    # REEL CONTAINER
+    # ========================================================
+
+    else:
+
+        container_data = {
+            "media_type": "REELS",
+            "video_url": public_media_url,
+            "caption": content or "",
+            "share_to_feed": "true",
+            "access_token": access_token
+        }
+
+        print(
+            "Creating Instagram REELS media container..."
+        )
+
+    # ========================================================
+    # SEND CONTAINER REQUEST
+    # ========================================================
 
     try:
 
@@ -762,7 +806,9 @@ def publish_to_instagram(
     # ========================================================
 
     try:
+
         container_result = container_response.json()
+
     except Exception:
 
         return {
@@ -774,22 +820,31 @@ def publish_to_instagram(
             )
         }
 
+    print(
+        "Instagram container response:",
+        container_result
+    )
+
     # ========================================================
     # CHECK CONTAINER CREATION
     # ========================================================
 
     if not container_response.ok:
 
-        if (
-            container_result.get("error", {}).get("code")
-            == 190
-        ):
+        error_data = container_result.get(
+            "error",
+            {}
+        )
+
+        if error_data.get("code") == 190:
+
             return {
                 "success": False,
                 "platform": "instagram",
                 "message": (
                     "Instagram access token is invalid or expired. "
-                    "Reconnect the Instagram account from Social Accounts."
+                    "Reconnect the Instagram account from "
+                    "Social Accounts."
                 )
             }
 
@@ -802,9 +857,11 @@ def publish_to_instagram(
             )
         }
 
-    container_id = container_result.get(
-        "id"
-    )
+    # ========================================================
+    # GET CONTAINER ID
+    # ========================================================
+
+    container_id = container_result.get("id")
 
     if not container_id:
 
@@ -821,7 +878,7 @@ def publish_to_instagram(
     )
 
     # ========================================================
-    # WAIT FOR CONTAINER TO FINISH PROCESSING
+    # WAIT FOR CONTAINER TO FINISH
     # ========================================================
 
     status_url = (
@@ -830,12 +887,14 @@ def publish_to_instagram(
         f"{container_id}"
     )
 
-    max_attempts = 12
+    max_attempts = 24
+
+    container_finished = False
 
     for attempt in range(max_attempts):
 
         print(
-            f"Checking Instagram container status "
+            "Checking Instagram container status "
             f"({attempt + 1}/{max_attempts})..."
         )
 
@@ -863,7 +922,9 @@ def publish_to_instagram(
             }
 
         try:
+
             status_result = status_response.json()
+
         except Exception:
 
             return {
@@ -874,6 +935,15 @@ def publish_to_instagram(
                     f"{status_response.text}"
                 )
             }
+
+        print(
+            "Instagram container status:",
+            status_result
+        )
+
+        # ----------------------------------------------------
+        # STATUS API ERROR
+        # ----------------------------------------------------
 
         if not status_response.ok:
 
@@ -909,16 +979,17 @@ def publish_to_instagram(
                 "Instagram media container is ready."
             )
 
+            container_finished = True
             break
 
         # ----------------------------------------------------
         # ERROR
         # ----------------------------------------------------
 
-        if status_code in [
+        if status_code in {
             "ERROR",
             "EXPIRED"
-        ]:
+        }:
 
             return {
                 "success": False,
@@ -935,7 +1006,11 @@ def publish_to_instagram(
 
         time.sleep(5)
 
-    else:
+    # ========================================================
+    # CHECK PROCESSING TIMEOUT
+    # ========================================================
+
+    if not container_finished:
 
         return {
             "success": False,
@@ -990,7 +1065,9 @@ def publish_to_instagram(
     # ========================================================
 
     try:
+
         publish_result = publish_response.json()
+
     except Exception:
 
         return {
@@ -1001,6 +1078,11 @@ def publish_to_instagram(
                 f"{publish_response.text}"
             )
         }
+
+    print(
+        "Instagram publish response:",
+        publish_result
+    )
 
     # ========================================================
     # PUBLISH FAILURE
@@ -1036,7 +1118,11 @@ def publish_to_instagram(
     return {
         "success": True,
         "platform": "instagram",
-        "message": "Instagram post published successfully",
+        "message": (
+            "Instagram Reel published successfully"
+            if normalized_media_type == "video"
+            else "Instagram image published successfully"
+        ),
         "post_id": instagram_media_id,
         "container_id": container_id
     }
@@ -1056,7 +1142,7 @@ def publish_to_facebook(
     """
     Publish a post to a Facebook Page using its Page access token.
 
-    Supports text-only posts and JPG/PNG image posts.
+    Supports text-only, image, and video posts.
     """
 
     page_id = getattr(social_account, "page_id", None)
@@ -1072,21 +1158,21 @@ def publish_to_facebook(
     page_url = f"https://graph.facebook.com/{api_version}/{page_id}"
 
     normalized_media_type = str(media_type or "").lower().strip()
-
-    if media_url and normalized_media_type not in {
-        "image",
-        "image/jpeg",
-        "image/jpg",
-        "image/png",
-        "jpg",
-        "jpeg",
-        "png"
-    }:
-        return {
-            "success": False,
-            "platform": "facebook",
-            "message": "Facebook publishing currently supports JPG/JPEG/PNG images only."
-        }
+    image_types = {"image", "image/jpeg", "image/jpg", "image/png", "jpg", "jpeg", "png"}
+    video_types = {
+        "video",
+        "video/mp4",
+        "video/quicktime",
+        "video/x-msvideo",
+        "video/x-matroska",
+        "video/webm",
+        "mp4",
+        "mov",
+        "avi",
+        "mkv",
+        "webm",
+    }
+    is_video = False
 
     try:
         if not media_url:
@@ -1100,32 +1186,61 @@ def publish_to_facebook(
             )
         else:
             relative_media_path = str(media_url).lstrip("/\\")
-            image_path = Path(__file__).resolve().parents[2] / relative_media_path
+            media_path = Path(__file__).resolve().parents[2] / relative_media_path
 
-            if not image_path.is_file():
+            if not media_path.is_file():
                 return {
                     "success": False,
                     "platform": "facebook",
-                    "message": f"Facebook image file was not found: {image_path}"
+                    "message": f"Facebook media file was not found: {media_path}"
                 }
 
-            mime_type = mimetypes.guess_type(str(image_path))[0] or "image/jpeg"
+            extension = media_path.suffix.lower()
+            guessed_media_type = mimetypes.guess_type(str(media_path))[0] or ""
+            is_video = (
+                normalized_media_type in video_types
+                or (not normalized_media_type and guessed_media_type.startswith("video/"))
+            )
+            is_image = (
+                normalized_media_type in image_types
+                or (not normalized_media_type and guessed_media_type.startswith("image/"))
+            )
 
-            with image_path.open("rb") as image_file:
+            if is_video and extension not in {".mp4", ".mov", ".avi", ".mkv", ".webm"}:
+                return {
+                    "success": False,
+                    "platform": "facebook",
+                    "message": "Facebook video uploads support MP4, MOV, AVI, MKV, and WebM files."
+                }
+
+            if not is_video and (not is_image or extension not in {".jpg", ".jpeg", ".png"}):
+                return {
+                    "success": False,
+                    "platform": "facebook",
+                    "message": "Facebook publishing supports JPG/JPEG/PNG images and video files."
+                }
+
+            mime_type = guessed_media_type or (
+                "video/mp4" if is_video else "image/jpeg"
+            )
+            endpoint = "videos" if is_video else "photos"
+            data = {
+                "access_token": access_token,
+                "description" if is_video else "message": content,
+            }
+
+            with media_path.open("rb") as media_file:
                 response = requests.post(
-                    f"{page_url}/photos",
-                    data={
-                        "message": content,
-                        "access_token": access_token
-                    },
+                    f"{page_url}/{endpoint}",
+                    data=data,
                     files={
                         "source": (
-                            image_path.name,
-                            image_file,
+                            media_path.name,
+                            media_file,
                             mime_type
                         )
                     },
-                    timeout=30
+                    timeout=(15, 300) if is_video else 30
                 )
     except requests.RequestException as exc:
         return {
@@ -1157,7 +1272,11 @@ def publish_to_facebook(
     return {
         "success": True,
         "platform": "facebook",
-        "message": "Facebook post published successfully",
+        "message": (
+            "Facebook video published successfully"
+            if media_url and is_video
+            else "Facebook post published successfully"
+        ),
         "post_id": result.get("post_id") or result.get("id")
     }
 
@@ -1169,18 +1288,186 @@ def publish_to_facebook(
 def publish_to_twitter(
     content: str,
     access_token: str,
+    media_url: str | None = None,
     social_account=None
 ):
     """
-    X/Twitter publishing placeholder.
+    Publish a text post to X using its v2 API.
     """
 
-    return {
-        "success": False,
-        "platform": "twitter",
-        "message": (
-            "X/Twitter real API publishing is not implemented yet."
+    if not content or not content.strip():
+        return {
+            "success": False,
+            "platform": "twitter",
+            "message": "X post content cannot be empty."
+        }
+
+    if social_account is not None and not access_token:
+        access_token = getattr(social_account, "access_token", None)
+
+    if not access_token:
+        return {
+            "success": False,
+            "platform": "twitter",
+            "message": "X access token is missing. Reconnect the X account."
+        }
+
+    if media_url:
+        return {
+            "success": False,
+            "platform": "twitter",
+            "message": "X publishing currently supports text-only posts."
+        }
+
+    def send_post(token: str):
+        return requests.post(
+            "https://api.x.com/2/tweets",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            json={"text": content},
+            timeout=30
         )
+
+    try:
+        response = send_post(access_token)
+    except requests.RequestException as exc:
+        return {
+            "success": False,
+            "platform": "twitter",
+            "message": f"X publishing request failed: {exc}"
+        }
+
+    if response.status_code == 401 and social_account is not None:
+        refresh_token = getattr(social_account, "refresh_token", None)
+        client_id = os.getenv("X_CLIENT_ID")
+        client_secret = os.getenv("X_CLIENT_SECRET")
+
+        if not refresh_token or not client_id or not client_secret:
+            return {
+                "success": False,
+                "platform": "twitter",
+                "message": "X authorization expired. Reconnect the X account."
+            }
+
+        try:
+            refresh_response = requests.post(
+                "https://api.x.com/2/oauth2/token",
+                data={
+                    "grant_type": "refresh_token",
+                    "refresh_token": refresh_token,
+                },
+                auth=(client_id, client_secret),
+                headers={
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                timeout=30
+            )
+        except requests.RequestException as exc:
+            return {
+                "success": False,
+                "platform": "twitter",
+                "message": f"Unable to refresh X authorization: {exc}"
+            }
+
+        if not refresh_response.ok:
+            return {
+                "success": False,
+                "platform": "twitter",
+                "message": "X authorization expired. Reconnect the X account."
+            }
+
+        try:
+            refreshed_tokens = refresh_response.json()
+        except ValueError:
+            return {
+                "success": False,
+                "platform": "twitter",
+                "message": "X returned an invalid token refresh response."
+            }
+
+        if not isinstance(refreshed_tokens, dict):
+            return {
+                "success": False,
+                "platform": "twitter",
+                "message": "X returned an invalid token refresh response."
+            }
+
+        refreshed_access_token = refreshed_tokens.get("access_token")
+        if not refreshed_access_token:
+            return {
+                "success": False,
+                "platform": "twitter",
+                "message": "X token refresh response did not include an access token."
+            }
+
+        social_account.access_token = refreshed_access_token
+        rotated_refresh_token = refreshed_tokens.get("refresh_token")
+        if rotated_refresh_token:
+            social_account.refresh_token = rotated_refresh_token
+
+        access_token = refreshed_access_token
+
+        try:
+            response = send_post(access_token)
+        except requests.RequestException as exc:
+            return {
+                "success": False,
+                "platform": "twitter",
+                "message": f"X publishing request failed: {exc}"
+            }
+
+    if not response.ok:
+        if response.status_code == 401:
+            message = "X authorization expired. Reconnect the X account."
+        else:
+            try:
+                error_data = response.json()
+            except ValueError:
+                error_data = response.text
+            message = f"X API error ({response.status_code}): {error_data}"
+
+        return {
+            "success": False,
+            "platform": "twitter",
+            "message": message
+        }
+
+    try:
+        response_data = response.json()
+    except ValueError:
+        response_data = {}
+
+    post_data = (
+        response_data.get("data", {})
+        if isinstance(response_data, dict)
+        else {}
+    )
+    if not isinstance(post_data, dict):
+        post_data = {}
+
+    post_id = post_data.get("id")
+    if not post_id:
+        return {
+            "success": False,
+            "platform": "twitter",
+            "message": "X accepted the request but did not return a post ID."
+        }
+
+    username = getattr(social_account, "username", None)
+    post_url = (
+        f"https://x.com/{str(username).lstrip('@')}/status/{post_id}"
+        if username
+        else f"https://x.com/i/web/status/{post_id}"
+    )
+
+    return {
+        "success": True,
+        "platform": "twitter",
+        "message": "X post published successfully.",
+        "post_id": post_id,
+        "url": post_url
     }
 
 
@@ -1196,19 +1483,305 @@ def publish_to_youtube(
     social_account=None
 ):
     """
-    YouTube publishing placeholder.
+    Publish a video to YouTube using YouTube Data API v3.
 
-    YouTube requires a video upload workflow using the
-    YouTube Data API.
+    The connected YouTube account should contain:
+    - access_token
+    - refresh_token (recommended for long-term use)
+
+    The uploaded media must be a local video file.
     """
 
-    return {
-        "success": False,
-        "platform": "youtube",
-        "message": (
-            "YouTube video publishing is not implemented "
-            "in this publisher version."
+    # ========================================================
+    # CHECK ACCESS TOKEN
+    # ========================================================
+
+    if not access_token:
+        return {
+            "success": False,
+            "platform": "youtube",
+            "message": "YouTube access token is missing."
+        }
+
+    # ========================================================
+    # CHECK MEDIA
+    # ========================================================
+
+    if not media_url:
+        return {
+            "success": False,
+            "platform": "youtube",
+            "message": (
+                "YouTube publishing requires a video. "
+                "Please upload a video before publishing."
+            )
+        }
+
+    # ========================================================
+    # CHECK MEDIA TYPE
+    # ========================================================
+
+    normalized_media_type = (
+        str(media_type).lower().strip()
+        if media_type
+        else ""
+    )
+
+    video_types = {
+        "video",
+        "video/mp4",
+        "mp4",
+        "video/mov",
+        "mov",
+        "video/quicktime",
+    }
+
+    if normalized_media_type and normalized_media_type not in video_types:
+        return {
+            "success": False,
+            "platform": "youtube",
+            "message": (
+                "YouTube publishing currently supports video files "
+                "such as MP4."
+            )
+        }
+
+    # ========================================================
+    # FIND LOCAL VIDEO FILE
+    # ========================================================
+
+    if media_url.startswith("http://") or media_url.startswith("https://"):
+        return {
+            "success": False,
+            "platform": "youtube",
+            "message": (
+                "YouTube publisher expected a local uploaded "
+                "video file path, but received a public URL."
+            )
+        }
+
+    backend_dir = Path(__file__).resolve().parents[2]
+    relative_media_path = str(media_url).lstrip("/\\")
+    video_path = backend_dir / relative_media_path
+
+    print("YouTube local video path:", video_path)
+
+    if not video_path.exists():
+        return {
+            "success": False,
+            "platform": "youtube",
+            "message": f"YouTube video file was not found: {video_path}"
+        }
+
+    if not video_path.is_file():
+        return {
+            "success": False,
+            "platform": "youtube",
+            "message": f"YouTube media path is not a file: {video_path}"
+        }
+
+    # ========================================================
+    # IMPORT GOOGLE LIBRARIES
+    # ========================================================
+
+    try:
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build
+        from googleapiclient.http import MediaFileUpload
+    except ImportError as exc:
+        return {
+            "success": False,
+            "platform": "youtube",
+            "message": (
+                "YouTube Google libraries are not installed. "
+                "Run: pip install google-api-python-client "
+                "google-auth google-auth-httplib2. "
+                f"Error: {str(exc)}"
+            )
+        }
+
+    # ========================================================
+    # CREATE GOOGLE CREDENTIALS
+    # ========================================================
+
+    refresh_token = None
+
+    if social_account is not None:
+        refresh_token = getattr(social_account, "refresh_token", None)
+
+    client_id = os.getenv("GOOGLE_CLIENT_ID")
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+
+    if not client_id or not client_secret:
+        return {
+            "success": False,
+            "platform": "youtube",
+            "message": (
+                "GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing "
+                "from the backend environment."
+            )
+        }
+
+    credentials = Credentials(
+        token=access_token,
+        refresh_token=refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=client_id,
+        client_secret=client_secret,
+        scopes=[
+            "https://www.googleapis.com/auth/youtube.upload",
+            "https://www.googleapis.com/auth/youtube.readonly",
+        ],
+    )
+
+    # ========================================================
+    # REFRESH EXPIRED ACCESS TOKEN
+    # ========================================================
+
+    if credentials.expired and credentials.refresh_token:
+        try:
+            from google.auth.transport.requests import Request
+            credentials.refresh(Request())
+            print("YouTube access token refreshed successfully.")
+
+            # Keep the new access token in the object for this upload.
+            # Persisting it in the database depends on your SocialAccount
+            # model and is intentionally not done here.
+        except Exception as exc:
+            return {
+                "success": False,
+                "platform": "youtube",
+                "message": (
+                    "YouTube access token could not be refreshed. "
+                    "Please reconnect the YouTube account. "
+                    f"Error: {str(exc)}"
+                )
+            }
+
+    # ========================================================
+    # BUILD YOUTUBE SERVICE
+    # ========================================================
+
+    try:
+        youtube = build(
+            "youtube",
+            "v3",
+            credentials=credentials
         )
+    except Exception as exc:
+        return {
+            "success": False,
+            "platform": "youtube",
+            "message": (
+                f"Could not initialize YouTube API client: {str(exc)}"
+            )
+        }
+
+    # ========================================================
+    # VIDEO TITLE
+    # ========================================================
+
+    title = "SocialPilot Video"
+
+    if content:
+        first_line = str(content).strip().split("\n")[0].strip()
+        if first_line:
+            title = first_line[:100]
+
+    # ========================================================
+    # VIDEO DESCRIPTION
+    # ========================================================
+
+    description = str(content or "").strip()
+
+    # ========================================================
+    # VIDEO METADATA
+    # ========================================================
+
+    body = {
+        "snippet": {
+            "title": title,
+            "description": description,
+            "categoryId": "22",
+        },
+        "status": {
+            "privacyStatus": "private"
+        }
+    }
+
+    # ========================================================
+    # UPLOAD VIDEO
+    # ========================================================
+
+    print("==========================================")
+    print("YouTube video upload started")
+    print("Video:", video_path)
+    print("Title:", title)
+    print("Privacy: private")
+    print("==========================================")
+
+    try:
+        mime_type = mimetypes.guess_type(str(video_path))[0] or "video/mp4"
+
+        media = MediaFileUpload(
+            str(video_path),
+            mimetype=mime_type,
+            resumable=True
+        )
+
+        insert_request = youtube.videos().insert(
+            part="snippet,status",
+            body=body,
+            media_body=media
+        )
+
+        response = None
+
+        while response is None:
+            status, response = insert_request.next_chunk()
+
+            if status:
+                progress = int(status.progress() * 100)
+                print(f"YouTube upload progress: {progress}%")
+
+    except Exception as exc:
+        print("YouTube upload failed:", str(exc))
+
+        return {
+            "success": False,
+            "platform": "youtube",
+            "message": f"YouTube video upload failed: {str(exc)}"
+        }
+
+    # ========================================================
+    # CHECK RESPONSE
+    # ========================================================
+
+    if not response or not response.get("id"):
+        return {
+            "success": False,
+            "platform": "youtube",
+            "message": (
+                "YouTube upload completed without returning a video ID."
+            )
+        }
+
+    youtube_video_id = response["id"]
+    youtube_video_url = f"https://www.youtube.com/watch?v={youtube_video_id}"
+
+    print("==========================================")
+    print("YouTube video published successfully")
+    print("YouTube Video ID:", youtube_video_id)
+    print("YouTube URL:", youtube_video_url)
+    print("==========================================")
+
+    return {
+        "success": True,
+        "platform": "youtube",
+        "message": "YouTube video published successfully",
+        "post_id": youtube_video_id,
+        "video_id": youtube_video_id,
+        "url": youtube_video_url
     }
 
 
@@ -1312,6 +1885,7 @@ def publish_to_social_media(
         return publish_to_twitter(
             content=content,
             access_token=access_token,
+            media_url=media_url,
             social_account=social_account
         )
 

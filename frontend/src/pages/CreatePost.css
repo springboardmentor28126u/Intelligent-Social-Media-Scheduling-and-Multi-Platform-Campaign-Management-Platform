@@ -1498,3 +1498,229 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     max-height: 280px;
   }
 }
+
+  :root[data-theme="light"] .create-post-page {
+    --sp-bg: #f3f6fb;
+    --sp-panel: #ffffff;
+    --sp-panel-2: #f6f8fc;
+    --sp-border: #dfe5ef;
+    --sp-text: #17243a;
+    --sp-muted: #647084;
+  }
+
+  :root[data-theme="light"] .create-post-page .account-option {
+    border-color: var(--border);
+    background: var(--surface);
+    color: var(--text-h);
+  }
+
+  :root[data-theme="light"] .create-post-page .account-option:has(input:checked) {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  :root[data-theme="light"] .create-post-page .account-option small,
+  :root[data-theme="light"] .create-post-page .helper-text,
+  :root[data-theme="light"] .create-post-page .character-count,
+  :root[data-theme="light"] .create-post-page .composer-tools,
+  :root[data-theme="light"] .create-post-page .media-upload-heading p {
+    color: var(--text);
+  }
+
+  :root[data-theme="light"] .create-post-page .form-group label {
+    color: var(--text-h);
+  }
+
+  :root[data-theme="light"] .create-post-page .form-group select,
+  :root[data-theme="light"] .create-post-page .form-group input[type="datetime-local"],
+  :root[data-theme="light"] .create-post-page .form-group textarea {
+    border-color: var(--border);
+    background: var(--surface);
+    color: var(--text-h);
+  }
+
+  :root[data-theme="light"] .create-post-page .form-group textarea::placeholder {
+    color: var(--text-muted);
+  }
+
+  :root[data-theme="light"] .create-post-page .media-upload-card,
+  :root[data-theme="light"] .create-post-page .schedule-card {
+    border-color: var(--border);
+    background: var(--surface-muted);
+  }
+
+  :root[data-theme="light"] .create-post-page .media-upload-box {
+    border-color: var(--border);
+    background: var(--surface);
+  }
+
+  :root[data-theme="light"] .create-post-page .media-upload-box strong,
+  :root[data-theme="light"] .create-post-page .media-upload-heading h3 {
+    color: var(--text-h);
+  }
+
+  :root[data-theme="light"] .create-post-page .media-upload-box small,
+  :root[data-theme="light"] .create-post-page .toggle-copy small,
+  :root[data-theme="light"] .create-post-page .tips-card p {
+    color: var(--text);
+  }
+
+  :root[data-theme="light"] .create-post-page .recurring-toggle,
+  :root[data-theme="light"] .create-post-page .cancel-btn {
+    border-color: var(--border);
+    background: var(--surface);
+    color: var(--text-h);
+  }
+
+  :root[data-theme="light"] .create-post-page .recurring-toggle.active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  :root[data-theme="light"] .create-post-page .toggle-copy strong,
+  :root[data-theme="light"] .create-post-page .tips-card strong {
+    color: var(--text-h);
+  }
+
+  :root[data-theme="light"] .create-post-page .toggle-ui {
+    background: #c6cfdd;
+  }
+
+  :root[data-theme="light"] .create-post-page .no-accounts-message {
+    border-color: var(--border);
+    background: var(--surface-muted);
+    color: var(--text);
+  }
+
+  :root[data-theme="light"] .create-post-page .no-accounts-message strong {
+    color: var(--text-h);
+  }
+
+  :root[data-theme="light"] .create-post-page .no-accounts-message small {
+    color: var(--text);
+  }
+
+  :root[data-theme="light"] .create-post-page .bottom-actions button {
+    border-color: var(--border);
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  :root[data-theme="light"] .create-post-page input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: none;
+  }
+
+  :root[data-theme="light"] .create-post-page .platform-chip {
+    border-color: var(--border);
+    background: var(--surface-muted);
+    color: var(--text);
+  }
+
+  :root[data-theme="light"] .create-post-page .platform-chip.selected {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+  }
+
+  :root[data-theme="light"] .create-post-page .social-preview {
+    border-color: var(--border);
+    background: var(--surface);
+  }
+
+  :root[data-theme="light"] .create-post-page .preview-profile {
+    border-color: var(--border);
+    background: var(--surface);
+  }
+
+  :root[data-theme="light"] .create-post-page .preview-profile strong,
+  :root[data-theme="light"] .create-post-page .preview-content p {
+    color: var(--text-h) !important;
+  }
+
+  :root[data-theme="light"] .create-post-page .preview-profile span,
+  :root[data-theme="light"] .create-post-page .preview-actions,
+  :root[data-theme="light"] .create-post-page .preview-meta {
+    color: var(--text) !important;
+  }
+
+  :root[data-theme="light"] .create-post-page .preview-media {
+    border-color: var(--border);
+    background: var(--surface-muted);
+  }
+
+  :root[data-theme="light"] .create-post-page .preview-media video {
+    background: var(--surface-muted);
+  }
+
+  :root[data-theme="light"] .create-post-page .preview-media-placeholder {
+    border-color: var(--border);
+    background: var(--surface-muted);
+    color: var(--text) !important;
+  }
+
+  :root[data-theme="light"] .create-post-page .preview-media-placeholder span {
+    background: var(--accent-soft);
+  }
+
+  :root[data-theme="light"] .create-post-page .preview-media-placeholder strong {
+    color: var(--text-h) !important;
+  }
+
+  :root[data-theme="light"] .create-post-page .preview-media-placeholder small {
+    color: var(--text) !important;
+  }
+
+  :root[data-theme="light"] .create-post-page .schedule-summary {
+    border-color: var(--border);
+    background: var(--surface);
+  }
+
+  :root[data-theme="light"] .create-post-page .schedule-summary span {
+    color: var(--text) !important;
+  }
+
+  :root[data-theme="light"] .create-post-page .schedule-summary strong {
+    color: var(--text-h) !important;
+  }
+
+  :root[data-theme="light"] .create-post-page .eyebrow,
+  :root[data-theme="light"] .create-post-page .section-kicker {
+    color: var(--accent-strong) !important;
+  }
+
+  :root[data-theme="light"] .create-post-page .back-dashboard-button {
+    border-color: var(--border);
+    background: var(--surface);
+    color: var(--text-h) !important;
+  }
+
+  :root[data-theme="light"] .create-post-page .back-dashboard-button:hover {
+    border-color: var(--accent);
+    background: var(--surface-muted);
+  }
+
+  :root[data-theme="light"] .create-post-page .draft-pill {
+    border-color: var(--accent-soft);
+    background: var(--accent-soft);
+    color: var(--accent-strong) !important;
+  }
+
+  :root[data-theme="light"] .create-post-page .ist-badge {
+    border-color: var(--border);
+    background: var(--surface-muted);
+    color: var(--text) !important;
+  }
+
+  :root[data-theme="light"] .create-post-page .live-dot {
+    border-color: var(--success-soft);
+    background: var(--success-soft);
+    color: var(--success) !important;
+  }
+
+  :root[data-theme="light"] .create-post-page .submit-btn {
+    color: #ffffff !important;
+  }
+
+  :root[data-theme="light"] .create-post-page .cancel-btn {
+    color: var(--text-h) !important;
+  }

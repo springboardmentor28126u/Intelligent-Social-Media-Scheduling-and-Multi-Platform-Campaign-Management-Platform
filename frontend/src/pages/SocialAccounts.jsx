@@ -70,11 +70,11 @@ export default function SocialAccounts() {
       name: "X / Twitter",
       icon: "𝕏",
       color: "twitter",
-      badge: "SETUP NEXT",
+      badge: "OAUTH",
       description:
-        "X/Twitter publishing will be added in a future integration.",
-      oauth: false,
-      comingSoon: true,
+        "Connect your X account and publish text posts directly.",
+      oauth: true,
+      endpoint: "/social-accounts/x/login",
     },
   ];
 
@@ -83,8 +83,6 @@ export default function SocialAccounts() {
   // --------------------------------------------------
 
   useEffect(() => {
-    loadAccounts();
-
     // Check OAuth callback messages
     const params = new URLSearchParams(window.location.search);
 
@@ -92,9 +90,18 @@ export default function SocialAccounts() {
     const youtubeStatus = params.get("youtube");
     const facebookStatus = params.get("facebook");
     const instagramStatus = params.get("instagram");
+    const twitterStatus = params.get("twitter");
 
     const callbackError = params.get("error");
     const callbackMessage = params.get("message");
+
+    const isOAuthCallback =
+      linkedinStatus ||
+      youtubeStatus ||
+      facebookStatus ||
+      instagramStatus ||
+      twitterStatus ||
+      callbackError;
 
     if (linkedinStatus === "connected") {
       setMessage("LinkedIn account connected successfully.");
@@ -112,11 +119,16 @@ export default function SocialAccounts() {
       setMessage("Instagram account connected successfully.");
     }
 
+    if (twitterStatus === "connected") {
+      setMessage("X account connected successfully.");
+    }
+
     if (
       linkedinStatus === "error" ||
       youtubeStatus === "error" ||
       facebookStatus === "error" ||
       instagramStatus === "error" ||
+      twitterStatus === "error" ||
       callbackError
     ) {
       setError(
@@ -129,20 +141,16 @@ export default function SocialAccounts() {
     }
 
     // Remove OAuth query parameters from browser URL
-    if (
-      linkedinStatus ||
-      youtubeStatus ||
-      facebookStatus ||
-      instagramStatus ||
-      callbackError ||
-      callbackMessage
-    ) {
+    if (isOAuthCallback || callbackMessage) {
       window.history.replaceState(
         {},
         document.title,
         window.location.pathname
       );
     }
+
+    // Load accounts after OAuth callback
+    loadAccounts();
   }, []);
 
   // --------------------------------------------------
@@ -212,7 +220,12 @@ export default function SocialAccounts() {
         throw new Error("Please login before connecting a social account.");
       }
 
-      const response = await fetch(`${API_BASE}${platform.endpoint}`, {
+      const endpoint = new URL(`${API_BASE}${platform.endpoint}`);
+      if (platform.id === "facebook" || platform.id === "twitter") {
+        endpoint.searchParams.set("frontend_origin", window.location.origin);
+      }
+
+      const response = await fetch(endpoint, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -446,7 +459,8 @@ export default function SocialAccounts() {
               platform.id === "linkedin" ||
               platform.id === "youtube" ||
               platform.id === "facebook" ||
-              platform.id === "instagram"
+              platform.id === "instagram" ||
+              platform.id === "twitter"
           )
           .map((platform) => {
             const isConnecting = connecting === platform.id;
@@ -479,7 +493,7 @@ export default function SocialAccounts() {
                 >
                   {isConnecting
                     ? "Connecting..."
-                    : isConnected && platform.id === "instagram"
+                    : isConnected
                       ? "Reconnect"
                       : "Connect"}
                 </button>
@@ -519,8 +533,8 @@ export default function SocialAccounts() {
             <h3>No connected accounts</h3>
 
             <p>
-              Connect LinkedIn, Facebook, YouTube, or Instagram using
-              the OAuth buttons above.
+              Connect LinkedIn, Facebook, YouTube, Instagram, or X
+              using the OAuth buttons above.
             </p>
           </div>
         ) : (
@@ -669,11 +683,11 @@ export default function SocialAccounts() {
           </div>
 
           <div className="integration-status-item">
-            <span className="status-dot pending"></span>
+            <span className="status-dot active"></span>
 
             <div>
               <strong>X / Twitter</strong>
-              <small>Coming next</small>
+              <small>OAuth + text publishing</small>
             </div>
           </div>
         </div>

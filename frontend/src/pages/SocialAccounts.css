@@ -22,6 +22,128 @@
   color: #f5f7fb;
 }
 
+:root[data-theme="light"] .social-accounts-page {
+  background: radial-gradient(circle at 20% 0%, rgba(49, 95, 206, 0.08), transparent 30%), radial-gradient(circle at 90% 10%, rgba(110, 88, 189, 0.06), transparent 28%), var(--bg);
+  color: var(--text-h);
+}
+
+:root[data-theme="light"] .social-page-header h1,
+:root[data-theme="light"] .social-page-header p,
+:root[data-theme="light"] .social-eyebrow,
+:root[data-theme="light"] .section-eyebrow,
+:root[data-theme="light"] .platform-card h2,
+:root[data-theme="light"] .platform-card p,
+:root[data-theme="light"] .section-header h2,
+:root[data-theme="light"] .connected-account-info h3,
+:root[data-theme="light"] .connected-account-info p,
+:root[data-theme="light"] .connected-account-info small,
+:root[data-theme="light"] .empty-state h3,
+:root[data-theme="light"] .empty-state p,
+:root[data-theme="light"] .oauth-info-card h3,
+:root[data-theme="light"] .oauth-info-card p {
+  color: inherit;
+}
+
+:root[data-theme="light"] .social-page-header p,
+:root[data-theme="light"] .platform-card p,
+:root[data-theme="light"] .connected-account-info p,
+:root[data-theme="light"] .connected-account-info small,
+:root[data-theme="light"] .empty-state p,
+:root[data-theme="light"] .oauth-info-card p,
+:root[data-theme="light"] .social-eyebrow,
+:root[data-theme="light"] .section-eyebrow {
+  color: var(--text) !important;
+}
+
+:root[data-theme="light"] .platform-card,
+:root[data-theme="light"] .accounts-section,
+:root[data-theme="light"] .connected-account,
+:root[data-theme="light"] .empty-state,
+:root[data-theme="light"] .oauth-info-card,
+:root[data-theme="light"] .refresh-button,
+:root[data-theme="light"] .disconnect-button,
+:root[data-theme="light"] .delete-account-button,
+:root[data-theme="light"] .account-count,
+:root[data-theme="light"] .platform-badge,
+:root[data-theme="light"] .connected-badge {
+  border-color: var(--border) !important;
+  background: var(--surface) !important;
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .refresh-button,
+:root[data-theme="light"] .disconnect-button,
+:root[data-theme="light"] .delete-account-button {
+  background: var(--surface-muted) !important;
+}
+
+:root[data-theme="light"] .connect-button,
+:root[data-theme="light"] .connect-button.linkedin,
+:root[data-theme="light"] .connect-button.youtube,
+:root[data-theme="light"] .connect-button.facebook,
+:root[data-theme="light"] .connect-button.instagram,
+:root[data-theme="light"] .connect-button.twitter {
+  color: #fff !important;
+}
+
+:root[data-theme="light"] .connect-button.disabled {
+  background: var(--surface-muted) !important;
+  color: var(--text) !important;
+}
+
+:root[data-theme="light"] .social-accounts-page .back-dashboard-button,
+:root[data-theme="light"] .social-accounts-page .back-dashboard-button:hover {
+  border-color: var(--border) !important;
+  background: var(--surface) !important;
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .social-accounts-page .refresh-button,
+:root[data-theme="light"] .social-accounts-page .refresh-button:hover,
+:root[data-theme="light"] .social-accounts-page .disconnect-button,
+:root[data-theme="light"] .social-accounts-page .disconnect-button:hover,
+:root[data-theme="light"] .social-accounts-page .delete-account-button {
+  border-color: var(--border) !important;
+  background: var(--surface-muted) !important;
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .social-accounts-page .delete-account-button:hover {
+  border-color: var(--danger) !important;
+  background: var(--danger-soft) !important;
+  color: var(--danger) !important;
+}
+
+:root[data-theme="light"] .social-accounts-page .account-count {
+  background: var(--accent-soft) !important;
+  color: var(--accent-strong) !important;
+}
+
+:root[data-theme="light"] .social-accounts-page .connected-badge,
+:root[data-theme="light"] .social-accounts-page .platform-badge {
+  border-color: #9fdec7 !important;
+  background: #e9f8f1 !important;
+  color: #13734f !important;
+}
+
+:root[data-theme="light"] .social-accounts-page .integration-status-section {
+  border-color: var(--border) !important;
+  background: var(--surface) !important;
+}
+
+:root[data-theme="light"] .social-accounts-page .integration-status-item {
+  border-color: var(--border) !important;
+  background: var(--surface-muted) !important;
+}
+
+:root[data-theme="light"] .social-accounts-page .integration-status-item strong {
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .social-accounts-page .integration-status-item small {
+  color: var(--text) !important;
+}
+
 
 /* =========================================================
    PAGE HEADER

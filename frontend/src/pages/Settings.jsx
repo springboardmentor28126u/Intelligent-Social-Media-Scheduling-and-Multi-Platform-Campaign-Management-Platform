@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../components/UI";
+import { useTheme } from "../context/ThemeContext";
 import "./Settings.css";
 
 const DEFAULT_PREFERENCES = { email: true, campaigns: true, posts: true };
@@ -8,7 +9,7 @@ const DEFAULT_PREFERENCES = { email: true, campaigns: true, posts: true };
 function Settings() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const [theme, setTheme] = useState(() => localStorage.getItem("socialpilot-theme") || "light");
+  const { theme, setTheme } = useTheme();
   const [preferences, setPreferences] = useState(() => {
     try {
       return { ...DEFAULT_PREFERENCES, ...JSON.parse(localStorage.getItem("socialpilot-notification-preferences") || "{}") };
@@ -36,15 +37,8 @@ function Settings() {
       .catch(() => setUser(null));
   }, [navigate]);
 
-  useEffect(() => {
-    const syncTheme = (event) => setTheme(event.detail);
-    window.addEventListener("socialpilot-theme-change", syncTheme);
-    return () => window.removeEventListener("socialpilot-theme-change", syncTheme);
-  }, []);
-
   function changeTheme(nextTheme) {
-    localStorage.setItem("socialpilot-theme", nextTheme);
-    window.dispatchEvent(new CustomEvent("socialpilot-theme-change", { detail: nextTheme }));
+    setTheme(nextTheme);
   }
 
   function updatePreference(event) {

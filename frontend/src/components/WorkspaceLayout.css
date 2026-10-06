@@ -72,7 +72,7 @@
 
 .workspace-nav-link:hover,
 .workspace-logout:hover { background: var(--surface-muted); color: var(--text-h); }
-.workspace-nav-link.is-active { background: #e5f2ed; color: #12664c; font-weight: 700; }
+.workspace-nav-link.is-active { background: var(--accent-soft); color: var(--accent-strong); font-weight: 700; }
 .nav-icon { width: 20px; text-align: center; font-size: 17px; }
 .workspace-logout { margin-top: auto; border-top: 1px solid var(--border); padding-top: 10px; }
 .workspace-content { min-width: 0; }

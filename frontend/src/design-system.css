@@ -1,29 +1,29 @@
 :root {
-  --bg: #f3f6fb;
-  --surface: #ffffff;
-  --surface-muted: #f6f8fc;
-  --text: #647084;
-  --text-h: #17243a;
-  --border: #dfe5ef;
-  --accent: #315fce;
-  --accent-strong: #214ba9;
-  --accent-soft: #e9efff;
-  --accent-purple: #6e58bd;
-  --success: #147a58;
-  --success-soft: #e5f5ee;
-  --warning: #9b6716;
-  --warning-soft: #fff4dc;
-  --danger: #b43e4d;
-  --danger-soft: #fff0f1;
-  --info: #2867a8;
-  --info-soft: #eaf3ff;
-  --shadow: 0 14px 40px rgba(29, 49, 84, 0.09);
+  --bg: #101722;
+  --surface: #182231;
+  --surface-muted: #202c3c;
+  --text: #aab6c7;
+  --text-h: #edf3fb;
+  --border: #2d3b4f;
+  --accent: #7ba0f3;
+  --accent-strong: #9ab6ff;
+  --accent-soft: #263653;
+  --accent-purple: #ad9be8;
+  --success: #65d3a6;
+  --success-soft: #18352c;
+  --warning: #efbd65;
+  --warning-soft: #3a3020;
+  --danger: #f18b96;
+  --danger-soft: #3b242a;
+  --info: #8bc5f2;
+  --info-soft: #1f3348;
+  --shadow: 0 18px 46px rgba(0, 0, 0, 0.26);
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --font-sans: "Avenir Next", "Segoe UI", sans-serif;
   --font-heading: "Avenir Next", "Segoe UI", sans-serif;
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 :root[data-theme="dark"] {
@@ -49,6 +49,121 @@
   color-scheme: dark;
 }
 
+:root[data-theme="light"] {
+  --bg: #f3f6fb;
+  --surface: #ffffff;
+  --surface-muted: #f6f8fc;
+  --text: #647084;
+  --text-h: #17243a;
+  --border: #dfe5ef;
+  --accent: #315fce;
+  --accent-strong: #214ba9;
+  --accent-soft: #e9efff;
+  --accent-purple: #6e58bd;
+  --success: #147a58;
+  --success-soft: #e5f5ee;
+  --warning: #9b6716;
+  --warning-soft: #fff4dc;
+  --danger: #b43e4d;
+  --danger-soft: #fff0f1;
+  --info: #2867a8;
+  --info-soft: #eaf3ff;
+  --shadow: 0 14px 40px rgba(29, 49, 84, 0.09);
+  color-scheme: light;
+}
+
+:root[data-theme="light"] .home-page,
+:root[data-theme="light"] .login-page,
+:root[data-theme="light"] .register-page,
+:root[data-theme="light"] .recovery-page,
+:root[data-theme="light"] .workspace-page,
+:root[data-theme="light"] .posts-page,
+:root[data-theme="light"] .campaigns-page,
+:root[data-theme="light"] .publishing-queue-page,
+:root[data-theme="light"] .social-accounts-page,
+:root[data-theme="light"] .reports-page,
+:root[data-theme="light"] .notifications-page,
+:root[data-theme="light"] .settings-page,
+:root[data-theme="light"] .calendar-page,
+:root[data-theme="light"] .drafts-page,
+:root[data-theme="light"] .create-post-page,
+:root[data-theme="light"] .create-campaign-page,
+:root[data-theme="light"] .campaign-details-page,
+:root[data-theme="light"] .analytics-page,
+:root[data-theme="light"] .dashboard-home,
+:root[data-theme="light"] .admin-dashboard-page,
+:root[data-theme="light"] .admin-users-page,
+:root[data-theme="light"] .admin-section-page {
+  background: var(--bg) !important;
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .login-page,
+:root[data-theme="light"] .register-page,
+:root[data-theme="light"] .recovery-page {
+  background: var(--bg) !important;
+}
+
+:root[data-theme="light"] .login-container,
+:root[data-theme="light"] .login-info,
+:root[data-theme="light"] .login-card,
+:root[data-theme="light"] .register-container,
+:root[data-theme="light"] .register-info,
+:root[data-theme="light"] .register-card,
+:root[data-theme="light"] .recovery-card,
+:root[data-theme="light"] .recovery-panel {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-h) !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="light"] .login-info h1,
+:root[data-theme="light"] .login-header h2,
+:root[data-theme="light"] .login-feature h3,
+:root[data-theme="light"] .register-info h1,
+:root[data-theme="light"] .register-header h2,
+:root[data-theme="light"] .register-feature h3,
+:root[data-theme="light"] .login-info p,
+:root[data-theme="light"] .register-info p,
+:root[data-theme="light"] .login-feature p,
+:root[data-theme="light"] .register-feature p,
+:root[data-theme="light"] .login-header p,
+:root[data-theme="light"] .register-header p,
+:root[data-theme="light"] .login-form-group label,
+:root[data-theme="light"] .register-form-group label,
+:root[data-theme="light"] .login-form-options span,
+:root[data-theme="light"] .register-terms,
+:root[data-theme="light"] .login-feature > span,
+:root[data-theme="light"] .register-feature > span {
+  color: inherit;
+}
+
+:root[data-theme="light"] .login-feature > span,
+:root[data-theme="light"] .register-feature > span {
+  background: var(--surface-muted) !important;
+  color: var(--accent) !important;
+}
+
+:root[data-theme="light"] .login-logo,
+:root[data-theme="light"] .register-logo,
+:root[data-theme="light"] .login-form-options a,
+:root[data-theme="light"] .login-form a,
+:root[data-theme="light"] .register-form a {
+  color: var(--accent-strong) !important;
+}
+
+:root[data-theme="light"] .login-form-group input,
+:root[data-theme="light"] .register-form-group input,
+:root[data-theme="light"] .login-form-group textarea,
+:root[data-theme="light"] .register-form-group textarea,
+:root[data-theme="light"] .login-form-group select,
+:root[data-theme="light"] .register-form-group select {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-h) !important;
+}
+
 *, *::before, *::after { box-sizing: border-box; }
 html { min-width: 320px; background: var(--bg); }
 body { min-width: 320px; margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-sans); }
@@ -57,6 +172,102 @@ button { color: inherit; }
 a { color: var(--accent); }
 :focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 48%, transparent); outline-offset: 2px; }
 h1, h2, h3, h4 { color: var(--text-h); font-family: var(--font-heading); letter-spacing: 0; }
+
+:root[data-theme="light"] :is(
+  .home-page,
+  .social-accounts-page,
+  .posts-page,
+  .calendar-page,
+  .drafts-page,
+  .publishing-logs-page,
+  .publishing-queue-page,
+  .create-post-page,
+  .campaigns-page,
+  .create-campaign-page,
+  .campaign-details-page,
+  .admin-dashboard-page,
+  .admin-users-page,
+  .dashboard-home,
+  .workspace-page
+) {
+  background: var(--bg) !important;
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] :is(
+  .social-accounts-page,
+  .posts-page,
+  .calendar-page,
+  .drafts-page,
+  .publishing-logs-page,
+  .publishing-queue-page,
+  .create-post-page,
+  .campaigns-page,
+  .create-campaign-page,
+  .campaign-details-page,
+  .admin-dashboard-page,
+  .admin-users-page,
+  .dashboard-home,
+  .workspace-page
+) :is(
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  label,
+  small,
+  span,
+  strong,
+  li,
+  td,
+  th
+) {
+  color: inherit;
+}
+
+:root[data-theme="light"] :is(.social-accounts-page, .posts-page, .calendar-page, .drafts-page, .publishing-logs-page, .publishing-queue-page, .create-post-page, .campaigns-page, .create-campaign-page, .campaign-details-page, .admin-dashboard-page, .admin-users-page, .dashboard-home, .workspace-page) :is(
+  [class*="card"],
+  [class*="panel"],
+  [class*="modal"],
+  [class*="section"],
+  [class*="summary"],
+  [class*="table-wrap"],
+  [class*="box"],
+  .platform-card,
+  .accounts-section,
+  .connected-account,
+  .empty-state,
+  .oauth-info-card,
+  .refresh-button,
+  .disconnect-button,
+  .delete-account-button,
+  .account-count
+) {
+  border-color: var(--border) !important;
+  background: var(--surface) !important;
+  color: var(--text-h) !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="light"] :is(.social-accounts-page, .posts-page, .calendar-page, .drafts-page, .publishing-logs-page, .publishing-queue-page, .create-post-page, .campaigns-page, .create-campaign-page, .campaign-details-page, .admin-dashboard-page, .admin-users-page, .dashboard-home, .workspace-page) :is(
+  [class*="description"],
+  [class*="subtitle"],
+  [class*="muted"],
+  [class*="hint"],
+  [class*="empty"],
+  [class*="eyebrow"],
+  .social-page-header p,
+  .platform-card p,
+  .connected-account-info p,
+  .connected-account-info small,
+  .oauth-info-card p,
+  .empty-state p,
+  .social-eyebrow,
+  .section-eyebrow
+) {
+  color: var(--text) !important;
+}
 
 .workspace-shell { min-height: 100vh; display: grid; grid-template-columns: 246px minmax(0, 1fr); background: var(--bg); color: var(--text-h); }
 .workspace-sidebar { z-index: 80; position: sticky; top: 0; height: 100vh; min-height: 100vh; padding: 17px 13px 12px; background: var(--surface); border-right: 1px solid var(--border); }
@@ -92,6 +303,19 @@ h1, h2, h3, h4 { color: var(--text-h); font-family: var(--font-heading); letter-
 .workspace-page-content { min-width: 0; width: 100%; padding: 0; }
 .workspace-page { width: min(100%, 1480px); margin: 0 auto; padding: 29px clamp(20px, 3.3vw, 48px) 48px; }
 .theme-toggle { top: 14px; right: 19px; width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--surface); color: var(--text-h); box-shadow: none; font-size: 17px; }
+.is-admin-workspace .workspace-nav { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+.is-admin-workspace .workspace-nav-link { min-height: 39px; }
+.topbar-search { width: min(230px, 24vw); height: 34px; display: flex; align-items: center; gap: 7px; padding: 0 9px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); }
+.topbar-search > span { font-size: 18px; }
+.topbar-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text-h); font-size: 10px; }
+.topbar-profile-wrap { position: relative; }
+.topbar-user-copy { display: grid; gap: 1px; text-align: left; }
+.topbar-user-copy strong { color: var(--text-h); font-size: 10px; }
+.topbar-user-copy small { color: var(--text); font-size: 8px; }
+.topbar-profile-menu { position: absolute; z-index: 120; top: calc(100% + 8px); right: 0; width: 205px; display: grid; gap: 7px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--shadow); }
+.topbar-profile-menu > strong { color: var(--text-h); font-size: 11px; }
+.topbar-profile-menu > span { overflow: hidden; color: var(--text); font-size: 9px; text-overflow: ellipsis; }
+.topbar-profile-menu a, .topbar-profile-menu button { padding: 7px 0 0; border: 0; border-top: 1px solid var(--border); background: transparent; color: var(--text-h); font-size: 10px; text-align: left; text-decoration: none; cursor: pointer; }
 
 /* Bring the independently styled legacy workflows onto the same surfaces. */
 :is(.posts-page, .social-accounts-page, .calendar-page, .drafts-page, .publishing-logs-page, .publishing-queue-page, .create-post-page, .campaigns-page, .create-campaign-page, .campaign-details-page, .admin-dashboard-page, .admin-users-page) {
@@ -167,6 +391,143 @@ h1, h2, h3, h4 { color: var(--text-h); font-family: var(--font-heading); letter-
 
 .workspace-backdrop { display: none; }
 
+:root[data-theme="light"] :is(.workspace-page, .posts-page, .campaigns-page, .publishing-queue-page, .social-accounts-page, .reports-page, .notifications-page, .settings-page, .calendar-page, .drafts-page, .create-post-page, .create-campaign-page, .campaign-details-page, .analytics-page, .dashboard-home, .admin-dashboard-page, .admin-users-page, .admin-section-page) {
+  background: var(--bg) !important;
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] :is(.workspace-page, .posts-page, .campaigns-page, .publishing-queue-page, .social-accounts-page, .reports-page, .notifications-page, .settings-page, .calendar-page, .drafts-page, .create-post-page, .create-campaign-page, .campaign-details-page, .analytics-page, .dashboard-home, .admin-dashboard-page, .admin-users-page, .admin-section-page) :is(
+  h1, h2, h3, h4, p, span, strong, small, label, th, td, li, button, input, textarea, select, .eyebrow, .section-eyebrow, .social-eyebrow, .campaigns-eyebrow
+) {
+  color: inherit;
+}
+
+:root[data-theme="light"] :is(.workspace-page, .posts-page, .campaigns-page, .publishing-queue-page, .social-accounts-page, .reports-page, .notifications-page, .settings-page, .calendar-page, .drafts-page, .create-post-page, .create-campaign-page, .campaign-details-page, .analytics-page, .dashboard-home, .admin-dashboard-page, .admin-users-page, .admin-section-page) :is(
+  .account-stats,
+  .dashboard-actions,
+  .activity-list li,
+  .recent-campaign-table,
+  .recent-section,
+  .posts-stat-card,
+  .posts-card,
+  .campaign-dashboard-summary article,
+  .campaigns-panel,
+  .campaigns-table-wrap,
+  .campaign-metric-grid div,
+  .queue-summary,
+  .queue-summary-card,
+  .queue-filters,
+  .queue-table-wrap,
+  .platform-card,
+  .accounts-section,
+  .connected-account,
+  .empty-state,
+  .oauth-info-card,
+  .section-header,
+  .reports-summary,
+  .report-metric-grid article,
+  .reports-table-wrap,
+  .settings-card,
+  .settings-section,
+  .notifications-card,
+  .analytics-panel,
+  .analytics-card,
+  .admin-card,
+  .admin-table-wrap,
+  .admin-stat,
+  .admin-section-panel,
+  .calendar-shell,
+  .calendar-card,
+  .draft-card,
+  .create-post-form,
+  .campaign-detail-panel,
+  .campaign-form,
+  .campaign-modal,
+  .workspace-content
+) {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-h) !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="light"] :is(.workspace-page, .posts-page, .campaigns-page, .publishing-queue-page, .social-accounts-page, .reports-page, .notifications-page, .settings-page, .calendar-page, .drafts-page, .create-post-page, .create-campaign-page, .campaign-details-page, .analytics-page, .dashboard-home, .admin-dashboard-page, .admin-users-page, .admin-section-page) :is(
+  .page-heading p,
+  .posts-subtitle,
+  .campaigns-subtitle,
+  .publishing-queue-header p,
+  .social-page-header p,
+  .platform-card p,
+  .connected-account-info p,
+  .connected-account-info small,
+  .empty-state p,
+  .oauth-info-card p,
+  .reports-summary span,
+  .report-metric-grid span,
+  .report-tabs button,
+  .activity-copy small,
+  .recent-campaign-table td,
+  .campaigns-table td,
+  .reports-table-wrap td,
+  .settings-subtitle,
+  .notifications-empty,
+  .calendar-meta,
+  .draft-meta,
+  .campaign-objective-cell,
+  .campaign-detail-grid dd,
+  .queue-row-meta,
+  .queue-row-status,
+  .status-pill,
+  .account-stat span,
+  .social-page-header p,
+  .section-header h2,
+  .section-heading-row h2,
+  .campaigns-panel-heading span,
+  .reports-note,
+  .reports-empty,
+  .reports-filters label,
+  .post-meta
+) {
+  color: var(--text) !important;
+}
+
+:root[data-theme="light"] :is(.workspace-page, .posts-page, .campaigns-page, .publishing-queue-page, .social-accounts-page, .reports-page, .notifications-page, .settings-page, .calendar-page, .drafts-page, .create-post-page, .create-campaign-page, .campaign-details-page, .analytics-page, .dashboard-home, .admin-dashboard-page, .admin-users-page, .admin-section-page) :is(
+  .primary-action,
+  .posts-create-button,
+  .campaigns-create-button,
+  .connect-button,
+  .topbar-theme-button,
+  .theme-toggle,
+  .campaigns-refresh-button,
+  .campaign-save-button,
+  .campaigns-back-button
+) {
+  color: #fff !important;
+}
+
+:root[data-theme="light"] .dashboard-home .dashboard-action {
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .campaigns-page .campaigns-back-button {
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .dashboard-home .action-symbol {
+  background: var(--accent-soft) !important;
+  color: var(--accent-strong) !important;
+}
+
+:root[data-theme="light"] .dashboard-home .action-arrow {
+  color: var(--text-muted) !important;
+}
+
+:root[data-theme="light"] :is(.workspace-page, .posts-page, .campaigns-page, .publishing-queue-page, .social-accounts-page, .reports-page, .notifications-page, .settings-page, .calendar-page, .drafts-page, .create-post-page, .create-campaign-page, .campaign-details-page, .analytics-page, .dashboard-home, .admin-dashboard-page, .admin-users-page, .admin-section-page) :is(.campaign-status, .status-active, .status-published, .status-connected, .status-completed, .status-scheduled, .status-draft, .status-paused, .status-failed, .status-info) {
+  background: var(--surface-muted) !important;
+  color: var(--text-h) !important;
+  border-color: var(--border) !important;
+}
+
 @media (max-width: 900px) {
   .workspace-shell { grid-template-columns: 70px minmax(0, 1fr); }
   .workspace-sidebar { padding-inline: 7px; }
@@ -195,10 +556,14 @@ h1, h2, h3, h4 { color: var(--text-h); font-family: var(--font-heading); letter-
   .topbar-title > span { display: none; }
   .topbar-title h1 { font-size: 15px; }
   .topbar-actions { gap: 6px; }
+  .topbar-search { width: 118px; height: 30px; padding-inline: 6px; }
+  .topbar-search input { font-size: 9px; }
+  .topbar-user-copy small { display: none; }
   .topbar-user { padding-right: 4px; border: 0; background: transparent; font-size: 0; }
   .topbar-icon-button { width: 30px; min-height: 30px; }
   .theme-toggle { top: 11px; right: 10px; width: 32px; height: 32px; }
   .workspace-page { padding: 23px 15px 32px; }
+  .topbar-search { width: 90px; }
   .login-container, .register-container { grid-template-columns: 1fr; }
   .login-info, .register-info { display: none !important; }
   .login-card, .register-card { padding: 31px 23px !important; border: 0 !important; }

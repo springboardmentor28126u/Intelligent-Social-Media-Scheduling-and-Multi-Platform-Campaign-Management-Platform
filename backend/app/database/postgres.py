@@ -2,16 +2,19 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import sessionmaker, declarative_base
 
+
 DATABASE_URL = URL.create(
     drivername="postgresql+psycopg2",
     username="postgres",
-    password="Abcd@1234",
+    password="Password1234",
     host="localhost",
     port=5432,
     database="socialpilot",
 )
 
+
 engine = create_engine(DATABASE_URL)
+
 
 SessionLocal = sessionmaker(
     autocommit=False,
@@ -19,4 +22,15 @@ SessionLocal = sessionmaker(
     bind=engine
 )
 
+
 Base = declarative_base()
+
+
+# Database session dependency
+def get_db():
+    db = SessionLocal()
+
+    try:
+        yield db
+    finally:
+        db.close()

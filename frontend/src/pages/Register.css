@@ -379,6 +379,68 @@
 }
 
 
+:root[data-theme="light"] .register-page {
+  background: var(--bg) !important;
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .register-container,
+:root[data-theme="light"] .register-info,
+:root[data-theme="light"] .register-card {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="light"] .register-info h1,
+:root[data-theme="light"] .register-header h2,
+:root[data-theme="light"] .register-feature h3,
+:root[data-theme="light"] .register-feature p,
+:root[data-theme="light"] .register-header p,
+:root[data-theme="light"] .register-form-group label,
+:root[data-theme="light"] .register-terms,
+:root[data-theme="light"] .register-error,
+:root[data-theme="light"] .register-terms input {
+  color: inherit !important;
+}
+
+:root[data-theme="light"] .register-info > p,
+:root[data-theme="light"] .register-feature p,
+:root[data-theme="light"] .register-header p,
+:root[data-theme="light"] .register-terms {
+  color: var(--text) !important;
+}
+
+:root[data-theme="light"] .register-feature > span {
+  background: var(--surface-muted) !important;
+  color: var(--accent) !important;
+}
+
+:root[data-theme="light"] .register-logo,
+:root[data-theme="light"] .register-link a,
+:root[data-theme="light"] .register-form a {
+  color: var(--accent-strong) !important;
+}
+
+:root[data-theme="light"] .register-form-group input,
+:root[data-theme="light"] .register-form-group textarea,
+:root[data-theme="light"] .register-form-group select {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .register-form-group input::placeholder,
+:root[data-theme="light"] .register-form-group textarea::placeholder {
+  color: var(--text-muted) !important;
+}
+
+:root[data-theme="light"] .register-error {
+  border-color: var(--danger) !important;
+  background: var(--danger-soft) !important;
+  color: var(--danger) !important;
+}
+
 @media (max-width: 550px) {
 
   .register-page {

@@ -310,25 +310,25 @@ function Campaigns() {
               );
             })}
           </div>
-          <div style={{ marginTop: "18px", overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", color: "#dfeae6", fontSize: "13px" }}>
+          <div className="campaign-roi-table-wrap">
+            <table className="campaign-roi-table">
               <thead>
-                <tr style={{ borderBottom: "1px solid #20433e" }}>
-                  <th style={{ textAlign: "left", padding: "10px 8px", color: "#6f9289" }}>Campaign</th>
-                  <th style={{ textAlign: "right", padding: "10px 8px", color: "#6f9289" }}>Cost</th>
-                  <th style={{ textAlign: "right", padding: "10px 8px", color: "#6f9289" }}>Revenue</th>
-                  <th style={{ textAlign: "right", padding: "10px 8px", color: "#6f9289" }}>ROI</th>
-                  <th style={{ textAlign: "right", padding: "10px 8px", color: "#6f9289" }}>Reach</th>
+                <tr>
+                  <th>Campaign</th>
+                  <th>Cost</th>
+                  <th>Revenue</th>
+                  <th>ROI</th>
+                  <th>Reach</th>
                 </tr>
               </thead>
               <tbody>
                 {comparison.comparison.map((item) => (
-                  <tr key={item.campaign_id} style={{ borderBottom: "1px solid rgba(32, 67, 62, 0.6)" }}>
-                    <td style={{ padding: "8px 8px" }}>{item.name}</td>
-                    <td style={{ textAlign: "right", padding: "8px 8px" }}>₹{Number(item.cost || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td>
-                    <td style={{ textAlign: "right", padding: "8px 8px" }}>₹{Number(item.revenue || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td>
-                    <td style={{ textAlign: "right", padding: "8px 8px" }}>{Number(item.roi || 0).toFixed(2)}%</td>
-                    <td style={{ textAlign: "right", padding: "8px 8px" }}>{Number(item.reach || 0).toLocaleString("en-US")}</td>
+                  <tr key={item.campaign_id}>
+                    <td>{item.name}</td>
+                    <td>₹{Number(item.cost || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td>
+                    <td>₹{Number(item.revenue || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td>
+                    <td>{Number(item.roi || 0).toFixed(2)}%</td>
+                    <td>{Number(item.reach || 0).toLocaleString("en-US")}</td>
                   </tr>
                 ))}
               </tbody>

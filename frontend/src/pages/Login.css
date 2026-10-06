@@ -585,6 +585,71 @@
    MOBILE
 ===================================================== */
 
+:root[data-theme="light"] .login-page {
+  background: var(--bg) !important;
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .login-container,
+:root[data-theme="light"] .login-info,
+:root[data-theme="light"] .login-card {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="light"] .login-info h1,
+:root[data-theme="light"] .login-header h2,
+:root[data-theme="light"] .login-feature h3,
+:root[data-theme="light"] .login-feature p,
+:root[data-theme="light"] .login-header p,
+:root[data-theme="light"] .form-group label,
+:root[data-theme="light"] .login-form-options span,
+:root[data-theme="light"] .register-link,
+:root[data-theme="light"] .back-home a,
+:root[data-theme="light"] .login-error {
+  color: inherit !important;
+}
+
+:root[data-theme="light"] .login-info > p,
+:root[data-theme="light"] .login-feature p,
+:root[data-theme="light"] .login-header p,
+:root[data-theme="light"] .register-link,
+:root[data-theme="light"] .back-home a {
+  color: var(--text) !important;
+}
+
+:root[data-theme="light"] .login-feature > span {
+  background: var(--surface-muted) !important;
+  color: var(--accent) !important;
+}
+
+:root[data-theme="light"] .login-logo,
+:root[data-theme="light"] .register-link a,
+:root[data-theme="light"] .back-home a:hover {
+  color: var(--accent-strong) !important;
+}
+
+:root[data-theme="light"] .form-group input {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-h) !important;
+}
+
+:root[data-theme="light"] .form-group input::placeholder {
+  color: var(--text-muted) !important;
+}
+
+:root[data-theme="light"] .password-toggle {
+  color: var(--text) !important;
+}
+
+:root[data-theme="light"] .login-error {
+  border-color: var(--danger) !important;
+  background: var(--danger-soft) !important;
+  color: var(--danger) !important;
+}
+
 @media (max-width: 550px) {
 
   .login-page {
