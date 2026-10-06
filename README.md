@@ -71,28 +71,52 @@ The available features depend on the APIs, permissions, and configurations provi
 
 ## ⚙️ Installation and Setup
 
-##1. Clone the Repository
+### 1. Clone the Repository
+
+```bash
 git clone <repository-url>
 cd SocialPilot
+```
 
-##2. Backend Setup
+### 2. Backend Setup
+
 Navigate to the backend:
+
+```bash
 cd backend
+```
 
 Create a virtual environment:
+
+```bash
 python -m venv .venv
+```
 
 Activate it on Windows:
+
+```bash
 .venv\Scripts\activate
+```
+
+Activate it on macOS/Linux:
+
+```bash
+source .venv/bin/activate
+```
 
 Install dependencies:
-pip install -r requirements.txt
 
-##3. Configure Environment Variables
-Create a .env file inside the backend directory.
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Configure Environment Variables
+
+Create a `.env` file inside the `backend` directory.
 
 Example:
 
+```env
 DATABASE_URL=your_postgresql_database_url
 SECRET_KEY=your_secret_key
 
@@ -112,50 +136,70 @@ GOOGLE_REDIRECT_URI=your_google_redirect_uri
 X_CLIENT_ID=your_x_client_id
 X_CLIENT_SECRET=your_x_client_secret
 X_REDIRECT_URI=your_x_redirect_uri
+```
 
-
-4. Database Migration
+### 4. Database Migration
 
 Run Alembic migrations:
-alembic upgrade head
 
-5. Start the Backend
+```bash
+alembic upgrade head
+```
+
+### 5. Start the Backend
+
+```bash
 uvicorn app.main:app --reload
+```
 
 The backend will run at:
+
+```
 http://127.0.0.1:8000
+```
 
 FastAPI documentation:
-http://127.0.0.1:8000/docs
 
-6. Start the Frontend
+```
+http://127.0.0.1:8000/docs
+```
+
+### 6. Start the Frontend
 
 Open another terminal:
+
+```bash
 cd frontend
 npm install
 npm run dev
+```
 
 The frontend will normally be available at:
-http://localhost:5173
 
-🔑 Authentication
+```
+http://localhost:5173
+```
+
+## 🔑 Authentication
 
 SocialPilot uses JWT-based authentication.
 
 The authentication flow includes:
 
-User registration
-User login
-Password verification
-JWT access token generation
-Protected API routes
-Role-based access for administrative features
-📱 Social Media Integration
+- User registration
+- User login
+- Password verification
+- JWT access token generation
+- Protected API routes
+- Role-based access for administrative features
 
-Users can connect their social media accounts through the Social Accounts section.
+## 📱 Social Media Integration
+
+Users can connect their social media accounts through the **Social Accounts** section.
 
 The general flow is:
 
+```text
 User
  ↓
 Connect Social Account
@@ -169,107 +213,110 @@ SocialPilot
 Save Connected Account
  ↓
 Create / Schedule / Publish Posts
+```
 
 Each platform uses its respective OAuth/API requirements.
 
-📝 Post Management
+## 📝 Post Management
 
 Users can:
 
-Create posts
-Add captions/content
-Upload supported media
-Select connected social accounts
-Publish posts
-Schedule posts
-View publishing status
+- Create posts
+- Add captions/content
+- Upload supported media
+- Select connected social accounts
+- Publish posts
+- Schedule posts
+- View publishing status
 
-📅 Campaign Management
+## 📅 Campaign Management
 
 Campaigns allow users to organize social media content around a particular marketing activity.
 
 A campaign can contain:
 
-Campaign name
-Description
-Start/end dates
-Posts
-Publishing schedule
-Campaign status
+- Campaign name
+- Description
+- Start/end dates
+- Posts
+- Publishing schedule
+- Campaign status
 
-📊 Dashboard & Analytics
+## 📊 Dashboard & Analytics
 
 The dashboard provides a centralized view of SocialPilot activity, including:
 
-Connected accounts
-Posts
-Campaigns
-Publishing activity
-Analytics
-Scheduled content
+- Connected accounts
+- Posts
+- Campaigns
+- Publishing activity
+- Analytics
+- Scheduled content
 
-📋 Publishing Queue
+## 📋 Publishing Queue
 
 The publishing queue helps manage scheduled posts and their publishing status.
 
 Typical statuses include:
 
+```text
 Scheduled
    ↓
 Processing
    ↓
 Published
+```
 
 Failed publishing attempts can also be tracked for debugging and retry handling.
 
-🛡️ Admin Features
+## 🛡️ Admin Features
 
 The admin section provides administrative functionality such as:
 
-User management
-Dashboard statistics
-System-level information
-Administrative controls
+- User management
+- Dashboard statistics
+- System-level information
+- Administrative controls
 
 Access to administrative features is restricted according to the user's role.
 
-🎨 User Interface
+## 🎨 User Interface
 
 The frontend includes:
 
-Responsive dashboard
-Sidebar navigation
-Workspace layout
-Forms
-Tables
-Cards
-Modals
-Notifications
-Light/Dark theme support
-Responsive design
+- Responsive dashboard
+- Sidebar navigation
+- Workspace layout
+- Forms
+- Tables
+- Cards
+- Modals
+- Notifications
+- Light/Dark theme support
+- Responsive design
 
-🧪 Testing
+## 🧪 Testing
 
 Backend tests are maintained for important application functionality, including:
 
-Social media publishing
-OAuth state handling
-Backend API behavior
+- Social media publishing
+- OAuth state handling
+- Backend API behavior
 
 Run tests using:
-pytest
 
-🔒 Security
+```bash
+pytest
+```
+
+## 🔒 Security
 
 The project follows basic security practices including:
 
-JWT authentication
-Password hashing
-Protected API routes
-Role-based authorization
-Environment variables for credentials
-OAuth-based social account authentication
-CORS configuration
-
-
-
+- JWT authentication
+- Password hashing
+- Protected API routes
+- Role-based authorization
+- Environment variables for credentials
+- OAuth-based social account authentication
+- CORS configuration
