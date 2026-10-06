@@ -1,23 +1,275 @@
-# Intelligent-Social-Media-Scheduling-and-Multi-Platform-Campaign-Management-Platform
+# SocialPilot – Social Media Management Platform
 
-## X account connection
+## Overview
 
-To enable X OAuth, create an OAuth 2.0 app in the X Developer Portal and add
-these settings to `backend/.env`:
+**SocialPilot** is a full-stack social media management platform that allows users to connect their social media accounts, create and manage posts, schedule content, manage campaigns, and monitor publishing activities from a centralized dashboard.
 
-```env
-X_CLIENT_ID=your-client-id
-X_CLIENT_SECRET=your-client-secret
-X_REDIRECT_URI=http://127.0.0.1:8000/social-accounts/x/callback
-FRONTEND_URL=http://localhost:5173
-```
+The project is built using **React.js** for the frontend, **FastAPI** for the backend, and **PostgreSQL** for database management.
 
-Register the redirect URI exactly as shown in the X app settings. The app
-requests `tweet.read`, `tweet.write`, `users.read`, and `offline.access`.
-After restarting the backend, connect X from the **Social Accounts** page.
-X publishing currently supports text-only posts.
+## 🚀 Features
 
-If your frontend is served from more than one host, set `FRONTEND_URL` to
-the primary origin and list any additional allowed origins in `FRONTEND_URLS`
-as a comma-separated list. X and Facebook OAuth callbacks return the browser
-to the same allowed frontend origin where the user started connecting.
+- 🔐 User registration and secure login
+- 👤 User and role-based access
+- 📊 Dashboard with social media activity and statistics
+- 🔗 Social media account integration
+- 📝 Create and manage social media posts
+- 📅 Schedule posts for future publishing
+- 📢 Campaign creation and management
+- 📤 Social media publishing
+- 📋 Publishing queue
+- 📈 Analytics and performance monitoring
+- 🔔 Notifications
+- ⚙️ User settings
+- 🛡️ Admin dashboard and administration features
+- 🌙 Light/Dark mode
+- 📱 Responsive user interface
+- 🤖 Integration with social-media APIs
+- 🖼️ Image and video post support
+
+## 🌐 Supported Platforms
+
+SocialPilot is designed to integrate with multiple social media platforms, including:
+
+- Facebook
+- Instagram
+- LinkedIn
+- YouTube
+- X (Twitter)
+
+The available features depend on the APIs, permissions, and configurations provided by each platform.
+
+## 🛠️ Tech Stack
+
+### Frontend
+
+- React.js
+- JavaScript
+- HTML5
+- CSS3
+- Vite
+- React Context API
+
+### Backend
+
+- Python
+- FastAPI
+- SQLAlchemy
+- Alembic
+- JWT Authentication
+- REST APIs
+
+### Database
+
+- PostgreSQL
+
+### Development Tools
+
+- Git
+- GitHub
+- VS Code
+- Postman
+
+## ⚙️ Installation and Setup
+
+1. Clone the Repository
+git clone <repository-url>
+cd SocialPilot
+
+2. Backend Setup
+Navigate to the backend:
+cd backend
+
+Create a virtual environment:
+python -m venv .venv
+
+Activate it on Windows:
+.venv\Scripts\activate
+
+Install dependencies:
+pip install -r requirements.txt
+
+3. Configure Environment Variables
+Create a .env file inside the backend directory.
+
+Example:
+
+DATABASE_URL=your_postgresql_database_url
+SECRET_KEY=your_secret_key
+
+FACEBOOK_APP_ID=your_facebook_app_id
+FACEBOOK_APP_SECRET=your_facebook_app_secret
+FACEBOOK_CONFIG_ID=your_facebook_config_id
+FACEBOOK_REDIRECT_URI=your_facebook_redirect_uri
+
+LINKEDIN_CLIENT_ID=your_linkedin_client_id
+LINKEDIN_CLIENT_SECRET=your_linkedin_client_secret
+LINKEDIN_REDIRECT_URI=your_linkedin_redirect_uri
+
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_REDIRECT_URI=your_google_redirect_uri
+
+X_CLIENT_ID=your_x_client_id
+X_CLIENT_SECRET=your_x_client_secret
+X_REDIRECT_URI=your_x_redirect_uri
+
+
+4. Database Migration
+
+Run Alembic migrations:
+alembic upgrade head
+
+5. Start the Backend
+uvicorn app.main:app --reload
+
+The backend will run at:
+http://127.0.0.1:8000
+
+FastAPI documentation:
+http://127.0.0.1:8000/docs
+
+6. Start the Frontend
+
+Open another terminal:
+cd frontend
+npm install
+npm run dev
+
+The frontend will normally be available at:
+http://localhost:5173
+
+🔑 Authentication
+
+SocialPilot uses JWT-based authentication.
+
+The authentication flow includes:
+
+User registration
+User login
+Password verification
+JWT access token generation
+Protected API routes
+Role-based access for administrative features
+📱 Social Media Integration
+
+Users can connect their social media accounts through the Social Accounts section.
+
+The general flow is:
+
+User
+ ↓
+Connect Social Account
+ ↓
+OAuth Authorization
+ ↓
+Access Token
+ ↓
+SocialPilot
+ ↓
+Save Connected Account
+ ↓
+Create / Schedule / Publish Posts
+
+Each platform uses its respective OAuth/API requirements.
+
+📝 Post Management
+
+Users can:
+
+Create posts
+Add captions/content
+Upload supported media
+Select connected social accounts
+Publish posts
+Schedule posts
+View publishing status
+
+📅 Campaign Management
+
+Campaigns allow users to organize social media content around a particular marketing activity.
+
+A campaign can contain:
+
+Campaign name
+Description
+Start/end dates
+Posts
+Publishing schedule
+Campaign status
+
+📊 Dashboard & Analytics
+
+The dashboard provides a centralized view of SocialPilot activity, including:
+
+Connected accounts
+Posts
+Campaigns
+Publishing activity
+Analytics
+Scheduled content
+
+📋 Publishing Queue
+
+The publishing queue helps manage scheduled posts and their publishing status.
+
+Typical statuses include:
+
+Scheduled
+   ↓
+Processing
+   ↓
+Published
+
+Failed publishing attempts can also be tracked for debugging and retry handling.
+
+🛡️ Admin Features
+
+The admin section provides administrative functionality such as:
+
+User management
+Dashboard statistics
+System-level information
+Administrative controls
+
+Access to administrative features is restricted according to the user's role.
+
+🎨 User Interface
+
+The frontend includes:
+
+Responsive dashboard
+Sidebar navigation
+Workspace layout
+Forms
+Tables
+Cards
+Modals
+Notifications
+Light/Dark theme support
+Responsive design
+
+🧪 Testing
+
+Backend tests are maintained for important application functionality, including:
+
+Social media publishing
+OAuth state handling
+Backend API behavior
+
+Run tests using:
+pytest
+
+🔒 Security
+
+The project follows basic security practices including:
+
+JWT authentication
+Password hashing
+Protected API routes
+Role-based authorization
+Environment variables for credentials
+OAuth-based social account authentication
+CORS configuration
+
+
+
