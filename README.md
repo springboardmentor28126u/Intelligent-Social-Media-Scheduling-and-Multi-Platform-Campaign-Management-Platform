@@ -71,11 +71,11 @@ The available features depend on the APIs, permissions, and configurations provi
 
 ## ⚙️ Installation and Setup
 
-1. Clone the Repository
+##1. Clone the Repository
 git clone <repository-url>
 cd SocialPilot
 
-2. Backend Setup
+##2. Backend Setup
 Navigate to the backend:
 cd backend
 
@@ -88,7 +88,7 @@ Activate it on Windows:
 Install dependencies:
 pip install -r requirements.txt
 
-3. Configure Environment Variables
+##3. Configure Environment Variables
 Create a .env file inside the backend directory.
 
 Example:
