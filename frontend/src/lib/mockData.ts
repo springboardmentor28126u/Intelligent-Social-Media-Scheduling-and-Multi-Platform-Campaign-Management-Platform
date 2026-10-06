@@ -15,8 +15,8 @@ export const FALLBACK_SOCIAL_ACCOUNTS: SocialAccount[] = [
   {
     id: 1,
     platform: "linkedin",
-    account_name: "SocialPilot",
-    username: "SocialPilot",
+    account_name: "Dimple Thatireddy",
+    username: "Dimple Thatireddy",
     status: "connected",
     followers: "74,320",
     last_synced: "Just now",
@@ -24,8 +24,8 @@ export const FALLBACK_SOCIAL_ACCOUNTS: SocialAccount[] = [
   {
     id: 2,
     platform: "instagram",
-    account_name: "SocialPilot",
-    username: "@socialpilot",
+    account_name: "dimplethatireddy",
+    username: "@dimplethatireddy",
     status: "connected",
     followers: "112,500",
     last_synced: "Just now",
@@ -33,8 +33,8 @@ export const FALLBACK_SOCIAL_ACCOUNTS: SocialAccount[] = [
   {
     id: 3,
     platform: "facebook",
-    account_name: "SocialPilot",
-    username: "SocialPilot",
+    account_name: "Dimple Thatireddy",
+    username: "Dimple Thatireddy",
     status: "connected",
     followers: "48,200",
     last_synced: "Just now",
@@ -42,8 +42,8 @@ export const FALLBACK_SOCIAL_ACCOUNTS: SocialAccount[] = [
   {
     id: 4,
     platform: "twitter",
-    account_name: "SocialPilot",
-    username: "@socialpilot",
+    account_name: "dimplethatireddy",
+    username: "@dimplethatireddy",
     status: "connected",
     followers: "39,800",
     last_synced: "Just now",
@@ -51,8 +51,8 @@ export const FALLBACK_SOCIAL_ACCOUNTS: SocialAccount[] = [
   {
     id: 5,
     platform: "youtube",
-    account_name: "SocialPilot",
-    username: "@socialpilot",
+    account_name: "Dimple Thatireddy",
+    username: "@dimplethatireddy",
     status: "connected",
     followers: "28,400",
     last_synced: "Just now",
@@ -60,10 +60,10 @@ export const FALLBACK_SOCIAL_ACCOUNTS: SocialAccount[] = [
   {
     id: 6,
     platform: "pinterest",
-    account_name: "SocialPilot",
-    username: "@socialpilot",
+    account_name: "dimplethatireddy",
+    username: "@dimplethatireddy",
     status: "connected",
-    followers: "15,600",
+    followers: "15,200",
     last_synced: "Just now",
   },
 ];
