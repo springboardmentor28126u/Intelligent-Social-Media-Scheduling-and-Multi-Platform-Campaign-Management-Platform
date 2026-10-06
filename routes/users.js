@@ -6,6 +6,48 @@ const pool = require("../config/db");
 
 const router = express.Router();
 
+// ============================================================
+// JWT AUTHENTICATION MIDDLEWARE
+// ============================================================
+
+const authenticateToken = (req, res, next) => {
+    try {
+        const authHeader = req.headers.authorization;
+
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            return res.status(401).json({
+                message: "Authentication token is required"
+            });
+        }
+
+        const token = authHeader.split(" ")[1];
+
+        if (!process.env.JWT_SECRET) {
+            console.error("JWT_SECRET is not configured");
+
+            return res.status(500).json({
+                message: "Server authentication configuration is missing"
+            });
+        }
+
+        const decoded = jwt.verify(
+            token,
+            process.env.JWT_SECRET
+        );
+
+        req.user = decoded;
+
+        next();
+
+    } catch (error) {
+        console.error("AUTHENTICATION ERROR:", error);
+
+        return res.status(401).json({
+            message: "Invalid or expired authentication token"
+        });
+    }
+};
+
 
 // ============================================================
 // REGISTER USER
@@ -27,8 +69,20 @@ router.post("/register", async (req, res) => {
 
         if (!name || !email || !password) {
             return res.status(400).json({
-                message:
-                    "Name, email and password are required"
+                message: "Name, email and password are required"
+            });
+        }
+
+        // --------------------------------------------------------
+        // Clean input
+        // --------------------------------------------------------
+
+        const cleanName = String(name).trim();
+        const cleanEmail = String(email).trim().toLowerCase();
+
+        if (!cleanName || !cleanEmail) {
+            return res.status(400).json({
+                message: "Name and email cannot be empty"
             });
         }
 
@@ -38,8 +92,7 @@ router.post("/register", async (req, res) => {
 
         if (password.length < 6) {
             return res.status(400).json({
-                message:
-                    "Password must contain at least 6 characters"
+                message: "Password must contain at least 6 characters"
             });
         }
 
@@ -50,8 +103,8 @@ router.post("/register", async (req, res) => {
         const existingUser = await pool.query(
             `SELECT user_id
              FROM users
-             WHERE email = $1`,
-            [email]
+             WHERE LOWER(email) = LOWER($1)`,
+            [cleanEmail]
         );
 
         if (existingUser.rows.length > 0) {
@@ -70,7 +123,7 @@ router.post("/register", async (req, res) => {
         );
 
         // --------------------------------------------------------
-        // Insert user
+        // Insert new user
         // --------------------------------------------------------
 
         const result = await pool.query(
@@ -83,18 +136,19 @@ router.post("/register", async (req, res) => {
                 email,
                 created_at`,
             [
-                name,
-                email,
+                cleanName,
+                cleanEmail,
                 hashedPassword
             ]
         );
 
         // --------------------------------------------------------
-        // Response
+        // Registration successful
         // --------------------------------------------------------
 
         res.status(201).json({
             message: "User registered successfully",
+
             user: result.rows[0]
         });
 
@@ -139,8 +193,7 @@ router.post("/login", async (req, res) => {
 
         if (!email || !password) {
             return res.status(400).json({
-                message:
-                    "Email and password are required"
+                message: "Email and password are required"
             });
         }
 
@@ -149,6 +202,7 @@ router.post("/login", async (req, res) => {
         // --------------------------------------------------------
 
         if (!process.env.JWT_SECRET) {
+
             console.error(
                 "JWT_SECRET is not configured"
             );
@@ -158,6 +212,14 @@ router.post("/login", async (req, res) => {
                     "Server authentication configuration is missing"
             });
         }
+
+        // --------------------------------------------------------
+        // Clean email
+        // --------------------------------------------------------
+
+        const cleanEmail = String(email)
+            .trim()
+            .toLowerCase();
 
         // --------------------------------------------------------
         // Find user
@@ -171,8 +233,8 @@ router.post("/login", async (req, res) => {
                 password,
                 created_at
              FROM users
-             WHERE email = $1`,
-            [email]
+             WHERE LOWER(email) = LOWER($1)`,
+            [cleanEmail]
         );
 
         // --------------------------------------------------------
@@ -181,8 +243,7 @@ router.post("/login", async (req, res) => {
 
         if (result.rows.length === 0) {
             return res.status(401).json({
-                message:
-                    "Invalid email or password"
+                message: "Invalid email or password"
             });
         }
 
@@ -192,27 +253,28 @@ router.post("/login", async (req, res) => {
         // Compare password
         // --------------------------------------------------------
 
-        const passwordMatch =
-            await bcrypt.compare(
-                password,
-                user.password
-            );
+        const passwordMatch = await bcrypt.compare(
+            password,
+            user.password
+        );
 
         if (!passwordMatch) {
             return res.status(401).json({
-                message:
-                    "Invalid email or password"
+                message: "Invalid email or password"
             });
         }
 
         // --------------------------------------------------------
         // Create JWT token
+        // IMPORTANT:
+        // user_id identifies the logged-in user
         // --------------------------------------------------------
 
         const token = jwt.sign(
             {
                 user_id: user.user_id,
-                email: user.email
+                email: user.email,
+                name: user.name
             },
             process.env.JWT_SECRET,
             {
@@ -252,7 +314,94 @@ router.post("/login", async (req, res) => {
 
 
 // ============================================================
+// GET CURRENT LOGGED-IN USER
+// GET /api/users/me
+// ============================================================
+
+router.get("/me", authenticateToken, async (req, res) => {
+    try {
+
+        const userId = req.user.user_id;
+
+        const result = await pool.query(
+            `SELECT
+                user_id,
+                name,
+                email,
+                created_at
+             FROM users
+             WHERE user_id = $1`,
+            [userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                message: "User not found"
+            });
+        }
+
+        res.json({
+            user: result.rows[0]
+        });
+
+    } catch (error) {
+
+        console.error(
+            "GET CURRENT USER ERROR:",
+            error
+        );
+
+        res.status(500).json({
+            message: "Failed to get current user"
+        });
+    }
+});
+
+
+// ============================================================
+// GET ALL USERS
+// GET /api/users
+//
+// Useful for testing multiple users.
+// In a production application, this should normally be
+// restricted to an administrator.
+// ============================================================
+
+router.get("/", authenticateToken, async (req, res) => {
+    try {
+
+        const result = await pool.query(
+            `SELECT
+                user_id,
+                name,
+                email,
+                created_at
+             FROM users
+             ORDER BY user_id ASC`
+        );
+
+        res.json({
+            users: result.rows,
+            total_users: result.rows.length
+        });
+
+    } catch (error) {
+
+        console.error(
+            "GET USERS ERROR:",
+            error
+        );
+
+        res.status(500).json({
+            message: "Failed to fetch users"
+        });
+    }
+});
+
+
+// ============================================================
 // EXPORT ROUTER
 // ============================================================
 
 module.exports = router;
+

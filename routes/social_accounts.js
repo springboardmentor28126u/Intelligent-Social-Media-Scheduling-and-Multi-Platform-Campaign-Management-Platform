@@ -12,8 +12,34 @@ const ALLOWED_PLATFORMS = [
     "Instagram",
     "Facebook",
     "Twitter-X",
-    "LinkedIn"
+    "LinkedIn",
+    "YouTube",
+    "Pinterest",
+    "TikTok",
+    "Threads"
 ];
+
+// ============================================================
+// HELPER - VALIDATE PLATFORM
+// ============================================================
+
+function isValidPlatform(platform) {
+    return ALLOWED_PLATFORMS.includes(platform);
+}
+
+// ============================================================
+// GET SUPPORTED SOCIAL PLATFORMS
+// GET /api/social-accounts/platforms/list
+//
+// IMPORTANT:
+// Keep this route BEFORE /:id
+// ============================================================
+
+router.get("/platforms/list", (req, res) => {
+    return res.json({
+        platforms: ALLOWED_PLATFORMS
+    });
+});
 
 // ============================================================
 // ADD SOCIAL ACCOUNT
@@ -28,32 +54,89 @@ router.post("/", authenticateToken, async (req, res) => {
             access_token
         } = req.body;
 
-        // Validate required fields
+        // --------------------------------------------------------
+        // CHECK LOGIN USER
+        // --------------------------------------------------------
+
+        if (!req.user || !req.user.user_id) {
+            return res.status(401).json({
+                message: "Invalid authentication token"
+            });
+        }
+
+        const userId = req.user.user_id;
+
+        // --------------------------------------------------------
+        // VALIDATE REQUIRED FIELDS
+        // --------------------------------------------------------
+
         if (!platform || !username) {
             return res.status(400).json({
                 message: "Platform and username are required"
             });
         }
 
-        // Validate platform
-        if (!ALLOWED_PLATFORMS.includes(platform)) {
+        const cleanPlatform = String(platform).trim();
+        const cleanUsername = String(username).trim();
+
+        if (!cleanPlatform) {
             return res.status(400).json({
-                message:
-                    "Invalid platform. Allowed platforms: Instagram, Facebook, Twitter-X, LinkedIn"
+                message: "Platform cannot be empty"
             });
         }
 
-        // Check duplicate account
+        if (!cleanUsername) {
+            return res.status(400).json({
+                message: "Username cannot be empty"
+            });
+        }
+
+        // --------------------------------------------------------
+        // VALIDATE PLATFORM
+        // --------------------------------------------------------
+
+        if (!isValidPlatform(cleanPlatform)) {
+            return res.status(400).json({
+                message:
+                    "Invalid platform. Allowed platforms: " +
+                    ALLOWED_PLATFORMS.join(", ")
+            });
+        }
+
+        // --------------------------------------------------------
+        // CLEAN ACCESS TOKEN
+        // --------------------------------------------------------
+
+        let cleanAccessToken = null;
+
+        if (
+            access_token !== undefined &&
+            access_token !== null
+        ) {
+            const token = String(access_token).trim();
+
+            if (token !== "") {
+                cleanAccessToken = token;
+            }
+        }
+
+        // --------------------------------------------------------
+        // CHECK DUPLICATE ACCOUNT
+        // ONLY FOR CURRENT USER
+        // --------------------------------------------------------
+
         const existingAccount = await pool.query(
-            `SELECT account_id
-             FROM social_accounts
-             WHERE user_id = $1
-             AND platform = $2
-             AND username = $3`,
+            `
+            SELECT account_id
+            FROM social_accounts
+            WHERE user_id = $1
+              AND platform = $2
+              AND username = $3
+            `,
             [
-                req.user.user_id,
-                platform,
-                username
+                userId,
+                cleanPlatform,
+                cleanUsername
             ]
         );
 
@@ -63,9 +146,13 @@ router.post("/", authenticateToken, async (req, res) => {
             });
         }
 
-        // Insert account
+        // --------------------------------------------------------
+        // INSERT SOCIAL ACCOUNT
+        // --------------------------------------------------------
+
         const result = await pool.query(
-            `INSERT INTO social_accounts
+            `
+            INSERT INTO social_accounts
             (
                 user_id,
                 platform,
@@ -78,18 +165,23 @@ router.post("/", authenticateToken, async (req, res) => {
                 user_id,
                 platform,
                 username,
-                created_at`,
+                created_at
+            `,
             [
-                req.user.user_id,
-                platform,
-                username,
-                access_token || null
+                userId,
+                cleanPlatform,
+                cleanUsername,
+                cleanAccessToken
             ]
         );
 
-        res.status(201).json({
+        return res.status(201).json({
             message: "Social account added successfully",
-            account: result.rows[0]
+
+            account: {
+                ...result.rows[0],
+                connected: Boolean(cleanAccessToken)
+            }
         });
 
     } catch (error) {
@@ -98,7 +190,7 @@ router.post("/", authenticateToken, async (req, res) => {
             error
         );
 
-        res.status(500).json({
+        return res.status(500).json({
             message: "Failed to add social account",
             error: error.message
         });
@@ -112,26 +204,48 @@ router.post("/", authenticateToken, async (req, res) => {
 
 router.get("/", authenticateToken, async (req, res) => {
     try {
+        // --------------------------------------------------------
+        // CHECK LOGIN USER
+        // --------------------------------------------------------
+
+        if (!req.user || !req.user.user_id) {
+            return res.status(401).json({
+                message: "Invalid authentication token"
+            });
+        }
+
+        const userId = req.user.user_id;
+
+        // --------------------------------------------------------
+        // GET ONLY CURRENT USER'S ACCOUNTS
+        // --------------------------------------------------------
+
         const result = await pool.query(
-            `SELECT
+            `
+            SELECT
                 account_id,
                 user_id,
                 platform,
                 username,
                 created_at,
+
                 CASE
                     WHEN access_token IS NULL
-                         OR access_token = ''
+                      OR TRIM(access_token) = ''
                     THEN false
                     ELSE true
                 END AS connected
-             FROM social_accounts
-             WHERE user_id = $1
-             ORDER BY created_at DESC`,
-            [req.user.user_id]
+
+            FROM social_accounts
+
+            WHERE user_id = $1
+
+            ORDER BY created_at DESC
+            `,
+            [userId]
         );
 
-        res.json({
+        return res.json({
             accounts: result.rows
         });
 
@@ -141,7 +255,7 @@ router.get("/", authenticateToken, async (req, res) => {
             error
         );
 
-        res.status(500).json({
+        return res.status(500).json({
             message: "Failed to fetch social accounts",
             error: error.message
         });
@@ -157,22 +271,41 @@ router.get("/:id", authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
+        // --------------------------------------------------------
+        // CHECK LOGIN USER
+        // --------------------------------------------------------
+
+        if (!req.user || !req.user.user_id) {
+            return res.status(401).json({
+                message: "Invalid authentication token"
+            });
+        }
+
+        // --------------------------------------------------------
+        // GET ACCOUNT BELONGING TO CURRENT USER
+        // --------------------------------------------------------
+
         const result = await pool.query(
-            `SELECT
+            `
+            SELECT
                 account_id,
                 user_id,
                 platform,
                 username,
                 created_at,
+
                 CASE
                     WHEN access_token IS NULL
-                         OR access_token = ''
+                      OR TRIM(access_token) = ''
                     THEN false
                     ELSE true
                 END AS connected
-             FROM social_accounts
-             WHERE account_id = $1
-             AND user_id = $2`,
+
+            FROM social_accounts
+
+            WHERE account_id = $1
+              AND user_id = $2
+            `,
             [
                 id,
                 req.user.user_id
@@ -185,7 +318,7 @@ router.get("/:id", authenticateToken, async (req, res) => {
             });
         }
 
-        res.json({
+        return res.json({
             account: result.rows[0]
         });
 
@@ -195,7 +328,7 @@ router.get("/:id", authenticateToken, async (req, res) => {
             error
         );
 
-        res.status(500).json({
+        return res.status(500).json({
             message: "Failed to fetch social account",
             error: error.message
         });
@@ -217,26 +350,81 @@ router.put("/:id", authenticateToken, async (req, res) => {
             access_token
         } = req.body;
 
-        // Validate platform if supplied
-        if (
-            platform &&
-            !ALLOWED_PLATFORMS.includes(platform)
-        ) {
-            return res.status(400).json({
-                message:
-                    "Invalid platform. Allowed platforms: Instagram, Facebook, Twitter-X, LinkedIn"
+        // --------------------------------------------------------
+        // CHECK LOGIN USER
+        // --------------------------------------------------------
+
+        if (!req.user || !req.user.user_id) {
+            return res.status(401).json({
+                message: "Invalid authentication token"
             });
         }
 
-        // Check account ownership
+        const userId = req.user.user_id;
+
+        // --------------------------------------------------------
+        // CLEAN PLATFORM
+        // --------------------------------------------------------
+
+        const cleanPlatform =
+            platform !== undefined &&
+            platform !== null
+                ? String(platform).trim()
+                : null;
+
+        // --------------------------------------------------------
+        // CLEAN USERNAME
+        // --------------------------------------------------------
+
+        const cleanUsername =
+            username !== undefined &&
+            username !== null
+                ? String(username).trim()
+                : null;
+
+        // --------------------------------------------------------
+        // VALIDATE PLATFORM
+        // --------------------------------------------------------
+
+        if (
+            cleanPlatform !== null &&
+            !isValidPlatform(cleanPlatform)
+        ) {
+            return res.status(400).json({
+                message:
+                    "Invalid platform. Allowed platforms: " +
+                    ALLOWED_PLATFORMS.join(", ")
+            });
+        }
+
+        // --------------------------------------------------------
+        // VALIDATE USERNAME
+        // --------------------------------------------------------
+
+        if (
+            cleanUsername !== null &&
+            cleanUsername === ""
+        ) {
+            return res.status(400).json({
+                message: "Username cannot be empty"
+            });
+        }
+
+        // --------------------------------------------------------
+        // CHECK ACCOUNT OWNERSHIP
+        // --------------------------------------------------------
+
         const existingAccount = await pool.query(
-            `SELECT account_id
-             FROM social_accounts
-             WHERE account_id = $1
-             AND user_id = $2`,
+            `
+            SELECT account_id
+            FROM social_accounts
+
+            WHERE account_id = $1
+              AND user_id = $2
+            `,
             [
                 id,
-                req.user.user_id
+                userId
             ]
         );
 
@@ -246,33 +434,119 @@ router.put("/:id", authenticateToken, async (req, res) => {
             });
         }
 
-        // Update account
+        // --------------------------------------------------------
+        // CHECK DUPLICATE ACCOUNT
+        // --------------------------------------------------------
+
+        if (
+            cleanPlatform !== null ||
+            cleanUsername !== null
+        ) {
+            const duplicateCheck = await pool.query(
+                `
+                SELECT account_id
+                FROM social_accounts
+
+                WHERE user_id = $1
+
+                  AND platform =
+                      COALESCE($2, platform)
+
+                  AND username =
+                      COALESCE($3, username)
+
+                  AND account_id <> $4
+                `,
+                [
+                    userId,
+                    cleanPlatform,
+                    cleanUsername,
+                    id
+                ]
+            );
+
+            if (duplicateCheck.rows.length > 0) {
+                return res.status(409).json({
+                    message:
+                        "Another social account with these details already exists"
+                });
+            }
+        }
+
+        // --------------------------------------------------------
+        // TOKEN UPDATE
+        //
+        // undefined = keep old token
+        // null      = remove token
+        // ""        = remove token
+        // value     = set new token
+        // --------------------------------------------------------
+
+        let tokenUpdateProvided = false;
+        let cleanAccessToken = null;
+
+        if (access_token !== undefined) {
+            tokenUpdateProvided = true;
+
+            if (
+                access_token !== null &&
+                String(access_token).trim() !== ""
+            ) {
+                cleanAccessToken =
+                    String(access_token).trim();
+            }
+        }
+
+        // --------------------------------------------------------
+        // UPDATE ACCOUNT
+        // --------------------------------------------------------
+
         const result = await pool.query(
-            `UPDATE social_accounts
-             SET
-                platform = COALESCE($1, platform),
-                username = COALESCE($2, username),
-                access_token = COALESCE($3, access_token)
-             WHERE account_id = $4
-             AND user_id = $5
-             RETURNING
+            `
+            UPDATE social_accounts
+
+            SET
+                platform =
+                    COALESCE($1, platform),
+
+                username =
+                    COALESCE($2, username),
+
+                access_token =
+                    CASE
+                        WHEN $3 = true
+                        THEN $4
+                        ELSE access_token
+                    END
+
+            WHERE account_id = $5
+              AND user_id = $6
+
+            RETURNING
                 account_id,
                 user_id,
                 platform,
                 username,
-                created_at`,
+                created_at,
+
+                CASE
+                    WHEN access_token IS NULL
+                      OR TRIM(access_token) = ''
+                    THEN false
+                    ELSE true
+                END AS connected
+            `,
             [
-                platform || null,
-                username || null,
-                access_token !== undefined
-                    ? access_token
-                    : null,
+                cleanPlatform,
+                cleanUsername,
+                tokenUpdateProvided,
+                cleanAccessToken,
                 id,
-                req.user.user_id
+                userId
             ]
         );
 
-        res.json({
+        return res.json({
             message: "Social account updated successfully",
             account: result.rows[0]
         });
@@ -283,7 +557,7 @@ router.put("/:id", authenticateToken, async (req, res) => {
             error
         );
 
-        res.status(500).json({
+        return res.status(500).json({
             message: "Failed to update social account",
             error: error.message
         });
@@ -294,30 +568,27 @@ router.put("/:id", authenticateToken, async (req, res) => {
 // DELETE SOCIAL ACCOUNT
 // DELETE /api/social-accounts/:id
 // ============================================================
-//
-// Dependency order:
-//
-// publishing_logs
-//       ↓
-// publishing_queue
-//       ↓
-// scheduled_posts
-//       ↓
-// posts
-//       ↓
-// social_accounts
-//
-// ============================================================
 
 router.delete("/:id", authenticateToken, async (req, res) => {
-
     const client = await pool.connect();
 
     try {
         const { id } = req.params;
 
         // --------------------------------------------------------
-        // START TRANSACTION FIRST
+        // CHECK LOGIN USER
+        // --------------------------------------------------------
+
+        if (!req.user || !req.user.user_id) {
+            return res.status(401).json({
+                message: "Invalid authentication token"
+            });
+        }
+
+        const userId = req.user.user_id;
+
+        // --------------------------------------------------------
+        // START TRANSACTION
         // --------------------------------------------------------
 
         await client.query("BEGIN");
@@ -327,18 +598,22 @@ router.delete("/:id", authenticateToken, async (req, res) => {
         // --------------------------------------------------------
 
         const accountResult = await client.query(
-            `SELECT
+            `
+            SELECT
                 account_id,
                 user_id,
                 platform,
                 username,
                 created_at
-             FROM social_accounts
-             WHERE account_id = $1
-             AND user_id = $2`,
+
+            FROM social_accounts
+
+            WHERE account_id = $1
+              AND user_id = $2
+            `,
             [
                 id,
-                req.user.user_id
+                userId
             ]
         );
 
@@ -351,13 +626,15 @@ router.delete("/:id", authenticateToken, async (req, res) => {
         }
 
         // --------------------------------------------------------
-        // GET POSTS BELONGING TO THIS SOCIAL ACCOUNT
+        // GET POSTS BELONGING TO ACCOUNT
         // --------------------------------------------------------
 
         const postsResult = await client.query(
-            `SELECT post_id
-             FROM posts
-             WHERE account_id = $1`,
+            `
+            SELECT post_id
+            FROM posts
+            WHERE account_id = $1
+            `,
             [id]
         );
 
@@ -368,6 +645,7 @@ router.delete("/:id", authenticateToken, async (req, res) => {
         let deletedLogs = 0;
         let deletedQueue = 0;
         let deletedScheduledPosts = 0;
+        let deletedRecurringPosts = 0;
         let deletedPosts = 0;
 
         // --------------------------------------------------------
@@ -377,21 +655,17 @@ router.delete("/:id", authenticateToken, async (req, res) => {
         if (postIds.length > 0) {
 
             // ----------------------------------------------------
-            // 1. DELETE PUBLISHING LOGS FIRST
-            // ----------------------------------------------------
-            //
-            // publishing_logs.queue_id references
-            // publishing_queue.queue_id
-            //
-            // publishing_logs.post_id also references posts.post_id
-            //
-            // Therefore logs must be deleted first.
+            // 1. DELETE PUBLISHING LOGS
             // ----------------------------------------------------
 
             const logsResult = await client.query(
-                `DELETE FROM publishing_logs
-                 WHERE post_id = ANY($1::int[])
-                 RETURNING log_id`,
+                `
+                DELETE FROM publishing_logs
+
+                WHERE post_id = ANY($1::int[])
+
+                RETURNING log_id
+                `,
                 [postIds]
             );
 
@@ -402,9 +676,13 @@ router.delete("/:id", authenticateToken, async (req, res) => {
             // ----------------------------------------------------
 
             const queueResult = await client.query(
-                `DELETE FROM publishing_queue
-                 WHERE post_id = ANY($1::int[])
-                 RETURNING queue_id`,
+                `
+                DELETE FROM publishing_queue
+
+                WHERE post_id = ANY($1::int[])
+
+                RETURNING queue_id
+                `,
                 [postIds]
             );
 
@@ -415,9 +693,13 @@ router.delete("/:id", authenticateToken, async (req, res) => {
             // ----------------------------------------------------
 
             const scheduledResult = await client.query(
-                `DELETE FROM scheduled_posts
-                 WHERE post_id = ANY($1::int[])
-                 RETURNING schedule_id`,
+                `
+                DELETE FROM scheduled_posts
+
+                WHERE post_id = ANY($1::int[])
+
+                RETURNING schedule_id
+                `,
                 [postIds]
             );
 
@@ -425,66 +707,114 @@ router.delete("/:id", authenticateToken, async (req, res) => {
                 scheduledResult.rowCount;
 
             // ----------------------------------------------------
-            // 4. DELETE POSTS
+            // 4. DELETE RECURRING POSTS
+            // ----------------------------------------------------
+
+            try {
+                const recurringResult = await client.query(
+                    `
+                    DELETE FROM recurring_posts
+
+                    WHERE post_id = ANY($1::int[])
+
+                    RETURNING *
+                    `,
+                    [postIds]
+                );
+
+                deletedRecurringPosts =
+                    recurringResult.rowCount;
+
+            } catch (recurringError) {
+
+                // If recurring_posts does not have post_id,
+                // continue only when the table is not present.
+                if (
+                    recurringError.code === "42P01"
+                ) {
+                    console.log(
+                        "recurring_posts table not found. Skipping."
+                    );
+                } else {
+                    throw recurringError;
+                }
+            }
+
+            // ----------------------------------------------------
+            // 5. DELETE POSTS
             // ----------------------------------------------------
 
             const postsDeleteResult = await client.query(
-                `DELETE FROM posts
-                 WHERE account_id = $1
-                 RETURNING post_id`,
+                `
+                DELETE FROM posts
+
+                WHERE account_id = $1
+
+                RETURNING post_id
+                `,
                 [id]
             );
 
-            deletedPosts = postsDeleteResult.rowCount;
+            deletedPosts =
+                postsDeleteResult.rowCount;
         }
 
         // --------------------------------------------------------
-        // 5. DELETE SOCIAL ACCOUNT
+        // DELETE SOCIAL ACCOUNT
         // --------------------------------------------------------
 
-        const result = await client.query(
-            `DELETE FROM social_accounts
-             WHERE account_id = $1
-             AND user_id = $2
-             RETURNING
+        const deleteResult = await client.query(
+            `
+            DELETE FROM social_accounts
+
+            WHERE account_id = $1
+              AND user_id = $2
+
+            RETURNING
                 account_id,
                 user_id,
                 platform,
                 username,
-                created_at`,
+                created_at
+            `,
             [
                 id,
-                req.user.user_id
+                userId
             ]
         );
 
         // --------------------------------------------------------
-        // COMMIT TRANSACTION
+        // COMMIT
         // --------------------------------------------------------
 
         await client.query("COMMIT");
 
         // --------------------------------------------------------
-        // SUCCESS RESPONSE
+        // RESPONSE
         // --------------------------------------------------------
 
-        res.json({
+        return res.json({
             message: "Social account deleted successfully",
 
-            account: result.rows[0],
+            account: deleteResult.rows[0],
 
             deleted: {
                 posts: deletedPosts,
-                scheduled_posts: deletedScheduledPosts,
-                publishing_queue: deletedQueue,
-                publishing_logs: deletedLogs
+                scheduled_posts:
+                    deletedScheduledPosts,
+                recurring_posts:
+                    deletedRecurringPosts,
+                publishing_queue:
+                    deletedQueue,
+                publishing_logs:
+                    deletedLogs
             }
         });
 
     } catch (error) {
 
         // --------------------------------------------------------
-        // ROLLBACK IF ANY ERROR OCCURS
+        // ROLLBACK
         // --------------------------------------------------------
 
         try {
@@ -501,17 +831,12 @@ router.delete("/:id", authenticateToken, async (req, res) => {
             error
         );
 
-        res.status(500).json({
+        return res.status(500).json({
             message: "Failed to delete social account",
             error: error.message
         });
 
     } finally {
-
-        // --------------------------------------------------------
-        // RELEASE DATABASE CONNECTION
-        // --------------------------------------------------------
-
         client.release();
     }
 });
@@ -525,22 +850,29 @@ router.post("/:id/test", authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
+        // --------------------------------------------------------
+        // GET ACCOUNT FOR CURRENT USER
+        // --------------------------------------------------------
+
         const result = await pool.query(
-            `SELECT
+            `
+            SELECT
                 account_id,
                 platform,
                 username,
                 access_token
-             FROM social_accounts
-             WHERE account_id = $1
-             AND user_id = $2`,
+
+            FROM social_accounts
+
+            WHERE account_id = $1
+              AND user_id = $2
+            `,
             [
                 id,
                 req.user.user_id
             ]
         );
 
-        // Account not found
         if (result.rows.length === 0) {
             return res.status(404).json({
                 message: "Social account not found",
@@ -550,7 +882,10 @@ router.post("/:id/test", authenticateToken, async (req, res) => {
 
         const account = result.rows[0];
 
-        // Check access token
+        // --------------------------------------------------------
+        // CHECK ACCESS TOKEN
+        // --------------------------------------------------------
+
         if (
             !account.access_token ||
             account.access_token.trim() === ""
@@ -558,34 +893,45 @@ router.post("/:id/test", authenticateToken, async (req, res) => {
             return res.status(400).json({
                 message:
                     "No access token configured for this social account",
+
                 connected: false,
+
                 platform: account.platform,
+
                 username: account.username
             });
         }
 
-        // Configuration check only.
+        // --------------------------------------------------------
+        // CONFIGURATION CHECK
+        //
+        // NOTE:
         // This does NOT make a real API request.
+        // --------------------------------------------------------
 
-        res.json({
+        return res.json({
             message:
                 `${account.platform} account connection is configured`,
+
             connected: true,
+
             platform: account.platform,
+
             username: account.username
         });
 
     } catch (error) {
-
         console.error(
             "SOCIAL CONNECTION TEST ERROR:",
             error
         );
 
-        res.status(500).json({
+        return res.status(500).json({
             message:
                 "Failed to test social account connection",
+
             connected: false,
+
             error: error.message
         });
     }
@@ -600,21 +946,25 @@ router.post(
     "/:id/disconnect",
     authenticateToken,
     async (req, res) => {
-
         try {
             const { id } = req.params;
 
             const result = await pool.query(
-                `UPDATE social_accounts
-                 SET access_token = NULL
-                 WHERE account_id = $1
-                 AND user_id = $2
-                 RETURNING
+                `
+                UPDATE social_accounts
+
+                SET access_token = NULL
+
+                WHERE account_id = $1
+                  AND user_id = $2
+
+                RETURNING
                     account_id,
                     user_id,
                     platform,
                     username,
-                    created_at`,
+                    created_at
+                `,
                 [
                     id,
                     req.user.user_id
@@ -627,23 +977,25 @@ router.post(
                 });
             }
 
-            res.json({
+            return res.json({
                 message:
                     "Social account disconnected successfully",
+
                 connected: false,
+
                 account: result.rows[0]
             });
 
         } catch (error) {
-
             console.error(
                 "DISCONNECT SOCIAL ACCOUNT ERROR:",
                 error
             );
 
-            res.status(500).json({
+            return res.status(500).json({
                 message:
                     "Failed to disconnect social account",
+
                 error: error.message
             });
         }

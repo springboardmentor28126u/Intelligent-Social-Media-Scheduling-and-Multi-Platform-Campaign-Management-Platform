@@ -21,7 +21,24 @@ import {
 
 import "./App.css";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  "http://localhost:5000/api";
+
+/* =========================================================
+   SUPPORTED SOCIAL MEDIA PLATFORMS
+========================================================= */
+
+const SOCIAL_PLATFORMS = [
+  "Instagram",
+  "Facebook",
+  "Twitter-X",
+  "LinkedIn",
+  "YouTube",
+  "Pinterest",
+  "TikTok",
+  "Threads",
+];
 
 /* =========================================================
    HELPERS
@@ -57,9 +74,7 @@ function formatPercent(value) {
 }
 
 function formatDateTime(value) {
-  if (!value) {
-    return "-";
-  }
+  if (!value) return "-";
 
   const date = new Date(value);
 
@@ -71,9 +86,7 @@ function formatDateTime(value) {
 }
 
 function formatCampaignDate(value) {
-  if (!value) {
-    return "Not set";
-  }
+  if (!value) return "Not set";
 
   const date = new Date(value);
 
@@ -98,6 +111,19 @@ function getPostContent(postId, posts) {
   );
 
   return post?.content || `Post #${postId}`;
+}
+
+/* =========================================================
+   SOCIAL ACCOUNT STATUS
+========================================================= */
+
+function isSocialAccountConnected(account) {
+  return (
+    account?.connected === true ||
+    account?.connected === "true" ||
+    account?.connected === 1 ||
+    account?.connected === "1"
+  );
 }
 
 /* =========================================================
@@ -154,12 +180,16 @@ export default function App() {
      AUTH
   ======================================================= */
 
-  const [token, setToken] = useState(() => {
-    return localStorage.getItem("token");
-  });
+  const [token, setToken] = useState(() =>
+    localStorage.getItem("token")
+  );
 
-  const [loginEmail, setLoginEmail] = useState("pallavi@gmail.com");
-  const [loginPassword, setLoginPassword] = useState("Pallavi@123");
+  const [loginEmail, setLoginEmail] =
+    useState("pallavi@gmail.com");
+
+  const [loginPassword, setLoginPassword] =
+    useState("Pallavi@123");
+
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
 
@@ -193,18 +223,33 @@ export default function App() {
   ======================================================= */
 
   const [campaignName, setCampaignName] = useState("");
-  const [campaignDescription, setCampaignDescription] = useState("");
-  const [campaignStatus, setCampaignStatus] = useState("draft");
-  const [campaignStartDate, setCampaignStartDate] = useState("");
-  const [campaignEndDate, setCampaignEndDate] = useState("");
-  const [selectedCampaign, setSelectedCampaign] = useState("");
+  const [campaignDescription, setCampaignDescription] =
+    useState("");
+
+  const [campaignStatus, setCampaignStatus] =
+    useState("draft");
+
+  const [campaignStartDate, setCampaignStartDate] =
+    useState("");
+
+  const [campaignEndDate, setCampaignEndDate] =
+    useState("");
+
+  const [selectedCampaign, setSelectedCampaign] =
+    useState("");
 
   /* =======================================================
      SOCIAL ACCOUNT FORM
   ======================================================= */
 
-  const [socialPlatform, setSocialPlatform] = useState("Instagram");
-  const [socialUsername, setSocialUsername] = useState("");
+  const [socialPlatform, setSocialPlatform] =
+    useState(SOCIAL_PLATFORMS[0]);
+
+  const [socialUsername, setSocialUsername] =
+    useState("");
+
+  const [socialAccessToken, setSocialAccessToken] =
+    useState("");
 
   /* =======================================================
      POST FORM
@@ -213,28 +258,45 @@ export default function App() {
   const [postContent, setPostContent] = useState("");
   const [postCampaignId, setPostCampaignId] = useState("");
 
+  // FIX:
+  // Backend requires account_id when creating a post.
+  const [postAccountId, setPostAccountId] = useState("");
+
   /* =======================================================
      SCHEDULE FORM
   ======================================================= */
 
-  const [schedulePostId, setSchedulePostId] = useState("");
-  const [scheduleAccountId, setScheduleAccountId] = useState("");
-  const [scheduleDateTime, setScheduleDateTime] = useState("");
+  const [schedulePostId, setSchedulePostId] =
+    useState("");
+
+  const [scheduleAccountId, setScheduleAccountId] =
+    useState("");
+
+  const [scheduleDateTime, setScheduleDateTime] =
+    useState("");
 
   /* =======================================================
      ANALYTICS
   ======================================================= */
 
-  const [campaignAnalytics, setCampaignAnalytics] = useState(null);
-  const [audienceAnalytics, setAudienceAnalytics] = useState(null);
-  const [expenseAnalytics, setExpenseAnalytics] = useState(null);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [campaignAnalytics, setCampaignAnalytics] =
+    useState(null);
+
+  const [audienceAnalytics, setAudienceAnalytics] =
+    useState(null);
+
+  const [expenseAnalytics, setExpenseAnalytics] =
+    useState(null);
+
+  const [analyticsLoading, setAnalyticsLoading] =
+    useState(false);
 
   /* =======================================================
      HEALTH
   ======================================================= */
 
-  const [serverHealth, setServerHealth] = useState("Checking...");
+  const [serverHealth, setServerHealth] =
+    useState("Checking...");
 
   /* =======================================================
      AUTH FAILURE
@@ -372,9 +434,7 @@ export default function App() {
     const response = await safeRequest(
       "/campaigns",
       {},
-      {
-        silent: true,
-      }
+      { silent: true }
     );
 
     const data = getArray(response, [
@@ -391,7 +451,8 @@ export default function App() {
           current &&
           data.some(
             (campaign) =>
-              String(campaign.campaign_id) === String(current)
+              String(campaign.campaign_id) ===
+              String(current)
           )
         ) {
           return current;
@@ -414,9 +475,7 @@ export default function App() {
     const response = await safeRequest(
       "/social-accounts",
       {},
-      {
-        silent: true,
-      }
+      { silent: true }
     );
 
     const data = getArray(response, [
@@ -440,9 +499,7 @@ export default function App() {
     const response = await safeRequest(
       "/posts",
       {},
-      {
-        silent: true,
-      }
+      { silent: true }
     );
 
     const data = getArray(response, [
@@ -464,9 +521,7 @@ export default function App() {
     const response = await safeRequest(
       "/scheduled-posts",
       {},
-      {
-        silent: true,
-      }
+      { silent: true }
     );
 
     const data = getArray(response, [
@@ -665,10 +720,7 @@ export default function App() {
 
       await loadCampaigns();
     } catch (error) {
-      if (
-        error.status === 401 ||
-        error.status === 403
-      ) {
+      if (error.status === 401 || error.status === 403) {
         handleAuthFailure();
       } else {
         setErrorMessage(
@@ -690,9 +742,7 @@ export default function App() {
       "Are you sure you want to delete this campaign?"
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     try {
       setLoading(true);
@@ -717,10 +767,7 @@ export default function App() {
 
       await loadCampaigns();
     } catch (error) {
-      if (
-        error.status === 401 ||
-        error.status === 403
-      ) {
+      if (error.status === 401 || error.status === 403) {
         handleAuthFailure();
       } else {
         setErrorMessage(
@@ -748,29 +795,43 @@ export default function App() {
       return;
     }
 
+    if (!SOCIAL_PLATFORMS.includes(socialPlatform)) {
+      setErrorMessage(
+        "Please select a valid social media platform."
+      );
+      return;
+    }
+
     try {
       setLoading(true);
 
+      const requestBody = {
+        platform: socialPlatform,
+        username: socialUsername.trim(),
+      };
+
+      if (socialAccessToken.trim()) {
+        requestBody.access_token =
+          socialAccessToken.trim();
+      }
+
       await apiRequest("/social-accounts", {
         method: "POST",
-        body: JSON.stringify({
-          platform: socialPlatform,
-          username: socialUsername.trim(),
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       setSocialUsername("");
+      setSocialAccessToken("");
 
       setGlobalMessage(
-        "Social account added successfully."
+        socialAccessToken.trim()
+          ? `${socialPlatform} account added and connected successfully.`
+          : `${socialPlatform} account added successfully. It is currently not connected because no access token was provided.`
       );
 
       await loadSocialAccounts();
     } catch (error) {
-      if (
-        error.status === 401 ||
-        error.status === 403
-      ) {
+      if (error.status === 401 || error.status === 403) {
         handleAuthFailure();
       } else {
         setErrorMessage(
@@ -792,9 +853,7 @@ export default function App() {
       "Are you sure you want to delete this social account?"
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     try {
       setLoading(true);
@@ -812,15 +871,151 @@ export default function App() {
 
       await loadSocialAccounts();
     } catch (error) {
-      if (
-        error.status === 401 ||
-        error.status === 403
-      ) {
+      if (error.status === 401 || error.status === 403) {
         handleAuthFailure();
       } else {
         setErrorMessage(
           error.message ||
             "Social account could not be deleted."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* =======================================================
+     CONNECT SOCIAL ACCOUNT
+  ======================================================= */
+
+  const handleConnectSocialAccount = async (account) => {
+    const accessToken = window.prompt(
+      `Enter access token for ${account.platform} - ${account.username}`
+    );
+
+    if (accessToken === null) {
+      return;
+    }
+
+    if (!accessToken.trim()) {
+      setErrorMessage(
+        "Access token cannot be empty."
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setGlobalMessage("");
+      setErrorMessage("");
+
+      await apiRequest(
+        `/social-accounts/${account.account_id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            access_token: accessToken.trim(),
+          }),
+        }
+      );
+
+      setGlobalMessage(
+        `${account.platform} account connected successfully.`
+      );
+
+      await loadSocialAccounts();
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        handleAuthFailure();
+      } else {
+        setErrorMessage(
+          error.message ||
+            "Failed to connect social account."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* =======================================================
+     DISCONNECT SOCIAL ACCOUNT
+  ======================================================= */
+
+  const handleDisconnectSocialAccount = async (
+    accountId
+  ) => {
+    const confirmed = window.confirm(
+      "Disconnect this social account?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setLoading(true);
+      setGlobalMessage("");
+      setErrorMessage("");
+
+      await apiRequest(
+        `/social-accounts/${accountId}/disconnect`,
+        {
+          method: "POST",
+        }
+      );
+
+      setGlobalMessage(
+        "Social account disconnected successfully."
+      );
+
+      await loadSocialAccounts();
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        handleAuthFailure();
+      } else {
+        setErrorMessage(
+          error.message ||
+            "Failed to disconnect social account."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* =======================================================
+     TEST SOCIAL ACCOUNT
+  ======================================================= */
+
+  const handleTestSocialAccount = async (account) => {
+    try {
+      setLoading(true);
+      setGlobalMessage("");
+      setErrorMessage("");
+
+      const response = await apiRequest(
+        `/social-accounts/${account.account_id}/test`,
+        {
+          method: "POST",
+        }
+      );
+
+      if (response.connected) {
+        setGlobalMessage(
+          `${account.platform} connection is configured successfully.`
+        );
+      } else {
+        setErrorMessage(
+          response.message ||
+            "Social account is not connected."
+        );
+      }
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        handleAuthFailure();
+      } else {
+        setErrorMessage(
+          error.message ||
+            "Failed to test social account."
         );
       }
     } finally {
@@ -848,6 +1043,15 @@ export default function App() {
       return;
     }
 
+    // FIX:
+    // Backend requires account_id.
+    if (!postAccountId) {
+      setErrorMessage(
+        "Please select a social account."
+      );
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -856,11 +1060,14 @@ export default function App() {
         body: JSON.stringify({
           content: postContent.trim(),
           campaign_id: Number(postCampaignId),
+          account_id: Number(postAccountId),
+          status: "draft",
         }),
       });
 
       setPostContent("");
       setPostCampaignId("");
+      setPostAccountId("");
 
       setGlobalMessage(
         "Post created successfully."
@@ -868,10 +1075,7 @@ export default function App() {
 
       await loadPosts();
     } catch (error) {
-      if (
-        error.status === 401 ||
-        error.status === 403
-      ) {
+      if (error.status === 401 || error.status === 403) {
         handleAuthFailure();
       } else {
         setErrorMessage(
@@ -893,9 +1097,7 @@ export default function App() {
       "Are you sure you want to delete this post?"
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     try {
       setLoading(true);
@@ -913,10 +1115,7 @@ export default function App() {
         loadScheduledPosts(),
       ]);
     } catch (error) {
-      if (
-        error.status === 401 ||
-        error.status === 403
-      ) {
+      if (error.status === 401 || error.status === 403) {
         handleAuthFailure();
       } else {
         setErrorMessage(
@@ -990,10 +1189,7 @@ export default function App() {
         loadPublishingQueue(),
       ]);
     } catch (error) {
-      if (
-        error.status === 401 ||
-        error.status === 403
-      ) {
+      if (error.status === 401 || error.status === 403) {
         handleAuthFailure();
       } else {
         setErrorMessage(
@@ -1031,10 +1227,7 @@ export default function App() {
         loadPublishingLogs(),
       ]);
     } catch (error) {
-      if (
-        error.status === 401 ||
-        error.status === 403
-      ) {
+      if (error.status === 401 || error.status === 403) {
         handleAuthFailure();
       } else {
         setErrorMessage(
@@ -1082,9 +1275,7 @@ export default function App() {
         ),
       ]);
 
-      if (
-        campaignResult.status === "fulfilled"
-      ) {
+      if (campaignResult.status === "fulfilled") {
         setCampaignAnalytics(
           campaignResult.value
         );
@@ -1102,9 +1293,7 @@ export default function App() {
         }
       }
 
-      if (
-        audienceResult.status === "fulfilled"
-      ) {
+      if (audienceResult.status === "fulfilled") {
         setAudienceAnalytics(
           audienceResult.value
         );
@@ -1122,9 +1311,7 @@ export default function App() {
         }
       }
 
-      if (
-        expenseResult.status === "fulfilled"
-      ) {
+      if (expenseResult.status === "fulfilled") {
         setExpenseAnalytics(
           expenseResult.value
         );
@@ -1248,8 +1435,11 @@ export default function App() {
   ======================================================= */
 
   const campaignAnalyticsRows = useMemo(() => {
-    if (!campaignAnalytics) {
-      return [];
+    if (!campaignAnalytics) return [];
+
+    // Backend returns campaign analytics inside the "platforms" array.
+    if (Array.isArray(campaignAnalytics.platforms)) {
+      return campaignAnalytics.platforms;
     }
 
     return getArray(campaignAnalytics, [
@@ -1262,9 +1452,7 @@ export default function App() {
   }, [campaignAnalytics]);
 
   const audienceRows = useMemo(() => {
-    if (!audienceAnalytics) {
-      return [];
-    }
+    if (!audienceAnalytics) return [];
 
     return getArray(audienceAnalytics, [
       "audience",
@@ -1276,13 +1464,11 @@ export default function App() {
   }, [audienceAnalytics]);
 
   /* =======================================================
-     EXPENSE DATA NORMALIZATION
+     EXPENSE DATA
   ======================================================= */
 
   const expenseData = useMemo(() => {
-    if (!expenseAnalytics) {
-      return null;
-    }
+    if (!expenseAnalytics) return null;
 
     if (
       expenseAnalytics.data &&
@@ -1328,55 +1514,84 @@ export default function App() {
       };
     }
 
+    // Backend response:
+    // {
+    //   campaign_id: 6,
+    //   platforms: [...],
+    //   summary: {
+    //     total_impressions: 10000,
+    //     total_reach: 7500,
+    //     total_likes: 850,
+    //     total_comments: 120,
+    //     total_shares: 75,
+    //     total_clicks: 430,
+    //     total_engagement: 1045,
+    //     engagement_rate: 13.93
+    //   }
+    // }
+    const summary =
+      campaignAnalytics.summary &&
+      typeof campaignAnalytics.summary === "object"
+        ? campaignAnalytics.summary
+        : campaignAnalytics;
+
     const impressions = numberValue(
-      campaignAnalytics.totalImpressions ??
-        campaignAnalytics.total_impressions ??
-        campaignAnalytics.impressions
+      summary.totalImpressions ??
+        summary.total_impressions ??
+        summary.impressions ??
+        0
     );
 
     const reach = numberValue(
-      campaignAnalytics.totalReach ??
-        campaignAnalytics.total_reach ??
-        campaignAnalytics.reach
+      summary.totalReach ??
+        summary.total_reach ??
+        summary.reach ??
+        0
     );
 
     const likes = numberValue(
-      campaignAnalytics.totalLikes ??
-        campaignAnalytics.total_likes ??
-        campaignAnalytics.likes
+      summary.totalLikes ??
+        summary.total_likes ??
+        summary.likes ??
+        0
     );
 
     const comments = numberValue(
-      campaignAnalytics.totalComments ??
-        campaignAnalytics.total_comments ??
-        campaignAnalytics.comments
+      summary.totalComments ??
+        summary.total_comments ??
+        summary.comments ??
+        0
     );
 
     const shares = numberValue(
-      campaignAnalytics.totalShares ??
-        campaignAnalytics.total_shares ??
-        campaignAnalytics.shares
+      summary.totalShares ??
+        summary.total_shares ??
+        summary.shares ??
+        0
     );
 
     const clicks = numberValue(
-      campaignAnalytics.totalClicks ??
-        campaignAnalytics.total_clicks ??
-        campaignAnalytics.clicks
+      summary.totalClicks ??
+        summary.total_clicks ??
+        summary.clicks ??
+        0
     );
 
     const engagementFromAPI =
-      campaignAnalytics.totalEngagement ??
-      campaignAnalytics.total_engagement ??
-      campaignAnalytics.engagement;
+      summary.totalEngagement ??
+      summary.total_engagement ??
+      summary.engagement;
 
     const engagement =
-      engagementFromAPI !== undefined
+      engagementFromAPI !== undefined &&
+      engagementFromAPI !== null
         ? numberValue(engagementFromAPI)
         : likes + comments + shares + clicks;
 
     let engagementRate = numberValue(
-      campaignAnalytics.engagementRate ??
-        campaignAnalytics.engagement_rate
+      summary.engagementRate ??
+        summary.engagement_rate ??
+        0
     );
 
     if (
@@ -1470,13 +1685,9 @@ export default function App() {
         <div className="login-card">
           <div className="login-glow"></div>
 
-          <div className="brand-icon">
-            SM
-          </div>
+          <div className="brand-icon">SM</div>
 
-          <h1>
-            Social Media Platform
-          </h1>
+          <h1>Social Media Platform</h1>
 
           <p className="login-subtitle">
             Intelligent Social Media Scheduling
@@ -1493,9 +1704,7 @@ export default function App() {
                 type="email"
                 value={loginEmail}
                 onChange={(event) =>
-                  setLoginEmail(
-                    event.target.value
-                  )
+                  setLoginEmail(event.target.value)
                 }
                 placeholder="Enter email"
                 required
@@ -1511,9 +1720,7 @@ export default function App() {
                 type="password"
                 value={loginPassword}
                 onChange={(event) =>
-                  setLoginPassword(
-                    event.target.value
-                  )
+                  setLoginPassword(event.target.value)
                 }
                 placeholder="Enter password"
                 required
@@ -1551,7 +1758,7 @@ export default function App() {
         <div className="dashboard-hero">
           <div className="hero-content">
             <span className="hero-label">
-              MILESTONE 3
+              MILESTONE 4
             </span>
 
             <h1>
@@ -1673,21 +1880,26 @@ export default function App() {
 
               <div className="workflow-step">
                 <strong>2</strong>
-                <span>Create Post</span>
+                <span>Add Social Account</span>
               </div>
 
               <div className="workflow-step">
                 <strong>3</strong>
-                <span>Schedule Post</span>
+                <span>Create Post</span>
               </div>
 
               <div className="workflow-step">
                 <strong>4</strong>
-                <span>Publish</span>
+                <span>Schedule Post</span>
               </div>
 
               <div className="workflow-step">
                 <strong>5</strong>
+                <span>Publish</span>
+              </div>
+
+              <div className="workflow-step">
+                <strong>6</strong>
                 <span>Analyze</span>
               </div>
             </div>
@@ -1771,9 +1983,7 @@ export default function App() {
                 type="text"
                 value={campaignName}
                 onChange={(event) =>
-                  setCampaignName(
-                    event.target.value
-                  )
+                  setCampaignName(event.target.value)
                 }
                 placeholder="Enter campaign name"
                 required
@@ -1844,8 +2054,7 @@ export default function App() {
                   type="date"
                   value={campaignEndDate}
                   min={
-                    campaignStartDate ||
-                    undefined
+                    campaignStartDate || undefined
                   }
                   onChange={(event) =>
                     setCampaignEndDate(
@@ -1998,6 +2207,15 @@ export default function App() {
               Connect social platforms for publishing.
             </p>
           </div>
+
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={loadSocialAccounts}
+            disabled={loading}
+          >
+            ↻ Refresh
+          </button>
         </div>
 
         <div className="form-card">
@@ -2019,22 +2237,18 @@ export default function App() {
                       event.target.value
                     )
                   }
+                  required
                 >
-                  <option value="Instagram">
-                    Instagram
-                  </option>
-
-                  <option value="Facebook">
-                    Facebook
-                  </option>
-
-                  <option value="Twitter-X">
-                    Twitter-X
-                  </option>
-
-                  <option value="LinkedIn">
-                    LinkedIn
-                  </option>
+                  {SOCIAL_PLATFORMS.map(
+                    (platform) => (
+                      <option
+                        key={platform}
+                        value={platform}
+                      >
+                        {platform}
+                      </option>
+                    )
+                  )}
                 </select>
               </div>
 
@@ -2055,18 +2269,62 @@ export default function App() {
               </div>
             </div>
 
+            <div className="form-group">
+              <label>
+                Access Token
+                <span className="muted-text">
+                  {" "}
+                  (optional for demo)
+                </span>
+              </label>
+
+              <input
+                type="password"
+                value={socialAccessToken}
+                onChange={(event) =>
+                  setSocialAccessToken(
+                    event.target.value
+                  )
+                }
+                placeholder="Enter access token"
+              />
+
+              <small className="muted-text">
+                Leave empty to add the account as
+                Not Connected.
+              </small>
+            </div>
+
             <button
               type="submit"
               className="primary-button"
               disabled={loading}
             >
-              Add Account
+              {loading
+                ? "Adding..."
+                : "Add Account"}
             </button>
           </form>
         </div>
 
         <div className="content-card">
-          <h3>Connected Accounts</h3>
+          <div className="section-header">
+            <div>
+              <h3>Social Accounts</h3>
+
+              <p className="muted-text">
+                Supported platforms:{" "}
+                {SOCIAL_PLATFORMS.join(", ")}
+              </p>
+            </div>
+
+            <span>
+              {socialAccounts.length} account
+              {socialAccounts.length !== 1
+                ? "s"
+                : ""}
+            </span>
+          </div>
 
           {socialAccounts.length === 0 ? (
             <div className="empty-state">
@@ -2077,37 +2335,107 @@ export default function App() {
             </div>
           ) : (
             <div className="data-grid">
-              {socialAccounts.map((account) => (
-                <div
-                  className="account-card"
-                  key={account.account_id}
-                >
-                  <div className="data-card">
-                    <h3>
-                      {account.platform ||
-                        "Social Platform"}
-                    </h3>
+              {socialAccounts.map((account) => {
+                const connected =
+                  isSocialAccountConnected(account);
 
-                    <p>
-                      {account.username ||
-                        account.account_name ||
-                        "No username"}
-                    </p>
+                return (
+                  <div
+                    className="account-card"
+                    key={account.account_id}
+                  >
+                    <div className="data-card">
+                      <div className="card-top">
+                        <h3>
+                          {account.platform ||
+                            "Social Platform"}
+                        </h3>
 
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() =>
-                        handleDeleteSocialAccount(
-                          account.account_id
-                        )
-                      }
-                    >
-                      Delete
-                    </button>
+                        <span
+                          className={
+                            connected
+                              ? "status-badge status-connected"
+                              : "status-badge status-not-connected"
+                          }
+                        >
+                          {connected
+                            ? "Connected"
+                            : "Not Connected"}
+                        </span>
+                      </div>
+
+                      <p>
+                        {account.username ||
+                          account.account_name ||
+                          "No username"}
+                      </p>
+
+                      <p className="muted-text">
+                        Account ID:{" "}
+                        {account.account_id}
+                      </p>
+
+                      <div className="card-actions">
+                        {connected ? (
+                          <>
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              onClick={() =>
+                                handleTestSocialAccount(
+                                  account
+                                )
+                              }
+                              disabled={loading}
+                            >
+                              Test
+                            </button>
+
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              onClick={() =>
+                                handleDisconnectSocialAccount(
+                                  account.account_id
+                                )
+                              }
+                              disabled={loading}
+                            >
+                              Disconnect
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="primary-button"
+                            onClick={() =>
+                              handleConnectSocialAccount(
+                                account
+                              )
+                            }
+                            disabled={loading}
+                          >
+                            Connect
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() =>
+                            handleDeleteSocialAccount(
+                              account.account_id
+                            )
+                          }
+                          disabled={loading}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -2127,7 +2455,7 @@ export default function App() {
             <h1>Posts</h1>
             <p>
               Create posts and associate them with
-              campaigns.
+              campaigns and social accounts.
             </p>
           </div>
         </div>
@@ -2136,6 +2464,7 @@ export default function App() {
           <h3>Create Post</h3>
 
           <form onSubmit={handleCreatePost}>
+            {/* CAMPAIGN */}
             <div className="form-group">
               <label>Campaign</label>
 
@@ -2165,6 +2494,53 @@ export default function App() {
               </select>
             </div>
 
+            {/* SOCIAL ACCOUNT */}
+            <div className="form-group">
+              <label>Social Account</label>
+
+              <select
+                value={postAccountId}
+                onChange={(event) =>
+                  setPostAccountId(
+                    event.target.value
+                  )
+                }
+                required
+              >
+                <option value="">
+                  Select social account
+                </option>
+
+                {socialAccounts.map(
+                  (account) => (
+                    <option
+                      key={account.account_id}
+                      value={
+                        account.account_id
+                      }
+                    >
+                      {account.platform} -{" "}
+                      {account.username}
+                      {isSocialAccountConnected(
+                        account
+                      )
+                        ? " (Connected)"
+                        : " (Not Connected)"}
+                    </option>
+                  )
+                )}
+              </select>
+
+              {socialAccounts.length === 0 && (
+                <small className="muted-text">
+                  No social accounts found.
+                  Please add one from Social
+                  Accounts first.
+                </small>
+              )}
+            </div>
+
+            {/* CONTENT */}
             <div className="form-group">
               <label>Post Content</label>
 
@@ -2184,9 +2560,15 @@ export default function App() {
             <button
               type="submit"
               className="primary-button"
-              disabled={loading}
+              disabled={
+                loading ||
+                campaigns.length === 0 ||
+                socialAccounts.length === 0
+              }
             >
-              Create Post
+              {loading
+                ? "Creating..."
+                : "Create Post"}
             </button>
           </form>
         </div>
@@ -2225,6 +2607,11 @@ export default function App() {
                     <p className="muted-text">
                       Campaign ID:{" "}
                       {post.campaign_id || "-"}
+                    </p>
+
+                    <p className="muted-text">
+                      Account ID:{" "}
+                      {post.account_id || "-"}
                     </p>
 
                     <button
@@ -2373,6 +2760,11 @@ export default function App() {
                       >
                         {account.platform} -{" "}
                         {account.username}
+                        {isSocialAccountConnected(
+                          account
+                        )
+                          ? " (Connected)"
+                          : " (Not Connected)"}
                       </option>
                     )
                   )}
@@ -2402,7 +2794,9 @@ export default function App() {
               className="primary-button"
               disabled={loading}
             >
-              Schedule Post
+              {loading
+                ? "Scheduling..."
+                : "Schedule Post"}
             </button>
           </form>
         </div>
@@ -2414,9 +2808,7 @@ export default function App() {
             <button
               type="button"
               className="secondary-button"
-              onClick={
-                loadScheduledPosts
-              }
+              onClick={loadScheduledPosts}
             >
               Refresh
             </button>
@@ -2845,10 +3237,6 @@ export default function App() {
           </div>
         ) : (
           <>
-            {/* =================================================
-                ANALYTICS SUMMARY
-            ================================================= */}
-
             <div className="stats-grid">
               <div className="stat-card">
                 <span>Impressions</span>
@@ -2922,10 +3310,6 @@ export default function App() {
                 </strong>
               </div>
             </div>
-
-            {/* =================================================
-                ENGAGEMENT CHARTS
-            ================================================= */}
 
             <div className="dashboard-grid">
               <div className="content-card">
@@ -3005,10 +3389,6 @@ export default function App() {
                 </div>
               </div>
             </div>
-
-            {/* =================================================
-                AUDIENCE GROWTH
-            ================================================= */}
 
             <div className="content-card">
               <h3>Audience Growth</h3>
@@ -3159,10 +3539,6 @@ export default function App() {
               )}
             </div>
 
-            {/* =================================================
-                ROI
-            ================================================= */}
-
             <div className="content-card">
               <h3>Campaign ROI</h3>
 
@@ -3235,10 +3611,6 @@ export default function App() {
                 </div>
               )}
             </div>
-
-            {/* =================================================
-                PLATFORM ANALYTICS
-            ================================================= */}
 
             <div className="content-card">
               <h3>Platform Analytics</h3>
