@@ -1,3 +1,65 @@
+## Security regression verification — 7 October 2026
+
+This section supersedes earlier test counts. All data used here was disposable.
+
+| Check | Result |
+| --- | --- |
+| Backend, isolated Windows SQLite run | 150 discovered; 142 passed, 8 PostgreSQL-only tests skipped |
+| Backend, Docker with disposable PostgreSQL | **150 passed, no failures or skips**; 11 new security tests |
+| Frontend lint / production build | Passed after final changes |
+| Frontend Node tests | **25 passed, no failures or skips**; 3 new security tests |
+| Alembic heads | Exactly one: `a21c4e810014`; no migration added |
+| Docker build and health | PostgreSQL, backend and frontend healthy |
+| Docker smoke | Passed: SPA fallback, five security headers, register/login, synthetic post/schedule, PDF and XLSX; smoke job cancelled |
+| Browser smoke | Disposable registration and login passed; demo analytics sparklines, engagement timeline, platform and follower charts rendered; no captured warning/error logs |
+| Whitespace check | `git diff --check` passed |
+
+New backend coverage exercises trusted proxy chains, untrusted spoofing, malformed and
+missing headers, IPv6/CIDR/exact trust, rejection of wildcard trust, worker peer
+preservation, route integration, separate hashed limit buckets, per-IP registration
+limits, normalized per-email limits and window expiry, Retry-After, 8-character schema
+boundaries, legacy short-password login, password change and preserved duplicate behavior.
+Frontend coverage checks CSP origin validation/injection rejection, required headers and
+script/style directives, and registration/change-password validation/messages. Existing
+role, invitation and migration tests still pass unchanged.
+
+The stack used Compose project `socialpilot-security-test` and its new disposable volume,
+with `tmp/security-dummy.env` copied from public `.env.docker.example`. An override replaced
+all service env_file entries, so the existing `.env.docker` and protected local env files
+were not read. Only postgres/backend/frontend ran; no worker, real provider, email or push
+was used. Docker registry DNS failed initially, then recovered. A CRLF shell-script startup
+failure and a dynamic-address collision were corrected before the successful final smoke.
+
+Reproduction of the isolated Docker run (from repository root):
+
+```powershell
+docker compose -p socialpilot-security-test --env-file tmp/security-dummy.env -f docker-compose.yml -f tmp/security-compose.yml up --build -d --wait postgres backend frontend
+docker compose -p socialpilot-security-test --env-file tmp/security-dummy.env -f docker-compose.yml -f tmp/security-compose.yml cp Backend/tests backend:/app/tests
+docker compose -p socialpilot-security-test --env-file tmp/security-dummy.env -f docker-compose.yml -f tmp/security-compose.yml exec -e APP_ENV=test -e SOCIALPILOT_TEST_POSTGRES=1 backend python -m unittest discover -s tests -q
+docker compose -p socialpilot-security-test --env-file tmp/security-dummy.env -f docker-compose.yml -f tmp/security-compose.yml exec backend python -m alembic heads
+docker compose -p socialpilot-security-test --env-file tmp/security-dummy.env -f docker-compose.yml -f tmp/security-compose.yml exec backend python smoke_docker.py
+```
+
+The ignored temporary override replaces backend/publishing-worker/notification-worker
+`env_file` with `!override [./tmp/security-dummy.env]`. The dummy env is the public example,
+not a copy of an existing private configuration. Screenshot: `tmp/security-charts.png`.
+
+Skipped deliberately: full duplicate-email concealment would change the tested registration
+201-user/400-duplicate contract; simply replacing the message would not conceal existence.
+Unverified: deployed Vercel header delivery, a real external API origin, production proxy
+addresses/chains, and HTTPS HSTS enforcement (the Docker test is HTTP). The Vercel config
+must be generated with the deployment API origin before upload, as documented in README.
+No deploy, push, real database access, real posts, email or push delivery occurred.
+
+Changed files: Backend/client_ip.py, Backend/server_worker.py, Backend/login_limits.py,
+Backend/main.py, Backend/schemas.py, Backend/start.sh, Backend/smoke_docker.py,
+Backend/tests/test_security.py, docker-compose.yml, frontend/Dockerfile,
+frontend/nginx.conf, frontend/vercel.json, frontend/security-config.mjs,
+frontend/package.json, frontend/src/api.js, frontend/src/App.jsx,
+frontend/src/pages/Profile.jsx, frontend/tests/security.test.mjs, README.md, TEST_REPORT.md.
+
+---
+
 # SocialPilot — Consolidated Test and Evaluation Report
 
 Current review: 6 October 2026. This section supersedes the historical milestone reports below. No deployment, real email/push, or social publishing was performed in this preparation.
@@ -184,3 +246,5 @@ Team management is a separate exception: only the owner or an explicit `is_admin
 Full backend suite: **137 passed, 0 failures, 0 skipped**. Frontend suite: **22 passed, 0 failures, 0 skipped**. Frontend lint and production build passed. Migration round trips and schema drift checks passed on the isolated test database; single head remains `a21c4e810014`, with no migration added.
 
 Coverage includes exact read-only permission sets; disabled platform-admin endpoints for all four roles; denied content, reviews, sync, demo, team creation and publishing for view-only roles; permitted reads/exports; owner and explicit delegate team management; denial for administrator-role members without a flag; exact role navigation; and no review actions even when a view-only member holds team-management rights. Existing creator-only publishing, staged approval and campaign-visibility tests remain passing. Older admin-write tests were updated or replaced by disabled-endpoint tests. No real database, deployment, push, provider publishing or email delivery was used.
+
+The disposable security-test containers/network were stopped after verification; its test volume was retained.

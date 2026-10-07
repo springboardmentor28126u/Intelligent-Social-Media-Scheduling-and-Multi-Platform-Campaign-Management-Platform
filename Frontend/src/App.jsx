@@ -210,6 +210,8 @@ function App() {
     event.preventDefault(); setAuthError(''); setAuthLoading(true)
     try {
       if (isRegister) {
+        if (password.length < 8) throw new Error('Password must be at least 8 characters.')
+        if (password.length < 8) throw new Error('Password must be at least 8 characters.')
         if (password !== confirmPassword) throw new Error('Passwords do not match')
         await api('/register', { method: 'POST', body: JSON.stringify({ name, email, password }) })
         setIsRegister(false); setPassword(''); setConfirmPassword(''); setAuthError('Registration successful. Please sign in.')

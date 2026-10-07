@@ -8,6 +8,9 @@ x-app: &app
 
 services:
   postgres:
+    networks:
+      default:
+        ipv4_address: 172.30.86.2
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
@@ -23,6 +26,13 @@ services:
       retries: 12
   backend:
     <<: *app
+    networks:
+      default:
+        ipv4_address: 172.30.86.4
+    environment:
+      APP_ENV: production
+      PYTHON_DOTENV_DISABLED: '1'
+      FORWARDED_ALLOW_IPS: 172.30.86.3
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,6 +64,9 @@ services:
       backend:
         condition: service_healthy
   frontend:
+    networks:
+      default:
+        ipv4_address: 172.30.86.3
     build:
       context: ./frontend
       args:
@@ -70,3 +83,8 @@ services:
       retries: 6
 volumes:
   postgres_data:
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.86.0/24

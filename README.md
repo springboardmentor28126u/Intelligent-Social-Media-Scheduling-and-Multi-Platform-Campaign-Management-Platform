@@ -204,3 +204,48 @@ If Windows blocks script execution, launch an individual helper with `powershell
 See [Secrets rotation checklist](docs/SECRETS_ROTATION.md) and
 [housekeeping verification](docs/HOUSEKEEPING_REPORT.md). Never include private
 environment files, backup dumps, runtime logs or archived clutter in the submission.
+
+## Security fixes — 7 October 2026
+
+Client IPs used by login and registration limits are resolved by `Backend/client_ip.py`.
+`X-Forwarded-For` is ignored unless the socket peer belongs to the comma-separated
+IP addresses/CIDRs in `FORWARDED_ALLOW_IPS` (default `127.0.0.1`). The helper walks
+right-to-left to the first untrusted hop; malformed chains fall back to the peer.
+Wildcards and hostnames do not grant trust. Configure only your actual proxy addresses.
+The Gunicorn worker preserves the socket peer; alternative Uvicorn launches must use
+`--no-proxy-headers` so the helper can check the original peer. Docker reserves
+172.30.86.0/24, trusts only nginx at 172.30.86.3, and nginx overwrites incoming XFF.
+If that subnet conflicts locally, change the subnet and all three service addresses,
+including backend `FORWARDED_ALLOW_IPS`, together. Behind another edge proxy, configure
+nginx's trusted real-IP handling explicitly before relying on its `$remote_addr`.
+
+New registrations and password changes require at least 8 characters, with matching
+frontend validation/messages. Existing shorter passwords still work at login.
+Registration permits 5 attempts per IP and 3 per normalized email per hour, returning
+429 with `Retry-After: 3600`. Successful and duplicate attempts count. HMAC bucket keys
+reuse `login_limits` with a separate registration namespace; login limits are unchanged.
+No migration was added; the single Alembic head remains `a21c4e810014`.
+
+Both frontend server configurations set CSP, HSTS, nosniff, Referrer-Policy and
+Permissions-Policy. Scripts are same-origin only, with no inline script permission.
+Inline styles remain allowed for React/Recharts; existing Google Fonts origins are
+explicitly allowed. `connect-src` contains only the API origin, or `'self'` for `/api`.
+`npm run build` generates the header configurations from the process `VITE_API_URL`
+without reading dotenv files. Docker copies the generated nginx configuration.
+Production builds default to `/api`; local Vite development still defaults to localhost:8000.
+
+For Vercel with a separate backend, set the real public `VITE_API_URL` in the process
+and run `npm run configure-security` **before Vercel reads/uploads vercel.json**;
+review/include the generated config and use the same VITE_API_URL for the frontend
+build. Vercel does not interpolate environment variables inside static headers, and
+changing that file during a remote build is not a substitute for this preparation.
+No cloud deployment or real API origin was configured in this change.
+
+Full duplicate-email concealment was deliberately skipped: registration's existing
+201 user response versus 400 duplicate response is part of the tested API contract.
+Changing only the error text would still permit enumeration. Invitation attachment and
+existing duplicate behavior are preserved; email-ownership verification remains separate work.
+
+Verification: 150 backend tests passed with disposable PostgreSQL (11 new); 25 frontend
+Node tests passed (3 new); lint/build, single-head check, Docker HTTP smoke and browser
+registration/login/chart rendering passed. See TEST_REPORT.md for scope and limitations.

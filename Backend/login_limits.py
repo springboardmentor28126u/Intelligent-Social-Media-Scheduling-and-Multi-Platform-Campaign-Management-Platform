@@ -9,12 +9,21 @@ from models import LoginBucket
 
 
 def check_login_limit(db, ip, email):
+    _check_limit(db, ip, email, '', 900, 30, 10,
+                 'Too many sign-in attempts. Try again in 15 minutes.')
+
+
+def check_register_limit(db, ip, email):
+    _check_limit(db, ip, email, 'register:', 3600, 5, 3,
+                 'Too many registration attempts. Try again in an hour.')
+
+
+def _check_limit(db, ip, email, namespace, window, ip_limit, email_limit, message):
     now = datetime.now(timezone.utc)
-    window = 900
     blocked = False
     # Bound retained storage. No raw email or IP address is retained.
     db.query(LoginBucket).filter(LoginBucket.started_at < now - timedelta(days=1)).delete()
-    for value, limit in [('ip:' + ip, 30), ('email:' + email.lower(), 10)]:
+    for value, limit in [(namespace + 'ip:' + ip, ip_limit), (namespace + 'email:' + email.lower(), email_limit)]:
         key = hmac.new(os.environ['JWT_SECRET_KEY'].encode(), value.encode(), hashlib.sha256).hexdigest()
         row = db.query(LoginBucket).filter_by(key=key).with_for_update().first()
         if row is None:
@@ -32,4 +41,4 @@ def check_login_limit(db, ip, email):
         blocked |= row.attempts > limit
     db.commit()
     if blocked:
-        raise HTTPException(429, 'Too many sign-in attempts. Try again in 15 minutes.', headers={'Retry-After': str(window)})
+        raise HTTPException(429, message, headers={'Retry-After': str(window)})

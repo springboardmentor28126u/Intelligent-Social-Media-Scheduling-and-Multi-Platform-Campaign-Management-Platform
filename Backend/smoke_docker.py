@@ -24,6 +24,11 @@ def main():
             return data if binary else json.loads(data)
     with urlopen('http://frontend:8080/a-spa-route', timeout=15) as page:
         assert b'<html' in page.read()
+        for header in ['Content-Security-Policy', 'Strict-Transport-Security',
+                       'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy']:
+            assert page.headers.get(header), header
+        assert "script-src 'self';" in page.headers['Content-Security-Policy']
+        assert "connect-src 'self';" in page.headers['Content-Security-Policy']
     email = 'smoke-' + uuid.uuid4().hex + '@example.com'
     password = secrets.token_urlsafe(24)
     user = call('POST', '/register', {'name': 'Disposable smoke user', 'email': email, 'password': password})

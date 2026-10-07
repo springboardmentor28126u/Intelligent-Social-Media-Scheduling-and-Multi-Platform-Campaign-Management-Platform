@@ -1,4 +1,4 @@
-export const BACKEND_URL = (import.meta.env?.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '')
+export const BACKEND_URL = (import.meta.env?.VITE_API_URL || (import.meta.env?.PROD ? '/api' : 'http://localhost:8000')).replace(/\/$/, '')
 export async function api(path, options = {}) {
   const token = localStorage.getItem('token')
   const response = await fetch(`${BACKEND_URL}${path}`, { ...options, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(localStorage.getItem('workspace') ? { 'X-Workspace-ID': localStorage.getItem('workspace') } : {}), ...options.headers } })

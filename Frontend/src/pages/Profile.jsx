@@ -26,7 +26,7 @@ export const Profile = ({ user, onUpdated }) => {
     event.preventDefault()
     setBusy('password'); setError(e => ({ ...e, password: '' })); setMessage(m => ({ ...m, password: '' }))
     try {
-      if (passwords.next.length < 6) throw new Error('New password must be at least 6 characters.')
+      if (passwords.next.length < 8) throw new Error('New password must be at least 8 characters.')
       if (passwords.next !== passwords.confirm) throw new Error('New passwords do not match.')
       await api('/me/password', { method: 'POST', body: JSON.stringify({ current_password: passwords.current, new_password: passwords.next }) })
       setPasswords({ current: '', next: '', confirm: '' })

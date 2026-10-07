@@ -286,8 +286,13 @@ def home():
 )
 def register_user(
     user: schemas.UserCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    request: Request = None,
 ):
+    if request is not None:
+        from client_ip import get_client_ip
+        from login_limits import check_register_limit
+        check_register_limit(db, get_client_ip(request), str(user.email))
     existing_user = (
         db.query(models.User)
         .filter(func.lower(models.User.email) == str(user.email).lower())
@@ -328,7 +333,8 @@ def login_user(
     db: Session = Depends(get_db)
 ):
     from login_limits import check_login_limit
-    check_login_limit(db, request.client.host if request.client else 'unknown', str(user.email))
+    from client_ip import get_client_ip
+    check_login_limit(db, get_client_ip(request), str(user.email))
     # Emails are stored lower-case; func.lower also matches older mixed-case rows.
     db_user = (
         db.query(models.User)

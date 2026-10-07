@@ -4,7 +4,7 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 class UserCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     email: EmailStr
-    password: str = Field(min_length=6, max_length=1024)
+    password: str = Field(min_length=8, max_length=1024)
 
     @field_validator("name", mode="before")
     @classmethod
@@ -40,7 +40,7 @@ class ProfileUpdate(BaseModel):
 class PasswordChange(BaseModel):
     model_config = ConfigDict(extra="forbid")
     current_password: str = Field(min_length=1, max_length=1024)
-    new_password: str = Field(min_length=6, max_length=1024)
+    new_password: str = Field(min_length=8, max_length=1024)
 
 
 class UserResponse(BaseModel):
