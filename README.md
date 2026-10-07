@@ -76,6 +76,7 @@ The available features depend on the APIs, permissions, and configurations provi
 ```bash
 git clone https://github.com/springboardmentor28126u/Intelligent-Social-Media-Scheduling-and-Multi-Platform-Campaign-Management-Platform.git
 cd SocialPilot
+git checkout Kavya-M-Arali
 ```
 
 ### 2. Backend Setup
