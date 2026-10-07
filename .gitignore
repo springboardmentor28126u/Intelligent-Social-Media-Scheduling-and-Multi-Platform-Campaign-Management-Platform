@@ -224,7 +224,6 @@ node_modules/
 Frontend/dist/
 .runtime/
 tools/cloudflared.exe
-Claude outputs/
 
 # Extra secret safety
 *.local
