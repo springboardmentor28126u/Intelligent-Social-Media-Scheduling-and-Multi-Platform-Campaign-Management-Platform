@@ -6,6 +6,7 @@
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
+import uuid
 
 from app.core.config import settings
 
@@ -16,10 +17,18 @@ class Base(DeclarativeBase):
     pass
 
 
-# The engine manages the actual pool of connections to Supabase.
-# echo=False keeps the terminal quiet; flip to True temporarily if you
-# ever need to see the raw SQL being run, for debugging.
-engine = create_async_engine(settings.DATABASE_URL, echo=False)
+# PgBouncer (Supabase pooler, transaction mode) doesn't support prepared
+# statements, so we turn off asyncpg's statement cache and give any
+# prepared statement a unique name to avoid name collisions.
+engine = create_async_engine(
+    settings.DATABASE_URL,
+    echo=False,
+    connect_args={
+        "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0,
+        "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4()}__",
+    },
+)
 
 # A factory that hands out new database "sessions" (think: a single
 # conversation with the database — open it, do some queries, close it).

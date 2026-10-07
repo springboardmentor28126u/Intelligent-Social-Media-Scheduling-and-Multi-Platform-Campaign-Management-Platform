@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     # publishing data will live here instead of MongoDB. Auth (MONGODB_URL
     # above) is untouched and keeps working exactly as before.
     DATABASE_URL: str
+    # LinkedIn OAuth settings, read from .env (never hardcode these)
+    LINKEDIN_CLIENT_ID: str
+    LINKEDIN_CLIENT_SECRET: str
+    LINKEDIN_REDIRECT_URI: str
 
 # We create ONE instance of Settings here, so the rest of the app can just
 # do: `from app.core.config import settings` and use `settings.MONGODB_URL`

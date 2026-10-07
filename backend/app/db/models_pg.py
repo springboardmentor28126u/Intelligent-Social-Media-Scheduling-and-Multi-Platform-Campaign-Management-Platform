@@ -9,7 +9,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, Text, DateTime, Boolean, Integer, Index
+from sqlalchemy import String, Text, DateTime, Boolean, Integer, Index, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,6 +18,35 @@ from app.db.database_pg import Base
 
 def generate_uuid() -> str:
     return str(uuid.uuid4())
+
+class SocialConnection(Base):
+    """
+    One row = one user's connection to one platform (e.g. their LinkedIn).
+    Stores the OAuth token we need to post on their behalf.
+    """
+    __tablename__ = "social_connections"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
+
+    # Same isolation pattern as every other table: filter by this always.
+    user_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
+
+    platform: Mapped[str] = mapped_column(String(30), nullable=False)  # e.g. "linkedin"
+
+    # The user's ID on that platform (LinkedIn "sub"), needed to build the post author URN.
+    platform_user_id: Mapped[str] = mapped_column(String, nullable=False)
+    display_name: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # Plain text for the demo. Encrypt before any real production use.
+    access_token: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    # One connection per platform per user.
+    __table_args__ = (
+        UniqueConstraint("user_id", "platform", name="uq_social_user_platform"),
+    )
 
 
 class Post(Base):
@@ -84,3 +113,56 @@ class PublishingLog(Base):
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+class Campaign(Base):
+    __tablename__ = "campaigns"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
+
+    # Same pattern as Post.user_id — no FK, just trust the JWT's user id.
+    user_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
+
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+
+    # Array like Post.platforms, so one campaign can span multiple
+    # platforms even though the brief lists "Platform" as one field.
+    platforms: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+
+    start_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    end_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    # Numeric-ish value kept as a plain float for now — no currency
+    # handling needed since this is a mocked/simulated budget.
+    budget: Mapped[float] = mapped_column(nullable=False, default=0.0)
+
+    objectives: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # "active"/"completed"/"paused" — validated in Pydantic, same as
+    # Post.status, not as a DB-level enum.
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+class PostEngagement(Base):
+    """
+    One row per (post, platform) once the post is published.
+    Mock numbers for now; real platform APIs can fill the same columns later.
+    """
+    __tablename__ = "post_engagement"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
+    post_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
+    user_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
+    platform: Mapped[str] = mapped_column(String(30), nullable=False)
+
+    likes: Mapped[int] = mapped_column(Integer, default=0)
+    shares: Mapped[int] = mapped_column(Integer, default=0)
+    comments: Mapped[int] = mapped_column(Integer, default=0)
+    reach: Mapped[int] = mapped_column(Integer, default=0)
+    impressions: Mapped[int] = mapped_column(Integer, default=0)
+    clicks: Mapped[int] = mapped_column(Integer, default=0)
+
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)

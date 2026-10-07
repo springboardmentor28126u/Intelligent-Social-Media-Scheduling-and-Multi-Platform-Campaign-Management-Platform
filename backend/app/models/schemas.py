@@ -219,3 +219,53 @@ class PublishingLogPublic(BaseModel):
     status: str
     message: Optional[str]
     timestamp: datetime
+
+
+from pydantic import model_validator
+
+
+class CampaignStatus(str, Enum):
+    ACTIVE = "active"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+
+
+class CampaignCreate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=200)
+    platforms: list[SocialPlatform] = Field(default_factory=list)
+    start_date: datetime
+    end_date: datetime
+    budget: float = Field(0.0, ge=0)          # can't be negative
+    objectives: Optional[str] = None
+    status: CampaignStatus = CampaignStatus.ACTIVE
+
+    # Reject campaigns that end before they start
+    @model_validator(mode="after")
+    def check_dates(self):
+        if self.end_date < self.start_date:
+            raise ValueError("end_date must be on or after start_date")
+        return self
+
+
+class CampaignUpdate(BaseModel):
+    # Every field optional: a PATCH may change just one thing
+    name: Optional[str] = Field(None, min_length=2, max_length=200)
+    platforms: Optional[list[SocialPlatform]] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    budget: Optional[float] = Field(None, ge=0)
+    objectives: Optional[str] = None
+    status: Optional[CampaignStatus] = None
+
+
+class CampaignPublic(BaseModel):
+    id: str
+    name: str
+    platforms: list[SocialPlatform]
+    start_date: datetime
+    end_date: datetime
+    budget: float
+    objectives: Optional[str]
+    status: CampaignStatus
+    created_at: datetime
+    updated_at: datetime

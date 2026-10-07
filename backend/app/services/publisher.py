@@ -5,7 +5,7 @@
 # arrived?" and fake-publishes them (simulated delay + simulated failure),
 # writing a log row and updating the post either way.
 # Add this import at the top:
-from app.services.social_apis import mock_publish_to_platform
+from app.services.social_apis import publish_to_platform
 import asyncio
 import random
 from datetime import datetime, timezone
@@ -13,7 +13,8 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 
 from app.db.database_pg import AsyncSessionLocal
-from app.db.models_pg import Post, PublishingLog
+from app.db.models_pg import Post, PublishingLog, PostEngagement
+from app.services.engagement import generate_mock_engagement
 
 # --- Tunable settings ---
 POLL_INTERVAL_SECONDS = 10   # how often the loop checks for due posts
@@ -30,7 +31,7 @@ async def _publish_one_post(db, post: Post) -> None:
     all_succeeded = True
 
     for platform in post.platforms:
-        success, message = await mock_publish_to_platform(platform, post.content)
+        success, message = await publish_to_platform(db, post.user_id, platform, post.content)
         results.append(message)
         if not success:
             all_succeeded = False
@@ -46,6 +47,15 @@ async def _publish_one_post(db, post: Post) -> None:
             status="success",
             message=summary,
         )
+                # One mock engagement row per platform the post went out on
+        for platform in post.platforms:
+            db.add(PostEngagement(
+                post_id=post.id,
+                user_id=post.user_id,
+                platform=platform,
+                **generate_mock_engagement(platform),
+            ))
+
         if post.is_recurring:
             await _create_next_recurrence(db, post)
     else:

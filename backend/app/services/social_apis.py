@@ -6,6 +6,10 @@
 
 import asyncio
 import random
+from datetime import datetime, timezone
+
+from app.db import social_pg
+from app.services import linkedin
 
 SUPPORTED_PLATFORMS = [
     "facebook", "instagram", "linkedin", "twitter", "youtube", "pinterest"
@@ -38,3 +42,18 @@ async def mock_publish_to_platform(platform: str, content: str) -> tuple[bool, s
         return False, f"[Mock] Failed to post to {platform} (simulated API error)."
 
     return True, f"[Mock] Posted to {platform}."
+
+async def publish_to_platform(db, user_id: str, platform: str, content: str) -> tuple[bool, str]:
+    """
+    Router used by the publisher. Real API where the user has connected
+    the platform, mock everywhere else. Same return shape as the mock.
+    """
+    if platform == "linkedin":
+        conn = await social_pg.get_connection(db, user_id, "linkedin")
+        if conn is not None:
+            if conn.expires_at and conn.expires_at < datetime.now(timezone.utc):
+                return False, "[LinkedIn] Token expired. Please reconnect."
+            return await linkedin.publish_text_post(
+                conn.access_token, conn.platform_user_id, content
+            )
+    return await mock_publish_to_platform(platform, content)

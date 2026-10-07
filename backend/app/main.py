@@ -8,6 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.db.database import ping_database
 from app.api.auth import router as auth_router
 from app.api.posts import router as posts_router
+from app.api.campaigns import router as campaigns_router
+from app.api.analytics import router as analytics_router
+from app.api.social import router as social_router
 # Add this import near your other imports:
 import asyncio
 from app.services.publisher import run_publisher_loop
@@ -19,7 +22,9 @@ app = FastAPI(title="SocialPilot API")
 publisher_task: asyncio.Task | None = None
 app.include_router(auth_router)
 app.include_router(posts_router)
-
+app.include_router(campaigns_router)
+app.include_router(analytics_router)
+app.include_router(social_router)
 # --- CORS setup ---
 # By default, browsers block a webpage running on one address from talking
 # to a server on a different address, as a security measure. Your frontend

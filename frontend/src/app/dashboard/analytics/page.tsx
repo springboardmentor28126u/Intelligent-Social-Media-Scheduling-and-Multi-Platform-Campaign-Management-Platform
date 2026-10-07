@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import html2canvas from "html2canvas-pro";
 
 import {
   Document,
@@ -34,6 +34,9 @@ import {
   TableCell,
   WidthType,
 } from "docx";
+
+import { useAnalytics } from "@/hooks/useAnalytics";
+import { downloadAnalyticsPdf } from "@/lib/analyticsReport";
 
 /* =====================================================
    PLATFORM OPTIONS
@@ -142,52 +145,114 @@ export default function AnalyticsPage() {
      These values should later come from your backend/API.
   ===================================================== */
 
-  const totalReach = 0;
+    // Live data from the backend (fixed 30 days for the overview cards)
+  const { content, audience } = useAnalytics(30);
 
-  const totalEngagement = 0;
+  const totalReach = content?.totals.reach ?? 0;
 
-  const totalClicks = 0;
+  // Engagement = likes + shares + comments
+  const totalEngagement = content
+    ? content.totals.likes +
+      content.totals.shares +
+      content.totals.comments
+    : 0;
 
-  const audienceGrowth = 0;
+  const totalClicks = content?.totals.clicks ?? 0;
+
+  // Audience growth % over the last 7 days, summed across all platforms:
+  // (followers on the last day - followers on the first day) / first day * 100
+  let audienceGrowth = 0;
+  if (audience) {
+    let first = 0;
+    let last = 0;
+    for (const p of audience.by_platform) {
+      const series = p.growth_last_7_days;
+      if (series.length > 0) {
+        first += series[0].followers;
+        last += series[series.length - 1].followers;
+      }
+    }
+    audienceGrowth = first > 0 ? Number((((last - first) / first) * 100).toFixed(1)) : 0;
+  }
+
+  /* =====================================================
+     REPORT DATA (follows the Platform + Period selectors)
+  ===================================================== */
+
+  // Backend allows 1-365 days; clamp so a half-typed value never breaks the call
+  const reportDays = Math.min(Math.max(reportPeriod, 1), 365);
+
+  // Second hook call: refetches whenever reportDays changes
+  const {
+    content: reportContent,
+    audience: reportAudience,
+    isLoading: reportLoading,
+  } = useAnalytics(reportDays);
+
+  // Dropdown label -> backend platform key (null = all platforms)
+  const platformKey =
+    reportPlatform === "All Platforms"
+      ? null
+      : reportPlatform === "X (Twitter)"
+      ? "twitter"
+      : reportPlatform.toLowerCase();
+
+  // Totals for the chosen platform (or all platforms)
+  const reportTotals = reportContent
+    ? platformKey
+      ? reportContent.by_platform.find((p) => p.platform === platformKey) ?? null
+      : reportContent.totals
+    : null;
+
+  const rReach = reportTotals?.reach ?? 0;
+  const rEngagement = reportTotals
+    ? reportTotals.likes + reportTotals.shares + reportTotals.comments
+    : 0;
+  const rClicks = reportTotals?.clicks ?? 0;
+
+  // Audience growth over the last 7 days for the chosen platform(s)
+  let rFirst = 0;
+  let rLast = 0;
+  if (reportAudience) {
+    for (const p of reportAudience.by_platform) {
+      if (platformKey && p.platform !== platformKey) continue;
+      const series = p.growth_last_7_days;
+      if (series.length > 0) {
+        rFirst += series[0].followers;
+        rLast += series[series.length - 1].followers;
+      }
+    }
+  }
+  const rGrowth =
+    rFirst > 0 ? Number((((rLast - rFirst) / rFirst) * 100).toFixed(1)) : 0;
 
   /* =====================================================
      METRIC DATA
   ===================================================== */
 
-  const metricData: Record<
+    const metricData: Record<
     MetricKey,
-    {
-      label: string;
-      value: number;
-      displayValue: string;
-    }
+    { label: string; value: number; displayValue: string }
   > = {
     reach: {
       label: "Total Reach",
-      value: totalReach,
-      displayValue:
-        totalReach.toLocaleString(),
+      value: rReach,
+      displayValue: rReach.toLocaleString(),
     },
-
     engagement: {
       label: "Total Engagement",
-      value: totalEngagement,
-      displayValue:
-        totalEngagement.toLocaleString(),
+      value: rEngagement,
+      displayValue: rEngagement.toLocaleString(),
     },
-
     clicks: {
       label: "Total Clicks",
-      value: totalClicks,
-      displayValue:
-        totalClicks.toLocaleString(),
+      value: rClicks,
+      displayValue: rClicks.toLocaleString(),
     },
-
     growth: {
       label: "Audience Growth",
-      value: audienceGrowth,
-      displayValue:
-        `${audienceGrowth}%`,
+      value: rGrowth,
+      displayValue: `${rGrowth}%`,
     },
   };
 
@@ -215,11 +280,8 @@ export default function AnalyticsPage() {
      DATA AVAILABILITY
   ===================================================== */
 
-  const hasPerformanceData =
-    totalReach > 0 ||
-    totalEngagement > 0 ||
-    totalClicks > 0 ||
-    audienceGrowth !== 0;
+    const hasPerformanceData =
+    rReach > 0 || rEngagement > 0 || rClicks > 0 || rGrowth !== 0;
 
   /* =====================================================
      REPORT INSIGHT
@@ -235,7 +297,7 @@ export default function AnalyticsPage() {
       };
     }
 
-    if (audienceGrowth > 0) {
+    if (rGrowth > 0) {
       return {
         title:
           "Positive Audience Momentum",
@@ -245,8 +307,8 @@ export default function AnalyticsPage() {
     }
 
     if (
-      totalEngagement > 0 &&
-      totalReach > 0
+      rEngagement > 0 &&
+      rReach > 0
     ) {
       return {
         title:
@@ -420,106 +482,22 @@ ${
      DOWNLOAD PDF REPORT
   ===================================================== */
 
-  const downloadPdfReport =
-    async () => {
-      if (!reportPreviewRef.current) {
-        throw new Error(
-          "Report preview is not available."
-        );
-      }
-
-      const canvas =
-        await html2canvas(
-          reportPreviewRef.current,
-          {
-            scale: 2,
-            backgroundColor:
-              "#ffffff",
-            useCORS: true,
-          }
-        );
-
-      const imageData =
-        canvas.toDataURL(
-          "image/png"
-        );
-
-      const pdf =
-        new jsPDF({
-          orientation:
-            "portrait",
-          unit: "mm",
-          format: "a4",
-        });
-
-      const pageWidth =
-        pdf.internal.pageSize.getWidth();
-
-      const pageHeight =
-        pdf.internal.pageSize.getHeight();
-
-      const margin = 10;
-
-      const printableWidth =
-        pageWidth -
-        margin * 2;
-
-      const imageHeight =
-        (canvas.height *
-          printableWidth) /
-        canvas.width;
-
-      let remainingHeight =
-        imageHeight;
-
-      let positionY =
-        margin;
-
-      pdf.addImage(
-        imageData,
-        "PNG",
-        margin,
-        positionY,
-        printableWidth,
-        imageHeight
-      );
-
-      remainingHeight -=
-        pageHeight -
-        margin * 2;
-
-      while (
-        remainingHeight > 0
-      ) {
-        pdf.addPage();
-
-        positionY =
-          -(
-            imageHeight -
-            remainingHeight
-          ) + margin;
-
-        pdf.addImage(
-          imageData,
-          "PNG",
-          margin,
-          positionY,
-          printableWidth,
-          imageHeight
-        );
-
-        remainingHeight -=
-          pageHeight -
-          margin * 2;
-      }
-
-      pdf.save(
-        getReportFileName(
-          "pdf"
-        )
-      );
-    };
-
+    const downloadPdfReport = async () => {
+    downloadAnalyticsPdf({
+      platformLabel: reportPlatform,
+      platformKey,
+      days: reportPeriod,
+      selected: selectedPerformanceData,
+      metrics: selectedMetrics,
+      content: reportContent,
+      totals: reportTotals,
+      growth: rGrowth,
+      insightTitle: reportInsight.title,
+      insightText: reportInsight.description,
+      fileName: getReportFileName("pdf"),
+    });
+  };
+  
   /* =====================================================
      DOWNLOAD WORD REPORT
   ===================================================== */
@@ -1263,9 +1241,9 @@ ${
               handleGenerateReport
             }
             disabled={
-              selectedPerformanceData.length ===
-                0 ||
-              reportPeriod < 1
+              selectedPerformanceData.length === 0 ||
+              reportPeriod < 1 ||
+              reportLoading
             }
             className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
@@ -1307,76 +1285,84 @@ ${
       )}
 
       {/* ==========================================
-          PERFORMANCE TREND
+          PERFORMANCE TREND (live data)
       =========================================== */}
 
       <section className="rounded-xl border border-gray-100 bg-white shadow-sm">
-
         <div className="border-b border-gray-100 px-6 py-5">
           <div className="flex items-center gap-3">
-
             <div className="rounded-lg bg-indigo-50 p-2.5 text-indigo-600">
-              <TrendingUp
-                size={20}
-              />
+              <TrendingUp size={20} />
             </div>
-
             <div>
-              <h2 className="font-semibold text-gray-900">
-                Performance Trend
-              </h2>
-
+              <h2 className="font-semibold text-gray-900">Performance Trend</h2>
               <p className="mt-1 text-sm text-gray-500">
-                Track changes in social media
-                performance over time.
+                Daily reach over the last 30 days.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex min-h-[280px] flex-col items-center justify-center px-6 py-12 text-center">
-
-          <TrendingUp
-            size={36}
-            className="text-gray-300"
-          />
-
-          <p className="mt-4 text-sm font-medium text-gray-700">
-            No performance data available yet
-          </p>
-
-          <p className="mt-1 max-w-md text-sm leading-6 text-gray-500">
-            Performance trends will appear here once
-            connected social accounts begin providing
-            analytics data.
-          </p>
-        </div>
+        {content && content.trend.length > 0 ? (
+          <div className="overflow-x-auto p-6">
+            {(() => {
+              // Tallest bar = highest daily reach
+              const maxReach = Math.max(...content.trend.map((t) => t.reach), 1);
+              return (
+                <div className="flex h-56 min-w-max items-end gap-3">
+                  {content.trend.map((t) => (
+                    <div
+                      key={t.date}
+                      className="flex h-full w-14 flex-col items-center justify-end"
+                      title={`${t.date}: ${t.reach} reach, ${t.likes + t.shares + t.comments} interactions, ${t.clicks} clicks`}
+                    >
+                      <span className="mb-1 text-xs font-medium text-gray-700">
+                        {t.reach.toLocaleString()}
+                      </span>
+                      <div
+                        className="w-full rounded-t-md bg-gradient-to-t from-indigo-500 to-purple-500"
+                        style={{ height: `${Math.max((t.reach / maxReach) * 75, 2)}%` }}
+                      />
+                      <span className="mt-2 text-xs text-gray-500">
+                        {t.date.slice(5)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        ) : (
+          <div className="flex min-h-[280px] flex-col items-center justify-center px-6 py-12 text-center">
+            <TrendingUp size={36} className="text-gray-300" />
+            <p className="mt-4 text-sm font-medium text-gray-700">
+              No performance data available yet
+            </p>
+            <p className="mt-1 max-w-md text-sm leading-6 text-gray-500">
+              Performance trends will appear here once connected social accounts
+              begin providing analytics data.
+            </p>
+          </div>
+        )}
       </section>
 
       {/* ==========================================
-          ENGAGEMENT + PLATFORM INSIGHTS
+          ENGAGEMENT + PLATFORM INSIGHTS (live data)
       =========================================== */}
 
       <section className="grid gap-6 xl:grid-cols-2">
 
-        {/* Engagement */}
-
+        {/* Engagement Breakdown */}
         <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
-
           <div className="border-b border-gray-100 px-6 py-5">
             <div className="flex items-center gap-3">
-
               <div className="rounded-lg bg-pink-50 p-2.5 text-pink-600">
-                <Heart
-                  size={20}
-                />
+                <Heart size={20} />
               </div>
-
               <div>
                 <h2 className="font-semibold text-gray-900">
                   Engagement Breakdown
                 </h2>
-
                 <p className="mt-1 text-sm text-gray-500">
                   Likes, comments, and interactions.
                 </p>
@@ -1384,113 +1370,183 @@ ${
             </div>
           </div>
 
-          <div className="flex min-h-[220px] flex-col items-center justify-center px-6 py-10 text-center">
-
-            <Heart
-              size={32}
-              className="text-gray-300"
-            />
-
-            <p className="mt-4 text-sm font-medium text-gray-700">
-              No engagement data yet
-            </p>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Engagement metrics will appear here when
-              data becomes available.
-            </p>
-          </div>
+          {content && totalEngagement > 0 ? (
+            <div className="space-y-5 p-6">
+              {[
+                { label: "Likes", value: content.totals.likes, color: "from-pink-500 to-rose-500" },
+                { label: "Shares", value: content.totals.shares, color: "from-indigo-500 to-purple-500" },
+                { label: "Comments", value: content.totals.comments, color: "from-amber-400 to-orange-500" },
+              ].map((item) => {
+                // Bar width = share of total engagement
+                const pct = Math.round((item.value / totalEngagement) * 100);
+                return (
+                  <div key={item.label}>
+                    <div className="mb-2 flex items-center justify-between text-sm">
+                      <span className="font-medium text-gray-700">{item.label}</span>
+                      <span className="font-semibold text-gray-900">
+                        {item.value.toLocaleString()} ({pct}%)
+                      </span>
+                    </div>
+                    <div className="h-3 overflow-hidden rounded-full bg-gray-100">
+                      <div
+                        className={`h-full rounded-full bg-gradient-to-r ${item.color}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+              <p className="border-t border-gray-100 pt-4 text-xs text-gray-500">
+                Engagement rate: {content.totals.engagement_rate}% · CTR:{" "}
+                {content.totals.ctr}%
+              </p>
+            </div>
+          ) : (
+            <div className="flex min-h-[220px] flex-col items-center justify-center px-6 py-10 text-center">
+              <Heart size={32} className="text-gray-300" />
+              <p className="mt-4 text-sm font-medium text-gray-700">
+                No engagement data yet
+              </p>
+              <p className="mt-1 text-sm text-gray-500">
+                Engagement metrics will appear here when data becomes available.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Platform Insights */}
-
         <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
-
           <div className="border-b border-gray-100 px-6 py-5">
             <div className="flex items-center gap-3">
-
               <div className="rounded-lg bg-orange-50 p-2.5 text-orange-600">
-                <MessageCircle
-                  size={20}
-                />
+                <MessageCircle size={20} />
               </div>
-
               <div>
                 <h2 className="font-semibold text-gray-900">
                   Platform Insights
                 </h2>
-
                 <p className="mt-1 text-sm text-gray-500">
-                  Compare performance across connected
-                  social platforms.
+                  Compare performance across connected social platforms.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="flex min-h-[220px] flex-col items-center justify-center px-6 py-10 text-center">
-
-            <BarChart3
-              size={32}
-              className="text-gray-300"
-            />
-
-            <p className="mt-4 text-sm font-medium text-gray-700">
-              No platform insights yet
-            </p>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Connect social media accounts to begin
-              tracking platform-specific performance.
-            </p>
-          </div>
+          {content && content.by_platform.length > 0 ? (
+            <div className="space-y-5 p-6">
+              {content.by_platform.map((p) => {
+                // Bar width = this platform's reach vs the best platform's reach
+                const maxReach = Math.max(
+                  ...content.by_platform.map((x) => x.reach),
+                  1
+                );
+                const pct = Math.round((p.reach / maxReach) * 100);
+                const name =
+                  p.platform === "twitter"
+                    ? "X (Twitter)"
+                    : p.platform.charAt(0).toUpperCase() + p.platform.slice(1);
+                return (
+                  <div key={p.platform}>
+                    <div className="mb-2 flex items-center justify-between text-sm">
+                      <span className="font-medium text-gray-700">
+                        {name}{" "}
+                        <span className="text-xs font-normal text-gray-400">
+                          · {p.posts} post{p.posts !== 1 ? "s" : ""}
+                        </span>
+                      </span>
+                      <span className="font-semibold text-gray-900">
+                        {p.reach.toLocaleString()} reach
+                      </span>
+                    </div>
+                    <div className="h-3 overflow-hidden rounded-full bg-gray-100">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-600"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Engagement rate {p.engagement_rate}% · CTR {p.ctr}% ·{" "}
+                      {p.clicks.toLocaleString()} clicks
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex min-h-[220px] flex-col items-center justify-center px-6 py-10 text-center">
+              <BarChart3 size={32} className="text-gray-300" />
+              <p className="mt-4 text-sm font-medium text-gray-700">
+                No platform insights yet
+              </p>
+              <p className="mt-1 text-sm text-gray-500">
+                Connect social media accounts to begin tracking platform-specific performance.
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
       {/* ==========================================
-          TOP PERFORMING POSTS
+          TOP PERFORMING POSTS (live data)
       =========================================== */}
 
       <section className="rounded-xl border border-gray-100 bg-white shadow-sm">
-
         <div className="border-b border-gray-100 px-6 py-5">
           <div className="flex items-center gap-3">
-
             <div className="rounded-lg bg-amber-50 p-2.5 text-amber-600">
-              <FileText
-                size={20}
-              />
+              <FileText size={20} />
             </div>
-
             <div>
-              <h2 className="font-semibold text-gray-900">
-                Top Performing Posts
-              </h2>
-
+              <h2 className="font-semibold text-gray-900">Top Performing Posts</h2>
               <p className="mt-1 text-sm text-gray-500">
-                Posts with the strongest reach and
-                engagement will appear here.
+                Posts with the most interactions (likes + shares + comments).
               </p>
             </div>
           </div>
         </div>
 
-        <div className="px-6 py-12 text-center">
-
-          <FileText
-            size={32}
-            className="mx-auto text-gray-300"
-          />
-
-          <p className="mt-4 text-sm font-medium text-gray-700">
-            No posts available for analysis
-          </p>
-
-          <p className="mt-1 text-sm text-gray-500">
-            Publish content and connect social accounts
-            to begin tracking post performance.
-          </p>
-        </div>
+        {content && content.top_posts.length > 0 ? (
+          <ul className="divide-y divide-gray-100">
+            {content.top_posts.map((post, index) => (
+              <li key={post.post_id} className="flex items-start gap-4 px-6 py-4">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-50 text-sm font-semibold text-amber-700">
+                  {index + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-gray-900">
+                    {post.content}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {post.likes.toLocaleString()} likes ·{" "}
+                    {post.shares.toLocaleString()} shares ·{" "}
+                    {post.comments.toLocaleString()} comments ·{" "}
+                    {post.clicks.toLocaleString()} clicks · Reach{" "}
+                    {post.reach.toLocaleString()}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {post.interactions.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {post.engagement_rate}% eng.
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="px-6 py-12 text-center">
+            <FileText size={32} className="mx-auto text-gray-300" />
+            <p className="mt-4 text-sm font-medium text-gray-700">
+              No posts available for analysis
+            </p>
+            <p className="mt-1 text-sm text-gray-500">
+              Publish content and connect social accounts to begin tracking post
+              performance.
+            </p>
+          </div>
+        )}
       </section>
 
       {/* ==========================================

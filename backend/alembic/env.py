@@ -13,6 +13,7 @@ config = context.config
 
 import sys
 import os
+import uuid
 
 # Let this file import from your app/ package
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
@@ -73,15 +74,18 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    """In this scenario we need to create an Engine
-    and associate a connection with the context.
-
-    """
+    """Create an async engine and run migrations through it."""
 
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        # Same PgBouncer fix as database_pg.py
+        connect_args={
+            "statement_cache_size": 0,
+            "prepared_statement_cache_size": 0,
+            "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4()}__",
+        },
     )
 
     async with connectable.connect() as connection:
