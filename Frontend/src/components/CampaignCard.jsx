@@ -1,3 +1,4 @@
+import { ApprovalBadge } from './ApprovalBadge'
 import { Calendar, Clock, Edit3, Trash2, CheckCircle2, Clock3, AlertTriangle, CircleDashed } from 'lucide-react'
 import { PlatformBadge } from './PlatformBadge'
 import { statusLabel, statusTone } from '../postUtils'
@@ -24,6 +25,7 @@ export const CampaignCard = ({
             <span>{statusLabel(campaign.status)}</span>
           </span>
         </div>
+        <ApprovalBadge status={campaign.approval_status} />
         <PlatformBadge platform={campaign.platform} />
       </div>
 

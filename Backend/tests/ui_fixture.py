@@ -28,6 +28,7 @@ def build_fixture():
     with factory() as db:
         user = models.User(name='Browser Test', email='ui@example.com', role='content_creator', password_hash=main.password_hash.hash('Local-test-only-123!'))
         db.add(user)
+        db.add(models.User(name='Review Manager', email='manager@example.com', role='marketing_manager', password_hash=main.password_hash.hash('Local-test-only-123!')))
         db.flush()
         for provider in ('instagram', 'facebook', 'linkedin', 'x'):
             account = models.SocialAccount(user_id=user.id, platform=provider.title(), account_name=f'TEST ONLY {provider}', connected=True)
@@ -35,6 +36,8 @@ def build_fixture():
             db.flush()
             db.add(models.SocialCredential(account_id=account.id, user_id=user.id, provider=provider, external_id='test', encrypted_token='not-a-real-token'))
         db.commit()
+        from seed_team_demo import seed
+        seed(db, "Local-test-only-123!")
     def test_db():
         with factory() as db:
             yield db

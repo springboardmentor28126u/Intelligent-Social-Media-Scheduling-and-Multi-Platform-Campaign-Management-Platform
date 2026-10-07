@@ -1,25 +1,43 @@
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, Depends, HTTPException, status, Query
+from fastapi import FastAPI, Depends, HTTPException, status, Query, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from pwdlib import PasswordHash
 import os
 import jwt
 from datetime import datetime, timedelta, timezone
-from dotenv import load_dotenv
 import models
 import schemas
 from database import get_db
-from mongo_database import test_mongo_connection
-from roles import Role, ROLE_PERMISSIONS, normalize_role, permissions_for
-load_dotenv()
-app = FastAPI()
+from roles import normalize_role, permissions_for
+def create_app():
+    production = os.getenv('APP_ENV') == 'production'
+    return FastAPI(docs_url=None if production else '/docs',
+                   redoc_url=None if production else '/redoc',
+                   openapi_url=None if production else '/openapi.json')
+
+
+app = create_app()
+from runtime_config import SecurityHeaders
+app.add_middleware(SecurityHeaders)
+
+
+@app.get('/health')
+def health(db: Session = Depends(get_db)):
+    try:
+        db.execute(text('SELECT 1'))
+    except Exception:
+        raise HTTPException(503, 'Database unavailable') from None
+    return {'status': 'ok'}
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
+    allow_origins=[origin.strip().rstrip("/") for origin in
+                   os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+                   if origin.strip()],
+    allow_origin_regex=None if os.getenv("CORS_ORIGINS") else r"http://(localhost|127\.0\.0\.1):\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,7 +89,7 @@ def verify_token(
     except (jwt.InvalidTokenError, ValueError, TypeError):
         raise unauthorized
     user = db.get(models.User, user_id)
-    if user is None:
+    if user is None or user.is_workspace:
         raise unauthorized
     # Resolve permissions from the database so role changes apply immediately.
     role = normalize_role(user.role)
@@ -82,12 +100,30 @@ def verify_token(
 
 
 def require_permission(permission):
-    def check(payload: dict = Depends(verify_token)):
+    def check(request: Request, payload: dict = Depends(verify_token), db: Session = Depends(get_db)):
+        if permission.split(":")[0] in {"posts", "accounts", "analytics", "content", "publish"}:
+            from teams import scoped_payload
+            payload = scoped_payload(db, payload, request.headers.get("X-Workspace-ID"))
         if permission not in permissions_for(payload.get("role")):
-            raise HTTPException(status_code=403, detail="Permission denied")
-        return payload
+            raise HTTPException(status_code=403, detail="Only content creators can connect accounts or publish" if permission == "publish:write" else "Your current workspace role does not allow this action")
+        previous = db.info.get("content_scope")
+        db.info["content_scope"] = payload
+        try:
+            yield payload
+        finally:
+            if previous is None:
+                db.info.pop("content_scope", None)
+            else:
+                db.info["content_scope"] = previous
     return check
 
+
+from teams import make_router as make_teams_router
+from approvals import make_router as make_approvals_router
+from notifications import make_router as make_notifications_router
+app.include_router(make_teams_router(verify_token))
+app.include_router(make_approvals_router(require_permission))
+app.include_router(make_notifications_router(verify_token))
 
 from social_oauth import make_router
 app.include_router(make_router(require_permission))
@@ -103,65 +139,11 @@ from reports import make_router as make_reports_router
 app.include_router(make_reports_router(require_permission))
 from demo import make_router as make_demo_router
 app.include_router(make_demo_router(require_permission))
-def require_admin(
-    payload: dict = Depends(verify_token)
-):
-    if payload.get("role") not in {"admin", "administrator"}:
-        raise HTTPException(
-            status_code=403,
-            detail="Admin access required"
-        )
-
-    return payload
-
-
-@app.get("/admin")
-def admin_page(
-    payload: dict = Depends(require_admin)
-):
-    return {
-        "message": "Welcome Admin"
-    }
-
-
 @app.get("/me/permissions")
 def my_permissions(payload: dict = Depends(verify_token)):
     return {"role": payload["role"], "permissions": sorted(permissions_for(payload["role"]))}
 
 
-@app.get("/admin/roles")
-def list_roles(payload: dict = Depends(require_permission("roles:read"))):
-    return [{"role": role.value, "permissions": sorted(permissions)}
-            for role, permissions in ROLE_PERMISSIONS.items()]
-
-
-@app.get("/admin/users", response_model=list[schemas.UserResponse])
-def list_users(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
-    payload: dict = Depends(require_permission("users:read")),
-    db: Session = Depends(get_db),
-):
-    return db.query(models.User).order_by(models.User.id).offset(offset).limit(limit).all()
-
-
-@app.patch("/admin/users/{user_id}/role", response_model=schemas.UserResponse)
-def update_user_role(
-    user_id: int,
-    change: schemas.UserRoleUpdate,
-    payload: dict = Depends(require_permission("users:write")),
-    db: Session = Depends(get_db),
-):
-    # Disallow self-demotion so an administrator cannot lock themselves out.
-    if user_id == int(payload["sub"]) and change.role != Role.ADMINISTRATOR:
-        raise HTTPException(status_code=409, detail="Administrators cannot demote themselves")
-    user = db.get(models.User, user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    user.role = change.role.value
-    db.commit()
-    db.refresh(user)
-    return user
 @app.get("/me")
 def get_me(
     payload: dict = Depends(verify_token),
@@ -187,6 +169,8 @@ def get_me(
 def update_profile(change: schemas.ProfileUpdate, payload: dict = Depends(verify_token), db: Session = Depends(get_db)):
     user = db.get(models.User, int(payload["sub"]))
     user.name = change.name
+    from notifications import notify_user
+    notify_user(db, user.id, "account", "Profile updated", "Your profile name was changed.")
     db.commit()
     db.refresh(user)
     return user
@@ -200,6 +184,8 @@ def change_password(change: schemas.PasswordChange, payload: dict = Depends(veri
     if change.current_password == change.new_password:
         raise HTTPException(status_code=400, detail="Choose a different new password")
     user.password_hash = password_hash.hash(change.new_password)
+    from notifications import notify_user
+    notify_user(db, user.id, "account", "Password changed", "Your SocialPilot password was changed.")
     db.commit()
     return {"message": "Password updated"}
 
@@ -207,7 +193,7 @@ def change_password(change: schemas.PasswordChange, payload: dict = Depends(veri
 @app.delete("/accounts/{account_id}")
 def disconnect_social_account(
     account_id: int,
-    payload: dict = Depends(require_permission("accounts:write")),
+    payload: dict = Depends(require_permission("publish:write")),
     db: Session = Depends(get_db)
 ):
     user_id = int(payload["sub"])
@@ -243,6 +229,8 @@ def disconnect_social_account(
         sync_post(db, post)
     db.query(models.Post).filter_by(account_id=account.id).update({"account_id": None})
     db.query(models.SocialCredential).filter_by(account_id=account.id).delete()
+    from notifications import notify_scope
+    notify_scope(db, user_id, "account", "Social account disconnected", account.account_name)
     db.delete(account)
     db.commit()
 
@@ -254,7 +242,7 @@ def disconnect_social_account(
 )
 def connect_social_account(
     account: schemas.SocialAccountCreate,
-    payload: dict = Depends(require_permission("accounts:write")),
+    payload: dict = Depends(require_permission("publish:write")),
     db: Session = Depends(get_db)
 ):
     user_id = int(payload["sub"])
@@ -291,11 +279,6 @@ def get_social_accounts(
 @app.get("/")
 def home():
     return {"message": "SocialPilot Backend is running"}
-@app.get("/mongo-test")
-def mongo_test():
-    test_mongo_connection()
-    return {"message": "MongoDB connected successfully"}
-
 @app.post(
     "/register",
     response_model=schemas.UserResponse,
@@ -328,6 +311,9 @@ def register_user(
 
     db.add(new_user)
     try:
+        db.flush()
+        from teams import attach_invitations
+        attach_invitations(db, new_user)
         db.commit()
     except IntegrityError:
         db.rollback()
@@ -338,8 +324,11 @@ def register_user(
 @app.post("/login")
 def login_user(
     user: schemas.UserLogin,
+    request: Request,
     db: Session = Depends(get_db)
 ):
+    from login_limits import check_login_limit
+    check_login_limit(db, request.client.host if request.client else 'unknown', str(user.email))
     # Emails are stored lower-case; func.lower also matches older mixed-case rows.
     db_user = (
         db.query(models.User)
@@ -348,7 +337,7 @@ def login_user(
         .first()
     )
 
-    if not db_user:
+    if not db_user or db_user.is_workspace:
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password"

@@ -1,22 +1,20 @@
 import os
 
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.engine import URL
+from sqlalchemy.engine import URL, make_url
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-load_dotenv()
+from runtime_config import validate_environment
+validate_environment()
 
-DATABASE_URL = URL.create(
-    drivername="postgresql+psycopg",
-    username=os.getenv("DB_USER"),
-    password=os.getenv("DB_PASSWORD"),
-    host=os.getenv("DB_HOST"),
-    port=int(os.getenv("DB_PORT", 5432)),
-    database=os.getenv("DB_NAME"),
-)
+cloud_database_url = os.getenv("DATABASE_URL")
+DATABASE_URL = make_url(cloud_database_url)
 
-engine = create_engine(DATABASE_URL)
+# Cloud providers commonly supply either of these PostgreSQL URL schemes.
+if DATABASE_URL.drivername in {"postgres", "postgresql"}:
+    DATABASE_URL = DATABASE_URL.set(drivername="postgresql+psycopg")
+
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 SessionLocal = sessionmaker(
     bind=engine,

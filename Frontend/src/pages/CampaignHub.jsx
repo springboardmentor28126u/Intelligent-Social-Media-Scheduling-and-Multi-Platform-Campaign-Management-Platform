@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle, ArrowLeft, Archive, BarChart3, CalendarRange, CheckCircle2, Coins, Download, Edit3, Eye,
   Info, Megaphone, Pause, Play, Plus, Printer, Target, Trash2, TrendingUp, X,
@@ -16,7 +16,7 @@ import './campaigns.css'
 const PLATFORMS = ['facebook', 'instagram', 'linkedin', 'x', 'youtube', 'pinterest']
 const today = () => new Date().toISOString().slice(0, 10)
 const addDays = (iso, days) => { const d = new Date(`${iso}T00:00:00`); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10) }
-const blank = () => ({ name: '', description: '', objective: 'engagement', platforms: ['facebook', 'instagram'], start_date: today(), end_date: addDays(today(), 30), budget: '', revenue: '', currency: 'INR', target_engagements: '', target_posts: '', status: 'active' })
+const blank = () => ({ name: '', description: '', objective: 'engagement', platforms: ['facebook', 'instagram'], start_date: today(), end_date: addDays(today(), 30), budget: '', revenue: '', currency: 'INR', target_engagements: '', target_posts: '', status: 'active', shared_with_team: false, assigned_member_ids: [] })
 const phaseClass = { running: 'phase-running', upcoming: 'phase-upcoming', ended: 'phase-ended' }
 
 export function ProgressBar({ label, value, hint }) {
@@ -30,10 +30,18 @@ function StatusChip({ campaign }) {
   return <span className={`cm-chip ${phaseClass[campaign.phase]}`}>{titleCase(campaign.phase)}</span>
 }
 
-function CampaignForm({ initial, onClose, onSaved }) {
+function CampaignForm({ initial, onClose, onSaved, workspace, user }) {
+  const [members, setMembers] = useState([])
+  const canShare = !initial || initial.creator_id === user.id || workspace?.can_manage || (!workspace && user.role === 'administrator')
   const [form, setForm] = useState(initial ? { ...initial, budget: initial.budget || '', revenue: initial.revenue || '', target_engagements: initial.target_engagements || '', target_posts: initial.target_posts || '' } : blank())
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  useEffect(() => {
+    if (!workspace) return
+    const controller = new AbortController()
+    api(`/teams/${workspace.id}/members`, { signal: controller.signal }).then(setMembers).catch(e => { if (!controller.signal.aborted) setError(e.message) })
+    return () => controller.abort()
+  }, [workspace])
   const set = (key, value) => setForm(prev => ({ ...prev, [key]: value }))
   const togglePlatform = p => set('platforms', form.platforms.includes(p) ? form.platforms.filter(x => x !== p) : [...form.platforms, p])
   const submit = async event => {
@@ -45,6 +53,10 @@ function CampaignForm({ initial, onClose, onSaved }) {
       start_date: form.start_date, end_date: form.end_date, budget: Number(form.budget || 0), revenue: Number(form.revenue || 0),
       currency: form.currency, target_engagements: Number(form.target_engagements || 0), target_posts: Number(form.target_posts || 0), status: form.status,
     }
+    if (canShare) {
+      body.shared_with_team = !!form.shared_with_team
+      body.assigned_member_ids = form.assigned_member_ids || []
+    }
     setSaving(true)
     try { onSaved(await api(initial ? `/campaigns/${initial.id}` : '/campaigns', { method: initial ? 'PATCH' : 'POST', body: JSON.stringify(body) })) }
     catch (err) { setError(err.message) }
@@ -55,6 +67,7 @@ function CampaignForm({ initial, onClose, onSaved }) {
     <div className="modal-body">
       {error && <div className="info-callout-card" role="alert">{error}</div>}
       <fieldset disabled={saving} className="cm-fieldset">
+        {workspace && <div className="form-group-modern"><label><input type="checkbox" checked={!!form.shared_with_team} disabled={!canShare} onChange={e => set('shared_with_team', e.target.checked)} /> Share with whole team</label><p>Off by default: visible to the campaign creator, assigned members and team admins. Business users only see shared campaigns.</p><label htmlFor="cm-assignees">Assigned members</label><select id="cm-assignees" className="form-input" multiple disabled={!canShare} value={(form.assigned_member_ids || []).map(String)} onChange={e => set('assigned_member_ids', Array.from(e.target.selectedOptions, o => Number(o.value)))}>{members.filter(m => m.status === 'active').map(m => <option key={m.user_id} value={m.user_id}>{m.name} ({m.role.replaceAll('_', ' ')})</option>)}</select><p>Assign a creator so they can review and publish this campaign. Only the campaign creator or team admin can change access.</p></div>}
         <div className="form-group-modern"><label className="form-label" htmlFor="cm-name">Campaign name</label><input id="cm-name" className="form-input" value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Diwali Festive Sale 2026" maxLength={200} /></div>
         <div className="form-row-2col">
           <div className="form-group-modern"><label className="form-label" htmlFor="cm-objective">Objective</label><select id="cm-objective" className="form-input" value={form.objective} onChange={e => set('objective', e.target.value)}>{OBJECTIVES.map(o => <option key={o} value={o}>{titleCase(o)}</option>)}</select></div>
@@ -108,7 +121,7 @@ function exportCampaign(report) {
   downloadCsv(`campaign-${report.id}-${stamp()}.csv`, [{ label: 'Field', value: 0 }, { label: 'Value', value: 1 }], summary)
 }
 
-function CampaignDetail({ id, canManage, posts, onBack, onChanged }) {
+function CampaignDetail({ id, canManage, posts, onBack, onChanged, workspace, user }) {
   const { data: report, error, loading, reload, setError } = useApiData(`/campaigns/${id}`, null, 60000)
   const [editing, setEditing] = useState(false)
   const [adding, setAdding] = useState([])
@@ -142,12 +155,12 @@ function CampaignDetail({ id, canManage, posts, onBack, onChanged }) {
           {report.status === 'paused' && <button type="button" className="btn btn-secondary" onClick={() => setStatus('active')} disabled={busy}><Play size={15} />Resume</button>}
           {report.status !== 'completed' && report.status !== 'archived' && <button type="button" className="btn btn-secondary" onClick={() => setStatus('completed')} disabled={busy}><CheckCircle2 size={15} />Mark complete</button>}
           {report.status !== 'archived' && <button type="button" className="btn btn-secondary" onClick={() => setStatus('archived')} disabled={busy}><Archive size={15} />Archive</button>}
-          <button type="button" className="btn btn-ghost-danger" onClick={remove} disabled={busy}><Trash2 size={15} />Delete</button>
+          {(report.creator_id === user.id || workspace?.can_manage || (!workspace && user.role === "administrator")) && <button type="button" className="btn btn-ghost-danger" onClick={remove} disabled={busy}><Trash2 size={15} />Delete</button>}
         </>}
       </div>
     </div>
     {error && <div className="info-callout-card" role="alert">{error}</div>}
-    <div className="cm-report-title"><div><div className="cm-card-top"><StatusChip campaign={report} /><span className="cm-objective">{titleCase(report.objective)}</span></div><h1 className="page-main-heading">{report.name}</h1><p className="page-main-sub">{report.start_date} → {report.end_date} · {report.platforms.map(platformLabel).join(', ') || 'No platforms set'}</p>{report.description && <p className="cm-description">{report.description}</p>}</div></div>
+    <div className="cm-report-title"><div><div className="cm-card-top"><StatusChip campaign={report} /><span className="cm-objective">{titleCase(report.objective)}</span></div><h1 className="page-main-heading">{report.name}</h1><p>{report.shared_with_team ? "Shared with whole team" : "Private / assigned members"}</p><p className="page-main-sub">{report.start_date} → {report.end_date} · {report.platforms.map(platformLabel).join(', ') || 'No platforms set'}</p>{report.description && <p className="cm-description">{report.description}</p>}</div></div>
     {report.alerts.length > 0 && <div className="cm-alerts">{report.alerts.map((a, i) => <div key={i} className={`cm-alert alert-${a.level}`}>{a.level === 'warning' ? <AlertTriangle size={15} /> : <Info size={15} />}{a.message}</div>)}</div>}
     <div className="metrics-grid">
       <MetricCard title="Engagements" value={num(m.engagements)} icon={TrendingUp} accent="emerald" subtitle={`${num(m.likes)} likes · ${num(m.comments)} comments · ${num(m.shares)} shares`} />
@@ -175,11 +188,11 @@ function CampaignDetail({ id, canManage, posts, onBack, onChanged }) {
           : <tr><td colSpan={canManage ? 7 : 6}>No posts yet. Add existing posts here, or pick this campaign when creating a post.</td></tr>}
       </tbody></table></div>
     </div>
-    {editing && <CampaignForm initial={report} onClose={() => setEditing(false)} onSaved={async () => { setEditing(false); await reload(); onChanged() }} />}
+    {editing && <CampaignForm workspace={workspace} user={user} initial={report} onClose={() => setEditing(false)} onSaved={async () => { setEditing(false); await reload(); onChanged() }} />}
   </div>
 }
 
-export const CampaignHub = ({ canManage = false, posts = [], onChanged = () => {} }) => {
+export const CampaignHub = ({ workspace, user, canManage = false, posts = [], onChanged = () => {} }) => {
   const [filter, setFilter] = useState('all')
   const [openId, setOpenId] = useState(null)
   const [creating, setCreating] = useState(false)
@@ -193,7 +206,7 @@ export const CampaignHub = ({ canManage = false, posts = [], onChanged = () => {
     budget: campaigns.reduce((s, c) => s + c.budget, 0),
   }), [campaigns])
   const changed = () => { reload(); onChanged() }
-  if (openId !== null) return <CampaignDetail id={openId} canManage={canManage} posts={posts} onBack={() => { setOpenId(null); reload() }} onChanged={changed} />
+  if (openId !== null) return <CampaignDetail workspace={workspace} user={user} id={openId} canManage={canManage} posts={posts} onBack={() => { setOpenId(null); reload() }} onChanged={changed} />
   return <div className="cm-page">
     <div className="page-header-row"><div><h1 className="page-main-heading">Campaigns</h1><p className="page-main-sub">Plan campaigns, group posts, track goals and measure ROI.</p></div>
       {canManage && <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} />New campaign</button>}</div>
@@ -208,7 +221,7 @@ export const CampaignHub = ({ canManage = false, posts = [], onChanged = () => {
     {loading ? <p role="status">Loading campaigns…</p> : visible.length === 0
       ? <EmptyState title={campaigns.length ? 'No campaigns match this filter' : 'No campaigns yet'} description="Campaigns group your posts with dates, budget and goals so you can track performance and ROI." actionLabel={canManage && !campaigns.length ? 'New campaign' : undefined} onAction={canManage && !campaigns.length ? () => setCreating(true) : undefined} icon={BarChart3} />
       : <div className="cm-grid">{visible.map(c => <CampaignCardView key={c.id} campaign={c} onOpen={setOpenId} />)}</div>}
-    {creating && <CampaignForm onClose={() => setCreating(false)} onSaved={created => { setCreating(false); changed(); setOpenId(created.id) }} />}
+    {creating && <CampaignForm workspace={workspace} user={user} onClose={() => setCreating(false)} onSaved={created => { setCreating(false); changed(); setOpenId(created.id) }} />}
   </div>
 }
 

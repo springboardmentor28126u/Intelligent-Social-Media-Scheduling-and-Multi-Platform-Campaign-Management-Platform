@@ -36,6 +36,7 @@ const ICON_MAP = {
 }
 
 export const Sidebar = ({
+  isTeam = false,
   activePage,
   onNavigate,
   currentRole,
@@ -87,7 +88,7 @@ export const Sidebar = ({
         <nav className="sidebar-navigation">
           <div className="nav-section-title">Navigation</div>
           <ul className="nav-menu">
-            {roleConfig.nav.map((item) => {
+            {roleConfig.nav.filter(item => !isTeam || !['adminUsers', 'rolesMatrix'].includes(item.page)).map((item) => {
               const IconComp = ICON_MAP[item.icon] || LayoutDashboard
               const isActive = activePage === item.id
 

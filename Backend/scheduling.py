@@ -9,6 +9,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, AwareDatetime, field_validator, model_validator
 from sqlalchemy.orm import Session
 
+from visibility import scoped_query
 from database import get_db
 from models import Post, PublishingJob, PublishingLog, SocialAccount, SocialCredential
 from posts import owned_post
@@ -64,6 +65,18 @@ class ScheduleRequest(BaseModel):
         return self
 
 
+class PublishNowRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    account_ids: list[int] = Field(min_length=1, max_length=10)
+
+    @field_validator("account_ids")
+    @classmethod
+    def unique_positive_accounts(cls, values):
+        if len(set(values)) != len(values) or any(value <= 0 for value in values):
+            raise ValueError("Account IDs must be unique positive integers")
+        return values
+
+
 class JobResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -104,6 +117,10 @@ class LogResponse(BaseModel):
 
 def log(db, job, event, message):
     db.add(PublishingLog(job_id=job.id, event=event, message=message))
+    if event in {"published", "failed", "uncertain"}:
+        from notifications import notify_scope
+        notify_scope(db, job.user_id, "publishing", f"{job.provider}: {event}", message,
+                     post_id=job.post_id, key=f"job:{job.id}:{event}:{job.attempts}")
 
 
 def sync_post(db, post):
@@ -125,7 +142,7 @@ def sync_post(db, post):
 
 
 def owned_job(db, user_id, job_id):
-    job = db.query(PublishingJob).filter_by(id=job_id, user_id=user_id).first()
+    job = scoped_query(db, PublishingJob).filter_by(id=job_id, user_id=user_id).first()
     if job is None:
         raise HTTPException(404, "Publishing job not found")
     return job
@@ -175,15 +192,17 @@ def validate_content(post, provider):
 def make_router(require_permission):
     router = APIRouter(tags=["Scheduling and publishing"])
 
-    @router.post("/posts/{post_id}/schedule", response_model=list[JobResponse], status_code=201)
-    def schedule(post_id: int, data: ScheduleRequest, payload=Depends(require_permission("posts:write")), db: Session = Depends(get_db)):
+    def enqueue(post_id, data, payload, db, immediate=False):
         post = owned_post(db, int(payload["sub"]), post_id, lock=True)
+        from approvals import require_approved
+        require_approved(db, post)
         if post.status not in {"draft", "scheduled", "cancelled"}:
             raise HTTPException(409, "Only drafts, cancelled posts and idle schedules can be scheduled")
-        existing = db.query(PublishingJob).filter_by(post_id=post.id).all()
+        existing = scoped_query(db, PublishingJob).filter_by(post_id=post.id).all()
         if any(j.status in {"processing", "uncertain", "failed", "published"} for j in existing):
             raise HTTPException(409, "Schedule has executed jobs; create a new draft instead")
-        times = times_for(data, datetime.now(timezone.utc))
+        now = datetime.now(timezone.utc)
+        times = [now] if immediate else times_for(data, now)
         accounts = []
         for account_id in data.account_ids:
             account = db.query(SocialAccount).filter_by(id=account_id, user_id=post.user_id).first()
@@ -203,7 +222,7 @@ def make_router(require_permission):
         jobs = []
         for scheduled_at in times:
             for account, provider in accounts:
-                job = PublishingJob(post_id=post.id, user_id=post.user_id, account_id=account.id,
+                job = PublishingJob(post_id=post.id, user_id=post.user_id, publisher_id=int(payload.get("actor_sub", payload["sub"])), account_id=account.id,
                     provider=provider, content=post.content, image_url=post.image_url, video_url=post.video_url, scheduled_at=scheduled_at,
                     run_at=scheduled_at, timezone_name=data.timezone_name, recurrence=data.recurrence, status="scheduled")
                 db.add(job)
@@ -215,10 +234,19 @@ def make_router(require_permission):
         db.commit()
         return jobs
 
+    @router.post("/posts/{post_id}/schedule", response_model=list[JobResponse], status_code=201)
+    def schedule(post_id: int, data: ScheduleRequest, payload=Depends(require_permission("publish:write")), db: Session = Depends(get_db)):
+        return enqueue(post_id, data, payload, db)
+
+    @router.post("/posts/{post_id}/publish", response_model=list[JobResponse], status_code=201)
+    def publish_now(post_id: int, data: PublishNowRequest, payload=Depends(require_permission("publish:write")), db: Session = Depends(get_db)):
+        schedule_data = ScheduleRequest(scheduled_at=datetime.now(timezone.utc), account_ids=data.account_ids, timezone_name="UTC")
+        return enqueue(post_id, schedule_data, payload, db, immediate=True)
+
     @router.post("/posts/{post_id}/cancel")
-    def cancel(post_id: int, payload=Depends(require_permission("posts:write")), db: Session = Depends(get_db)):
+    def cancel(post_id: int, payload=Depends(require_permission("publish:write")), db: Session = Depends(get_db)):
         post = owned_post(db, int(payload["sub"]), post_id, lock=True)
-        jobs = db.query(PublishingJob).filter_by(post_id=post.id).all()
+        jobs = scoped_query(db, PublishingJob).filter_by(post_id=post.id).all()
         if any(job.status == "processing" for job in jobs):
             raise HTTPException(409, "Publishing is in progress; wait for its result")
         count = 0
@@ -232,9 +260,9 @@ def make_router(require_permission):
         return {"cancelled_jobs": count}
 
     @router.post("/posts/{post_id}/restore-draft")
-    def restore(post_id: int, payload=Depends(require_permission("posts:write")), db: Session = Depends(get_db)):
+    def restore(post_id: int, payload=Depends(require_permission("publish:write")), db: Session = Depends(get_db)):
         post = owned_post(db, int(payload["sub"]), post_id, lock=True)
-        if db.query(PublishingJob).filter(PublishingJob.post_id == post.id, PublishingJob.status != "cancelled").first():
+        if scoped_query(db, PublishingJob).filter(PublishingJob.post_id == post.id, PublishingJob.status != "cancelled").first():
             raise HTTPException(409, "Only posts with no history or entirely cancelled jobs can return to draft")
         post.status = "draft"
         db.commit()
@@ -245,14 +273,14 @@ def make_router(require_permission):
                  payload=Depends(require_permission("posts:read")), db: Session = Depends(get_db)):
         if end <= start or end - start > timedelta(days=366):
             raise HTTPException(422, "Calendar range must be positive and no longer than 366 days")
-        return db.query(PublishingJob).filter(PublishingJob.user_id == int(payload["sub"]),
+        return scoped_query(db, PublishingJob).filter(PublishingJob.user_id == int(payload["sub"]),
             PublishingJob.scheduled_at >= start.astimezone(timezone.utc), PublishingJob.scheduled_at < end.astimezone(timezone.utc)
         ).order_by(PublishingJob.scheduled_at, PublishingJob.id).offset(offset).limit(limit).all()
 
     @router.get("/queue", response_model=list[JobResponse])
     def queue(status: JobStatus | None = None, post_id: int | None = None, offset: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=500),
               payload=Depends(require_permission("posts:read")), db: Session = Depends(get_db)):
-        query = db.query(PublishingJob).filter_by(user_id=int(payload["sub"]))
+        query = scoped_query(db, PublishingJob).filter_by(user_id=int(payload["sub"]))
         if status:
             query = query.filter_by(status=status)
         if post_id is not None:
@@ -265,21 +293,24 @@ def make_router(require_permission):
         return db.query(PublishingLog).filter_by(job_id=job_id).order_by(PublishingLog.id).all()
 
     @router.post("/queue/{job_id}/retry", response_model=JobResponse)
-    def retry(job_id: int, payload=Depends(require_permission("posts:write")), db: Session = Depends(get_db)):
+    def retry(job_id: int, payload=Depends(require_permission("publish:write")), db: Session = Depends(get_db)):
         job = owned_job(db, int(payload["sub"]), job_id)
         post = owned_post(db, int(payload["sub"]), job.post_id, lock=True)
+        from approvals import require_approved
+        require_approved(db, post)
         db.refresh(job)
         if job.status != "failed":
             raise HTTPException(409, "Only confirmed failed jobs can be retried")
         job.status, job.attempts, job.error = "retry", 0, None
         job.run_at = datetime.now(timezone.utc)
+        job.publisher_id = int(payload.get("actor_sub", payload["sub"]))
         log(db, job, "retry", "Manual retry requested")
         sync_post(db, post)
         db.commit()
         return job
 
     @router.post("/queue/run", status_code=202)
-    def run(background_tasks: BackgroundTasks, payload=Depends(require_permission("posts:write"))):
+    def run(background_tasks: BackgroundTasks, payload=Depends(require_permission("publish:write"))):
         from publishing_worker import run_due
         background_tasks.add_task(run_due, user_id=int(payload["sub"]))
         return {"message": "Due jobs queued for background processing; inspect /queue and job logs"}

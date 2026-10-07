@@ -23,6 +23,7 @@ export const Dashboard = ({
   connectedAccounts = [],
   onOpenCreateCampaign,
   canCreateCampaign,
+  canPublish,
   onNavigate,
   onEditCampaign,
   onRefresh,
@@ -88,7 +89,7 @@ export const Dashboard = ({
         </div>
 
         <div className="banner-right">
-          {canCreateCampaign && <button type="button" className={`btn ${hasDemo ? 'btn-secondary' : 'btn-demo'}`} onClick={toggleDemo} disabled={demoBusy} title={hasDemo ? 'Remove the sample data' : 'Fill every screen with realistic sample data (never published)'}>
+          {canPublish && <button type="button" className={`btn ${hasDemo ? 'btn-secondary' : 'btn-demo'}`} onClick={toggleDemo} disabled={demoBusy} title={hasDemo ? 'Remove the sample data' : 'Fill every screen with realistic sample data (never published)'}>
             {hasDemo ? <Trash2 size={15} /> : <Sparkles size={15} />}{demoBusy ? 'Working…' : hasDemo ? 'Remove demo data' : 'Load demo data'}
           </button>}
           <div className="time-range-picker">

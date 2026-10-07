@@ -2,6 +2,17 @@
    SocialPilot Modern SaaS Design System & Stylesheet
    ========================================================================== */
 
+.main-viewport, .page-wrapper, .dashboard-card, .chart-card, .collab-grid > *, .metrics-grid > * { min-width: 0; }
+.page-wrapper { overflow-wrap: anywhere; }
+.table-responsive { max-width: 100%; overflow-x: auto; }
+.workspace-selector select { min-width: 0; max-width: 100%; }
+@media (max-width: 767px) {
+  .cm-actions, .cm-section-head { flex-wrap: wrap; }
+  .page-wrapper .form-input { max-width: 100%; min-width: 0; }
+  .page-wrapper .modern-table { min-width: 620px; }
+  .page-wrapper .collab-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
 :root {
   --primary-50: #eef2ff;
   --primary-100: #e0e7ff;
@@ -2884,3 +2895,16 @@ body {
 .pv-yt-desc { background: #f2f2f2; border-radius: 10px; padding: 0.55rem 0.65rem; display: flex; flex-direction: column; gap: 0.2rem; }
 .pv-x-media { padding: 0 0.75rem 0.6rem; }
 .pv-x-media .pv-media { border-radius: 14px; }
+
+/* Narrow screens retain controls and scroll tables inside their cards. */
+@media (max-width: 767px) {
+  .header-left, .breadcrumb-nav { min-width: 0; }
+  .breadcrumb-root, .breadcrumb-sep { display: none; }
+  .breadcrumb-current { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .header-right { gap: 8px; flex-shrink: 0; }
+  .app-header { gap: 8px; }
+  .demo-banner { display: block; }
+  .demo-banner .demo-chip { display: inline-block; white-space: nowrap; }
+  .analytics-charts-grid { grid-template-columns: minmax(0, 1fr); }
+  .chart-span-2 { grid-column: auto; }
+}

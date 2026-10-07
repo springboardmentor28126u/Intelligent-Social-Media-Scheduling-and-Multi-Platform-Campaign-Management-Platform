@@ -33,10 +33,7 @@ export const ROLE_CONFIG = {
       { id: 'overview', label: 'Overview', icon: 'LayoutDashboard', page: 'dashboard' },
       { id: 'campaign-hub', label: 'Campaigns', icon: 'Megaphone', page: 'campaignHub' },
       { id: 'campaigns', label: 'Posts', icon: 'PlusCircle', page: 'campaigns' },
-      { id: 'content-approval', label: 'Content Approval', icon: 'CheckSquare', page: 'placeholder', title: 'Content Approval Workflow', description: 'Reviewing creator drafts before they are scheduled (Pending Approval status) is not part of Milestones 1–3.' },
-      { id: 'schedule', label: 'Schedule', icon: 'Clock', page: 'schedule' },
-      { id: 'calendar', label: 'Calendar', icon: 'Calendar', page: 'schedule' },
-      { id: 'accounts', label: 'Social Accounts', icon: 'Share2', page: 'accounts' },
+      { id: 'content-approval', label: 'Content Approval', icon: 'CheckSquare', page: 'approvals' },
       { id: 'analytics', label: 'Analytics', icon: 'BarChart3', page: 'analytics' },
       { id: 'engagement', label: 'Engagement', icon: 'MessageCircle', page: 'engagement' },
       { id: 'reports', label: 'Reports', icon: 'FileSpreadsheet', page: 'reports' },
@@ -45,7 +42,7 @@ export const ROLE_CONFIG = {
   },
   [ROLES.BUSINESS_USER]: {
     id: ROLES.BUSINESS_USER,
-    label: 'Business User',
+    label: 'Business User (view only)',
     badgeClass: 'badge-business',
     description: 'Track business ROI, campaign reach, and overall brand footprint.',
     nav: [
@@ -60,24 +57,24 @@ export const ROLE_CONFIG = {
   },
   [ROLES.ADMINISTRATOR]: {
     id: ROLES.ADMINISTRATOR,
-    label: 'Administrator',
+    label: 'Administrator (view only)',
     badgeClass: 'badge-admin',
-    description: 'System administration, RBAC, platform API keys, and audit logs.',
+    description: 'View permitted campaigns, posts, analytics and reports.',
     nav: [
       { id: 'overview', label: 'Overview', icon: 'LayoutDashboard', page: 'dashboard' },
-      { id: 'users', label: 'Users', icon: 'Users', page: 'adminUsers' },
       { id: 'campaign-hub', label: 'Campaigns', icon: 'Megaphone', page: 'campaignHub' },
       { id: 'campaigns', label: 'Posts', icon: 'PlusCircle', page: 'campaigns' },
-      { id: 'schedule', label: 'Schedule', icon: 'Clock', page: 'schedule' },
-      { id: 'calendar', label: 'Calendar', icon: 'Calendar', page: 'schedule' },
-      { id: 'roles-permissions', label: 'Roles & Permissions', icon: 'ShieldCheck', page: 'rolesMatrix' },
-      { id: 'social-platforms', label: 'Social Platforms', icon: 'Globe', page: 'accounts' },
       { id: 'analytics', label: 'Analytics', icon: 'BarChart3', page: 'analytics' },
       { id: 'engagement', label: 'Engagement', icon: 'MessageCircle', page: 'engagement' },
       { id: 'reports', label: 'Reports', icon: 'FileSpreadsheet', page: 'reports' },
       { id: 'notifications', label: 'Notifications', icon: 'Bell', page: 'notifications' },
     ],
   },
+}
+
+for (const config of Object.values(ROLE_CONFIG)) {
+  config.nav.push({ id: 'teams', label: 'Teams', icon: 'Users', page: 'teams' })
+  if ([ROLES.CONTENT_CREATOR, ROLES.MARKETING_MANAGER].includes(config.id) && !config.nav.some(item => item.page === 'approvals')) config.nav.push({ id: 'content-approval', label: 'Content Approval', icon: 'CheckSquare', page: 'approvals' })
 }
 
 export function getRoleConfig(roleKey) {

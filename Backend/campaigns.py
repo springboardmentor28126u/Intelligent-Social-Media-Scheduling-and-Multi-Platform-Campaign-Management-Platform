@@ -8,8 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from sqlalchemy.orm import Session
 
 from analytics import as_utc, count, latest_snapshots
+from visibility import scoped_query
+from posts import change_campaign
 from database import get_db
-from models import Campaign, Post, PublishingJob
+from models import Campaign, Post, PublishingJob, CampaignAssignment, Membership
 
 Objective = Literal["awareness", "engagement", "traffic", "conversions", "followers", "sales"]
 CampaignStatus = Literal["active", "paused", "completed", "archived"]
@@ -30,6 +32,8 @@ class CampaignBase(BaseModel):
     currency: str = Field(default="INR", min_length=3, max_length=3)
     target_engagements: int = Field(default=0, ge=0, le=1_000_000_000)
     target_posts: int = Field(default=0, ge=0, le=10_000)
+    shared_with_team: bool = False
+    assigned_member_ids: list[int] = Field(default_factory=list, max_length=200)
     status: CampaignStatus = "active"
 
     @field_validator("name", mode="before")
@@ -70,6 +74,8 @@ class CampaignUpdate(BaseModel):
     currency: str | None = Field(default=None, min_length=3, max_length=3)
     target_engagements: int | None = Field(default=None, ge=0, le=1_000_000_000)
     target_posts: int | None = Field(default=None, ge=0, le=10_000)
+    shared_with_team: bool | None = None
+    assigned_member_ids: list[int] | None = Field(default=None, max_length=200)
     status: CampaignStatus | None = None
 
     @model_validator(mode="after")
@@ -96,7 +102,7 @@ class PostAssignment(BaseModel):
 
 
 def owned_campaign(db, user_id, campaign_id):
-    campaign = db.query(Campaign).filter_by(id=campaign_id, user_id=user_id).first()
+    campaign = scoped_query(db, Campaign).filter_by(id=campaign_id, user_id=user_id).first()
     if campaign is None:
         raise HTTPException(404, "Campaign not found")
     return campaign
@@ -120,9 +126,9 @@ def pct(part, whole):
 def rollup(db, user_id, campaigns, detail=False):
     """Aggregate posts, publishing jobs and latest engagement for campaigns."""
     ids = [c.id for c in campaigns]
-    posts = db.query(Post).filter(Post.user_id == user_id, Post.campaign_id.in_(ids)).all() if ids else []
+    posts = scoped_query(db, Post).filter(Post.user_id == user_id, Post.campaign_id.in_(ids)).all() if ids else []
     post_ids = [p.id for p in posts]
-    jobs = db.query(PublishingJob).filter(PublishingJob.user_id == user_id,
+    jobs = scoped_query(db, PublishingJob).filter(PublishingJob.user_id == user_id,
                                           PublishingJob.post_id.in_(post_ids)).all() if post_ids else []
     snapshots = latest_snapshots(db, user_id, [j.id for j in jobs if j.status == "published"]) if jobs else {}
     post_campaign = {p.id: p.campaign_id for p in posts}
@@ -132,8 +138,13 @@ def rollup(db, user_id, campaigns, detail=False):
     for job in jobs:
         by_campaign[post_campaign[job.post_id]]["jobs"].append(job)
     today = datetime.now(timezone.utc).date()
-    return {c.id: summarize(c, by_campaign[c.id]["posts"], by_campaign[c.id]["jobs"], snapshots, today, detail)
+    result = {c.id: summarize(c, by_campaign[c.id]["posts"], by_campaign[c.id]["jobs"], snapshots, today, detail)
             for c in campaigns}
+    for c in campaigns:
+        result[c.id]["creator_id"] = c.creator_id
+        result[c.id]["shared_with_team"] = c.shared_with_team
+        result[c.id]["assigned_member_ids"] = [a.user_id for a in db.query(CampaignAssignment).filter_by(campaign_id=c.id)]
+    return result
 
 
 def summarize(campaign, posts, jobs, snapshots, today, detail):
@@ -230,6 +241,23 @@ def apply(campaign, values):
     campaign.updated_at = datetime.now(timezone.utc)
 
 
+def set_assignments(db, campaign, ids, payload):
+    ids = set(ids)
+    allowed = {int(payload.get("actor_sub", payload["sub"]))}
+    if payload.get("workspace_id"):
+        allowed = {m.user_id for m in db.query(Membership).filter_by(workspace_id=payload["workspace_id"], status="active")}
+    if not ids <= allowed:
+        raise HTTPException(422, "Assign only active members of this workspace")
+    db.query(CampaignAssignment).filter_by(campaign_id=campaign.id).delete()
+    for user_id in ids:
+        db.add(CampaignAssignment(campaign_id=campaign.id, user_id=user_id))
+
+
+def require_campaign_owner(campaign, payload):
+    if not payload.get("can_manage") and payload["role"] != "administrator" and campaign.creator_id != int(payload.get("actor_sub", payload["sub"])):
+        raise HTTPException(403, "Only the campaign creator or workspace admin can change sharing or delete this campaign")
+
+
 def make_router(require_permission):
     router = APIRouter(prefix="/campaigns", tags=["Campaign management"])
 
@@ -237,7 +265,7 @@ def make_router(require_permission):
     def list_campaigns(status: CampaignStatus | None = None, include_archived: bool = False,
                        payload=Depends(require_permission("posts:read")), db: Session = Depends(get_db)):
         user_id = int(payload["sub"])
-        query = db.query(Campaign).filter_by(user_id=user_id)
+        query = scoped_query(db, Campaign).filter_by(user_id=user_id)
         if status:
             query = query.filter_by(status=status)
         elif not include_archived:
@@ -247,13 +275,17 @@ def make_router(require_permission):
         return [summaries[c.id] for c in campaigns]
 
     @router.post("", status_code=201)
-    def create_campaign(data: CampaignCreate, payload=Depends(require_permission("posts:write")),
+    def create_campaign(data: CampaignCreate, payload=Depends(require_permission("content:write")),
                         db: Session = Depends(get_db)):
         user_id = int(payload["sub"])
-        campaign = Campaign(user_id=user_id)
-        apply(campaign, data.model_dump())
+        campaign = Campaign(user_id=user_id, creator_id=int(payload.get("actor_sub", payload["sub"])))
+        values = data.model_dump()
+        ids = values.pop("assigned_member_ids")
+        apply(campaign, values)
         campaign.created_at = campaign.updated_at
         db.add(campaign)
+        db.flush()
+        set_assignments(db, campaign, ids, payload)
         db.commit()
         db.refresh(campaign)
         return rollup(db, user_id, [campaign], detail=True)[campaign.id]
@@ -266,48 +298,56 @@ def make_router(require_permission):
         return rollup(db, user_id, [campaign], detail=True)[campaign.id]
 
     @router.patch("/{campaign_id}")
-    def update_campaign(campaign_id: int, data: CampaignUpdate, payload=Depends(require_permission("posts:write")),
+    def update_campaign(campaign_id: int, data: CampaignUpdate, payload=Depends(require_permission("content:write")),
                         db: Session = Depends(get_db)):
         user_id = int(payload["sub"])
         campaign = owned_campaign(db, user_id, campaign_id)
-        apply(campaign, data.model_dump(exclude_unset=True))
+        values = data.model_dump(exclude_unset=True)
+        if {"assigned_member_ids", "shared_with_team"} & values.keys():
+            require_campaign_owner(campaign, payload)
+        if "assigned_member_ids" in values:
+            set_assignments(db, campaign, values.pop("assigned_member_ids"), payload)
+        apply(campaign, values)
         db.commit()
         db.refresh(campaign)
         return rollup(db, user_id, [campaign], detail=True)[campaign.id]
 
     @router.delete("/{campaign_id}")
-    def delete_campaign(campaign_id: int, payload=Depends(require_permission("posts:write")),
+    def delete_campaign(campaign_id: int, payload=Depends(require_permission("content:write")),
                         db: Session = Depends(get_db)):
         user_id = int(payload["sub"])
         campaign = owned_campaign(db, user_id, campaign_id)
-        db.query(Post).filter_by(user_id=user_id, campaign_id=campaign.id).update({"campaign_id": None})
+        require_campaign_owner(campaign, payload)
+        db.query(CampaignAssignment).filter_by(campaign_id=campaign.id).delete()
+        for post in scoped_query(db, Post).filter_by(user_id=user_id, campaign_id=campaign.id).with_for_update().all():
+            change_campaign(post, None, payload)
         db.delete(campaign)
         db.commit()
         return {"message": "Campaign deleted; its posts were kept"}
 
     @router.post("/{campaign_id}/posts")
-    def assign_posts(campaign_id: int, data: PostAssignment, payload=Depends(require_permission("posts:write")),
+    def assign_posts(campaign_id: int, data: PostAssignment, payload=Depends(require_permission("content:write")),
                      db: Session = Depends(get_db)):
         user_id = int(payload["sub"])
         campaign = owned_campaign(db, user_id, campaign_id)
         ids = set(data.post_ids)
-        posts = db.query(Post).filter(Post.user_id == user_id, Post.id.in_(ids)).all()
+        posts = scoped_query(db, Post).filter(Post.user_id == user_id, Post.id.in_(ids)).order_by(Post.id).with_for_update().all()
         if len(posts) != len(ids):
             raise HTTPException(404, "One or more posts were not found")
         for post in posts:
-            post.campaign_id = campaign.id
+            change_campaign(post, campaign.id, payload)
         db.commit()
         return rollup(db, user_id, [campaign], detail=True)[campaign.id]
 
     @router.delete("/{campaign_id}/posts/{post_id}")
-    def unassign_post(campaign_id: int, post_id: int, payload=Depends(require_permission("posts:write")),
+    def unassign_post(campaign_id: int, post_id: int, payload=Depends(require_permission("content:write")),
                       db: Session = Depends(get_db)):
         user_id = int(payload["sub"])
         campaign = owned_campaign(db, user_id, campaign_id)
-        post = db.query(Post).filter_by(id=post_id, user_id=user_id, campaign_id=campaign.id).first()
+        post = scoped_query(db, Post).filter_by(id=post_id, user_id=user_id, campaign_id=campaign.id).with_for_update().first()
         if post is None:
             raise HTTPException(404, "Post is not part of this campaign")
-        post.campaign_id = None
+        change_campaign(post, None, payload)
         db.commit()
         return rollup(db, user_id, [campaign], detail=True)[campaign.id]
 
@@ -315,7 +355,7 @@ def make_router(require_permission):
 
 
 def comparison_rows(db, user_id, ids=None, days=None):
-    query = db.query(Campaign).filter_by(user_id=user_id)
+    query = scoped_query(db, Campaign).filter_by(user_id=user_id)
     if ids:
         query = query.filter(Campaign.id.in_(ids))
     if days:

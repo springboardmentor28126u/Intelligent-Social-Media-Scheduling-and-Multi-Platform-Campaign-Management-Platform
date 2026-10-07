@@ -1,5 +1,6 @@
 """Reports: campaign comparison/ROI, audience growth and publishing performance."""
 from collections import defaultdict
+from typing import Literal
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from analytics import as_utc, count, latest_snapshots
 from campaigns import comparison_rows, pct
+from visibility import scoped_query
 from database import get_db
 from models import AudienceSnapshot, PublishingJob, SocialAccount
 
@@ -108,7 +110,7 @@ def make_router(require_permission):
         """Publishing reliability, per-platform comparison and audience activity by hour/weekday."""
         user_id, tz = int(payload["sub"]), zone(timezone_name)
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-        jobs = db.query(PublishingJob).filter(PublishingJob.user_id == user_id,
+        jobs = scoped_query(db, PublishingJob).filter(PublishingJob.user_id == user_id,
                                               PublishingJob.scheduled_at >= cutoff).all()
         published = [j for j in jobs if j.status == "published"]
         snapshots = latest_snapshots(db, user_id, [j.id for j in published])
@@ -179,5 +181,34 @@ def make_router(require_permission):
                           "label": f"{best_slot['weekday']} {best_slot['hour']:02d}:00",
                           "avg_engagement": best_slot["avg_engagement"]} if best_slot else None,
         }
+
+    @router.get("/export/{kind}")
+    def export_report(kind: Literal["campaigns", "audience", "performance", "engagement"],
+                      format: Literal["xlsx", "pdf"] = "xlsx", days: int = Query(30, ge=1, le=365),
+                      ids: str | None = None, timezone_name: str = "UTC",
+                      payload=Depends(require_permission("analytics:read")), db: Session = Depends(get_db)):
+        from report_exports import response
+        if kind == "campaigns":
+            report = campaign_comparison(ids, days, payload, db)
+            sections = {"Campaigns": report["campaigns"]}
+            if not report["totals"]["mixed_currency"]:
+                sections["Totals"] = [report["totals"]]
+        elif kind == "audience":
+            report = audience_growth(days, payload, db)
+            sections = {"Accounts": report["accounts"], "Daily followers": report["timeline"], "Totals": [report["totals"]]}
+        elif kind == "performance":
+            report = publishing_performance(days, timezone_name, payload, db)
+            sections = {"Platforms": report["platforms"], "Daily publishing": report["daily"], "Totals": [report["totals"]],
+                        "Weekdays": report["weekdays"], "Hours": report["hours"]}
+        else:
+            from models import Post
+            jobs = scoped_query(db, PublishingJob, Post.title).join(Post, Post.id == PublishingJob.post_id).filter(
+                PublishingJob.user_id == int(payload["sub"]), PublishingJob.status == "published",
+                PublishingJob.scheduled_at >= datetime.now(timezone.utc) - timedelta(days=days)).all()
+            snapshots = latest_snapshots(db, int(payload["sub"]), [j.id for j, _ in jobs])
+            sections = {"Post engagement": [{"title": title, "platform": j.provider, "published id": j.provider_post_id,
+                "scheduled at": as_utc(j.scheduled_at), **{key: getattr(snapshots.get(j.id), key, None) for key in
+                ("likes", "comments", "shares", "reach", "impressions", "clicks")}} for j, title in jobs]}
+        return response(kind, format, sections, days)
 
     return router

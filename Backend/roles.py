@@ -10,10 +10,10 @@ class Role(str, Enum):
 
 
 ROLE_PERMISSIONS = {
-    Role.CONTENT_CREATOR: frozenset({"accounts:read", "accounts:write", "posts:read", "posts:write", "analytics:read", "analytics:write"}),
-    Role.MARKETING_MANAGER: frozenset({"accounts:read", "accounts:write", "posts:read", "posts:write", "analytics:read", "analytics:write"}),
+    Role.CONTENT_CREATOR: frozenset({"accounts:read", "publish:write", "posts:read", "content:write", "analytics:read", "analytics:write", "analytics:sync"}),
+    Role.MARKETING_MANAGER: frozenset({"accounts:read", "posts:read", "content:write", "analytics:read", "analytics:write"}),
     Role.BUSINESS_USER: frozenset({"accounts:read", "posts:read", "analytics:read"}),
-    Role.ADMINISTRATOR: frozenset({"accounts:read", "accounts:write", "users:read", "users:write", "roles:read", "posts:read", "posts:write", "analytics:read", "analytics:write"}),
+    Role.ADMINISTRATOR: frozenset({"accounts:read", "posts:read", "analytics:read"}),
 }
 
 

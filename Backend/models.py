@@ -11,6 +11,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    is_workspace: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     name: Mapped[str] = mapped_column(String(100))
 
@@ -76,12 +77,17 @@ class OAuthAttempt(Base):
     browser_hash: Mapped[str] = mapped_column(String(64))
     encrypted_verifier: Mapped[str] = mapped_column(Text)
     expires_at: Mapped[int] = mapped_column(Integer)
+    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
 
 
 class Post(Base):
     __tablename__ = "posts"
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    creator_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    creator_role: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    approval_status: Mapped[str] = mapped_column(String(20), default="draft", server_default="draft")
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     title: Mapped[str] = mapped_column(String(200))
     content: Mapped[str] = mapped_column(Text, default="")
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -100,6 +106,8 @@ class Campaign(Base):
     __tablename__ = "campaigns"
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    creator_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    shared_with_team: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     name: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text, default="")
     objective: Mapped[str] = mapped_column(String(30), default="engagement")
@@ -115,6 +123,12 @@ class Campaign(Base):
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class CampaignAssignment(Base):
+    __tablename__ = "campaign_assignments"
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
 
 
 class AudienceSnapshot(Base):
@@ -137,6 +151,7 @@ class PublishingJob(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     post_id: Mapped[int] = mapped_column(ForeignKey("posts.id"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    publisher_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     account_id: Mapped[int | None] = mapped_column(ForeignKey("social_accounts.id", ondelete="SET NULL"), nullable=True)
     provider: Mapped[str] = mapped_column(String(20))
     content: Mapped[str] = mapped_column(Text)
@@ -190,3 +205,98 @@ class EngagementWorkflow(Base):
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(String(300), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class Workspace(Base):
+    __tablename__ = "workspaces"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    # Non-login ownership principal keeps existing personal records isolated.
+    storage_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
+    require_approval: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Membership(Base):
+    __tablename__ = "memberships"
+    __table_args__ = (UniqueConstraint("workspace_id", "user_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    role: Mapped[str] = mapped_column(String(30))
+    status: Mapped[str] = mapped_column(String(20), default="invited")
+
+
+class LoginBucket(Base):
+    __tablename__ = "login_buckets"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    attempts: Mapped[int] = mapped_column(Integer)
+
+
+class TeamInvitation(Base):
+    __tablename__ = "team_invitations"
+    __table_args__ = (UniqueConstraint("workspace_id", "email"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    email: Mapped[str] = mapped_column(String(320))
+    role: Mapped[str] = mapped_column(String(30))
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ApprovalEvent(Base):
+    __tablename__ = "approval_events"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    post_id: Mapped[int] = mapped_column(ForeignKey("posts.id", ondelete="CASCADE"), index=True)
+    actor_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    revision: Mapped[int] = mapped_column(Integer)
+    action: Mapped[str] = mapped_column(String(20))
+    comment: Mapped[str] = mapped_column(String(2000), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    __table_args__ = (UniqueConstraint("user_id", "event_key"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    workspace_id: Mapped[int | None] = mapped_column(ForeignKey("workspaces.id"), nullable=True)
+    event_key: Mapped[str] = mapped_column(String(200))
+    category: Mapped[str] = mapped_column(String(30))
+    title: Mapped[str] = mapped_column(String(250))
+    body: Mapped[str] = mapped_column(Text, default="")
+    post_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    campaign_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    read: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class NotificationPreference(Base):
+    __tablename__ = "notification_preferences"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    email: Mapped[bool] = mapped_column(Boolean, default=False)
+    push: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class PushSubscription(Base):
+    __tablename__ = "push_subscriptions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    endpoint: Mapped[str] = mapped_column(Text)
+    endpoint_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    keys_json: Mapped[str] = mapped_column(Text)
+
+
+class NotificationDelivery(Base):
+    __tablename__ = "notification_deliveries"
+    __table_args__ = (UniqueConstraint("notification_id", "channel", "target_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    notification_id: Mapped[int] = mapped_column(ForeignKey("notifications.id"))
+    channel: Mapped[str] = mapped_column(String(10))
+    target_id: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    next_attempt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    error: Mapped[str | None] = mapped_column(String(200), nullable=True)

@@ -1,3 +1,4 @@
+import { publishingMessage } from '../workflowPolicy'
 import { ShieldCheck, Share2 } from 'lucide-react'
 import { AccountCard } from '../components/AccountCard'
 
@@ -41,6 +42,7 @@ export const Accounts = ({
         </div>
       </div>
 
+      {!canManage && <p className="info-callout-card" role="status">{publishingMessage}</p>}
       {/* Info Banner */}
       <div className="info-callout-card">
         <div className="info-icon-wrap">

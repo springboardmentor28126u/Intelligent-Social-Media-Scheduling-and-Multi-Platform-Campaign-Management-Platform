@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from visibility import scoped_query
 from database import get_db
 from models import Campaign, Post, SocialAccount, PublishingJob, PublishingLog
 
@@ -84,6 +85,10 @@ class PostResponse(BaseModel):
     campaign_id: int | None = None
     is_demo: bool = False
     status: str
+    approval_status: str = "draft"
+    revision: int = 1
+    creator_id: int | None = None
+    creator_role: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -95,7 +100,7 @@ class PostResponse(BaseModel):
 
 
 def owned_post(db, user_id, post_id, lock=False):
-    query = db.query(Post).filter_by(id=post_id, user_id=user_id)
+    query = scoped_query(db, Post).filter_by(id=post_id, user_id=user_id)
     post = (query.with_for_update() if lock else query).first()
     if post is None:
         raise HTTPException(404, "Post not found")
@@ -117,8 +122,24 @@ def validate_target(db, user_id, platform, account_id):
 
 
 def validate_campaign(db, user_id, campaign_id):
-    if campaign_id is not None and db.query(Campaign).filter_by(id=campaign_id, user_id=user_id).first() is None:
+    if campaign_id is not None and scoped_query(db, Campaign).filter_by(id=campaign_id, user_id=user_id).first() is None:
         raise HTTPException(404, "Campaign not found")
+
+
+def invalidate_approval(post, payload):
+    post.approval_status = "draft"
+    post.revision += 1
+    post.creator_id = int(payload.get("actor_sub", payload["sub"]))
+    post.creator_role = payload["role"]
+    post.updated_at = datetime.now(timezone.utc)
+
+
+def change_campaign(post, campaign_id, payload):
+    if post.campaign_id != campaign_id:
+        if post.status == "publishing":
+            raise HTTPException(409, "Wait for publishing to finish before changing the campaign")
+        invalidate_approval(post, payload)
+        post.campaign_id = campaign_id
 
 
 def save(db, post):
@@ -135,11 +156,11 @@ def make_router(require_permission):
     router = APIRouter(prefix="/posts", tags=["Posts and drafts"])
 
     @router.post("", response_model=PostResponse, status_code=201)
-    def create_post(data: DraftCreate, payload=Depends(require_permission("posts:write")), db: Session = Depends(get_db)):
+    def create_post(data: DraftCreate, payload=Depends(require_permission("content:write")), db: Session = Depends(get_db)):
         values = data.model_dump()
         values["platform"] = validate_target(db, int(payload["sub"]), data.platform, data.account_id)
         validate_campaign(db, int(payload["sub"]), data.campaign_id)
-        post = Post(user_id=int(payload["sub"]), status="draft", **values)
+        post = Post(user_id=int(payload["sub"]), creator_id=int(payload.get("actor_sub", payload["sub"])), creator_role=payload["role"], status="draft", **values)
         db.add(post)
         return save(db, post)
 
@@ -147,7 +168,7 @@ def make_router(require_permission):
     def list_posts(offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=100),
                    platform: Platform | None = None, campaign_id: int | None = Query(None, gt=0), status: Literal["draft", "scheduled", "publishing", "published", "partially_published", "failed", "cancelled", "needs_review"] | None = None,
                    payload=Depends(require_permission("posts:read")), db: Session = Depends(get_db)):
-        query = db.query(Post).filter_by(user_id=int(payload["sub"]))
+        query = scoped_query(db, Post).filter_by(user_id=int(payload["sub"]))
         if platform:
             query = query.filter_by(platform=platform)
         if status:
@@ -161,11 +182,16 @@ def make_router(require_permission):
         return owned_post(db, int(payload["sub"]), post_id)
 
     @router.patch("/{post_id}", response_model=PostResponse)
-    def update_post(post_id: int, data: DraftUpdate, payload=Depends(require_permission("posts:write")), db: Session = Depends(get_db)):
+    def update_post(post_id: int, data: DraftUpdate, payload=Depends(require_permission("content:write")), db: Session = Depends(get_db)):
         post = owned_post(db, int(payload["sub"]), post_id, lock=True)
         if post.status != "draft":
             raise HTTPException(409, "Only drafts can be edited here")
+        if post.approval_status == "pending":
+            raise HTTPException(409, "Withdraw the submission before editing")
         values = data.model_dump(exclude_unset=True)
+        changed = any(getattr(post, name) != value for name, value in values.items())
+        if changed:
+            invalidate_approval(post, payload)
         platform = validate_target(db, post.user_id, values.get("platform", post.platform), values.get("account_id", post.account_id))
         if "campaign_id" in values:
             validate_campaign(db, post.user_id, values["campaign_id"])
@@ -176,20 +202,24 @@ def make_router(require_permission):
         return save(db, post)
 
     @router.patch("/{post_id}/campaign", response_model=PostResponse)
-    def set_campaign(post_id: int, data: CampaignLink, payload=Depends(require_permission("posts:write")), db: Session = Depends(get_db)):
-        """Grouping is metadata, so it can change for scheduled and published posts too."""
-        post = owned_post(db, int(payload["sub"]), post_id)
+    def set_campaign(post_id: int, data: CampaignLink, payload=Depends(require_permission("content:write")), db: Session = Depends(get_db)):
+        """Campaign moves are revision changes and invalidate earlier reviews."""
+        post = owned_post(db, int(payload["sub"]), post_id, lock=True)
         validate_campaign(db, post.user_id, data.campaign_id)
-        post.campaign_id = data.campaign_id
+        change_campaign(post, data.campaign_id, payload)
         return save(db, post)
 
     @router.delete("/{post_id}")
-    def delete_post(post_id: int, payload=Depends(require_permission("posts:write")), db: Session = Depends(get_db)):
+    def delete_post(post_id: int, payload=Depends(require_permission("content:write")), db: Session = Depends(get_db)):
         post = owned_post(db, int(payload["sub"]), post_id, lock=True)
         if post.status != "draft":
             raise HTTPException(409, "Only drafts can be deleted here")
-        if db.query(PublishingJob).filter_by(post_id=post.id).first():
+        if scoped_query(db, PublishingJob).filter_by(post_id=post.id).first():
             raise HTTPException(409, "Draft has publishing history and cannot be deleted")
+        if post.approval_status == "pending":
+            raise HTTPException(409, "Withdraw the submission before deleting")
+        from models import ApprovalEvent
+        db.query(ApprovalEvent).filter_by(post_id=post.id).delete()
         db.delete(post)
         db.commit()
         return {"message": "Draft deleted"}

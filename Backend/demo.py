@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from analytics import DEMO_PREFIX
+from visibility import scoped_query
 from database import get_db
 from models import (AudienceSnapshot, Campaign, EngagementSnapshot, EngagementWorkflow, Post,
                     PublishingJob, PublishingLog, SocialAccount)
@@ -32,7 +33,7 @@ IMAGES = [f"https://picsum.photos/seed/socialpilot{i}/1080/1080" for i in range(
 
 
 def has_demo(db, user_id):
-    return db.query(Post.id).filter_by(user_id=user_id, is_demo=True).first() is not None
+    return scoped_query(db, Post).filter_by(user_id=user_id, is_demo=True).first() is not None
 
 
 def seed(db, user_id, now=None):
@@ -159,8 +160,13 @@ def make_router(require_permission):
     def demo_status(payload=Depends(require_permission("posts:read")), db: Session = Depends(get_db)):
         return {"loaded": has_demo(db, int(payload["sub"]))}
 
+    def require_demo_admin(payload):
+        if payload.get("workspace_id") and not payload.get("can_manage"):
+            raise HTTPException(403, "Only workspace admins can load or remove team demo data")
+
     @router.post("", status_code=201)
-    def load_demo(payload=Depends(require_permission("posts:write")), db: Session = Depends(get_db)):
+    def load_demo(payload=Depends(require_permission("publish:write")), db: Session = Depends(get_db)):
+        require_demo_admin(payload)
         user_id = int(payload["sub"])
         if has_demo(db, user_id):
             raise HTTPException(409, "Demo data is already loaded")
@@ -168,7 +174,8 @@ def make_router(require_permission):
         return {"loaded": True}
 
     @router.delete("")
-    def remove_demo(payload=Depends(require_permission("posts:write")), db: Session = Depends(get_db)):
+    def remove_demo(payload=Depends(require_permission("publish:write")), db: Session = Depends(get_db)):
+        require_demo_admin(payload)
         return {"removed": clear(db, int(payload["sub"]))}
 
     return router

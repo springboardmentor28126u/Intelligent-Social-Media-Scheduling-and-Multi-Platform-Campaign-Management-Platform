@@ -1,3 +1,103 @@
+# SocialPilot — Consolidated Test and Evaluation Report
+
+Current review: 6 October 2026. This section supersedes the historical milestone reports below. No deployment, real email/push, or social publishing was performed in this preparation.
+
+## Current verification
+
+| Check | Result |
+| --- | --- |
+| Backend suite with disposable PostgreSQL | 139 tests passed in the Linux Docker container; zero failures or skips |
+| Alembic graph and roundtrip | Single head `a21c4e810014`; upgrade/downgrade/upgrade passed; existing record preserved; no model/schema drift |
+| Frontend lint and production build | Passed |
+| Frontend Node tests | 22 passed; zero failures or skips |
+| Responsive pages | Dashboard, Schedule, Teams, Approvals, Reports, Notifications at 360/768/1280 px: 18 page-width checks passed; narrow header and wrapping improved |
+| Team/demo behavior | Invitation registration attachment, expiry/re-invite, membership isolation, review gating and idempotent three-member seed covered |
+| Native exports | File signatures, workspace scope and spreadsheet formula safety covered; four-page synthetic PDF visually checked |
+| Hindi / emoji | PDF missing glyphs confirmed visually and documented inside the export; Excel preserves Unicode |
+| Backup-only mode | Successfully created an archive from the disposable PostgreSQL cluster; original database not accessed |
+| Docker build, Compose startup, container smoke | Passed with dummy configuration: four healthy services, isolated ports 18000/15173, authentication, proxy, exports and worker; see [Docker runbook](docs/DOCKER.md) |
+| Cloud restore/deployment and live provider/delivery verification | NOT RUN; approval and credentials required |
+
+Migration 014 adds five disposable-PostgreSQL tests with fixtures created at 013:
+existing personal creator drafts schedule and publish; pre-existing personal jobs
+publish; legacy roles normalize while manager/unknown roles do not become creators;
+team authorship stays NULL and requires creator final approval; downgrade/upgrade
+preserves repaired data and passes schema drift checks. Known author roles and
+non-null author IDs are preserved. Provider calls are mocked; the real database
+was not accessed. The local migration helper is syntax-checked and its invalid-URL
+failure path is checked without database access; real-database execution remains
+an operator action.
+
+Workflow regression coverage now includes manager/admin/business 403 responses on
+publishing routes, creator-only OAuth initiation, direct publishing with approval
+required, manager-only/forged/stale approval rejection, demoted scheduling actors in
+personal and team workspaces, role-at-edit provenance, owner management independence,
+campaign privacy in aggregates/exports and notification delivery, and campaign data
+preservation across downgrade/upgrade. Publishing and delivery use mocked providers.
+
+The responsive and PDF visual checks below belong to the preceding preparation;
+this workflow pass adds React server-render tests but does not claim a new live
+browser/device or provider verification run.
+
+Commands: `tools/check-step.ps1` runs isolated SQLite checks (3 PostgreSQL skips); `tools/check-step.ps1 -PostgresTest` runs against the disposable loopback cluster. Both run frontend lint/build/tests afterward. Environment files are never loaded. A test run was interrupted when the disposable cluster stopped between sessions; the cluster was restarted and the complete suite rerun. No test failure is hidden as a pass.
+
+The first bundle split still preloaded shared React code from the charts group. A follow-up priority fix and regression test corrected it. Final main JS: 43.12 kB / 13.88 kB gzip; React: 189.60 / 59.61; deferred charts: 401.24 / 113.58. Initial main + React + runtime is about 233.43 kB / 73.91 kB gzip, versus the old 775.90 / 218.86 entry. Auth adds about 6.89 kB on demand. Total application bytes are not reduced by the same percentage as startup bytes.
+
+## Platform status and regression coverage
+
+| Platform | Implemented / mocked tests | Current live status |
+| --- | --- | --- |
+| Facebook | Page OAuth, text/image publication, metrics/audience and token handling | Existing flow retained; no new live publish verified |
+| Instagram | Business OAuth, container/publish workflow, image validation, refresh before expiry, metrics | Existing flow retained; no new live publish verified |
+| LinkedIn | OAuth/OpenID, REST text and single-image publication, upload, API version, refresh/reconnect, permission-aware metrics | Developer app permissions and live checks pending; no credentials inspected |
+| X | OAuth2/PKCE/offline scopes, text/single-image upload, refresh, metrics refresh interval and audience adapter | Paid/API access and live checks pending; no credentials inspected |
+| YouTube | OAuth offline/PKCE, channel lookup, resumable video upload, URL/size guards, refresh, video validation and statistics | Consent/API review, quota and live upload checks pending; no credentials inspected |
+| Pinterest | Not implemented | Pending |
+
+Tests in `test_new_platforms.py`, `test_social_oauth.py`, `test_publishers.py` and scheduling/worker suites exercise provider behavior with mocked network calls. They do not prove live provider authorization or delivery. Historical claims below are dated evidence only.
+
+## Remaining scope and release risks
+
+- Docker runtime and smoke checks passed with disposable data. This does not verify cloud deployment or live provider integrations.
+- Apply migrations through 014 to the user's database only after a verified backup; this preparation migrated disposable test schemas only. The earlier local backup/migration to 008 belongs to the previous work phase.
+- Public registration lacks email-ownership verification. An invitation must not be treated as proof of verified identity; restrict registration or add verification before public onboarding.
+- Confirm trusted proxy/client-IP behavior before relying on per-IP login limits. A shared proxy/NAT can share that budget. Authentication tokens are currently stored in browser local storage.
+- SMTP/VAPID setup, user opt-in and live email/push tests remain pending. Workers must remain stopped until approved.
+- Hindi shaping/emoji embedding is not implemented in PDFs; use Excel when preserving those scripts is required.
+- Pinterest, carousels/stories/reels, advanced demographics/geography, load benchmarks, alerting/operational monitoring and approved cloud deployment remain outside completed scope.
+- Responsive checks used synthetic team content and empty schedule/report states. High-volume and unusually long-content layouts need further production-like coverage.
+
+## Merged collaboration report (historical)
+
+The following report is retained for traceability. Its registered-user-only invitation limitation and unverified Unicode note were superseded by the current changes. The original file is retained because file deletion was not authorized.
+
+# Collaboration feature handover
+
+Completed: teams and membership roles, revision-based content approval, native Excel/PDF report exports, persistent notification inbox and opt-in delivery infrastructure.
+
+## Final verification
+
+- Backend: 100 tests passed with `SOCIALPILOT_TEST_POSTGRES=1`; no skips. Includes isolated PostgreSQL migration roundtrip, preservation of existing records, and schema drift check.
+- Frontend: ESLint passed, production build passed, 8 Node tests passed. Vite reports a non-blocking bundle-size warning (about 776 kB before gzip).
+- Browser checks in the isolated test fixture: team creation, registered-member invitation and acceptance, workspace isolation, draft submission, independent manager approval, review history, and persisted notification read status.
+- Excel/PDF API tests verify file formats, workspace isolation and spreadsheet formula safety. Browser generation showed a persistent save link. Automatic download events could not be confirmed in the embedded browser.
+- A four-page synthetic PDF was rendered and visually inspected: repeated headers, column groups, pagination and footers were readable with no clipping. Non-Latin PDF font coverage has not been verified.
+
+## Local database
+
+The local database was backed up before migration to `a21c4e810008`. Backup: `backups/20261002T180230Z-before-collaboration.dump`. Migration and schema verification succeeded. Existing backend processes must be restarted to load the new code.
+
+## Remaining activation steps
+
+Email and browser push require SMTP/VAPID settings, user opt-in, and a running notification worker. External delivery was mocked in tests; no live delivery was performed. Invitations currently require an already registered user. Personal records remain personal; team social accounts must be connected inside the team workspace.
+
+No cloud deployment or provider activation was performed. Further work awaits user approval. Setup and operating instructions are in `Backend/TEAMS_APPROVALS_NOTIFICATIONS.md`.
+
+
+## Earlier milestone report — historical only
+
+The open-item list below describes September 2026, not the current implementation. Use the current status above for decisions.
+
 # SocialPilot — Test & Evaluation Report (Milestones 1–3)
 
 Date: 25 Sep 2026 · Scope: every backend endpoint, every page for all four roles,
@@ -65,3 +165,22 @@ the network call with a stub. Everything else is the real code path.
 4. **Email / push notifications, Excel (.xlsx) and server-side PDF export**: Reports & Export module. CSV and browser print-to-PDF work now.
 5. **Audience demographics / geography**: need Meta insights permissions.
 6. **Deployment** (Docker, cloud, CI): Milestone 4.
+
+## Current roles — view-only policy (head `a21c4e810014`)
+
+| Role | Navigation | Actions |
+|---|---|---|
+| Content Creator | Overview, Campaigns, Posts, Schedule, Calendar, Social Accounts, Analytics, Engagement, Reports, Notifications, Teams, Content Approval | Draft/edit, reviews and creator final approval, connect accounts, schedule/publish/retry, analytics sync; team demo mutations additionally require manage rights |
+| Marketing Manager | Overview, Campaigns, Posts, Content Approval, Analytics, Engagement, Reports, Notifications, Teams | Draft/edit, manager review, engagement-note API updates; cannot publish, connect, sync or mutate demo data |
+| Business User (view only) | Overview, Campaigns, Posts, Analytics, Engagement, Reports, Notifications, Teams | Read permitted accounts/posts/campaigns/analytics/reports; no content, review, sync, demo or publishing actions |
+| Administrator (view only) | Overview, Campaigns, Posts, Analytics, Engagement, Reports, Notifications, Teams | Same three read permissions as Business User; no platform administration or content actions |
+
+Business User and Administrator have exactly `accounts:read`, `posts:read`, `analytics:read`. Creator and manager permission sets are unchanged. All platform admin routes are disabled (403 for every authenticated role); `/me/permissions` remains available. Users and Roles & Permissions navigation and the AdminUsers page are removed. Teams contains a read-only role reference and retains all four invite/role options.
+
+Team management is a separate exception: only the owner or an explicit `is_admin` delegate can manage an existing team, regardless of their content role. Administrator role alone grants no management. View-only roles cannot create teams, author content, review, approve, sync, publish or connect accounts even when they hold management rights. Existing campaign visibility remains unchanged, including Business User access only to team-shared campaigns. No migration or real-database operation is needed; head stays `a21c4e810014`.
+
+### View-only role verification — 2026-10-05
+
+Full backend suite: **137 passed, 0 failures, 0 skipped**. Frontend suite: **22 passed, 0 failures, 0 skipped**. Frontend lint and production build passed. Migration round trips and schema drift checks passed on the isolated test database; single head remains `a21c4e810014`, with no migration added.
+
+Coverage includes exact read-only permission sets; disabled platform-admin endpoints for all four roles; denied content, reviews, sync, demo, team creation and publishing for view-only roles; permitted reads/exports; owner and explicit delegate team management; denial for administrator-role members without a flag; exact role navigation; and no review actions even when a view-only member holds team-management rights. Existing creator-only publishing, staged approval and campaign-visibility tests remain passing. Older admin-write tests were updated or replaced by disabled-endpoint tests. No real database, deployment, push, provider publishing or email delivery was used.

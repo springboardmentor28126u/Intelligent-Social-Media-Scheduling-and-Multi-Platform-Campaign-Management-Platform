@@ -8,9 +8,9 @@ from sqlalchemy import and_, or_, select
 
 from database import SessionLocal
 from models import Post, PublishingJob, SocialAccount, SocialCredential, User
-from roles import permissions_for
 from publishers import publish, PublishError
 from scheduling import log, sync_post, utc
+from roles import permissions_for
 
 LOGGER = logging.getLogger("socialpilot.worker")
 
@@ -79,12 +79,25 @@ def run_due(user_id=None, session_factory=SessionLocal, publisher=publish, batch
                 account = db.get(SocialAccount, job.account_id) if job.account_id else None
                 owner = db.get(User, job.user_id)
                 credential = db.query(SocialCredential).filter_by(account_id=job.account_id, user_id=job.user_id).first()
-                if owner is None or "posts:write" not in permissions_for(owner.role):
-                    raise PublishError("Owner no longer has publishing permission")
+                from approvals import can_publish_as
+                actor = job.publisher_id or (owner.id if owner and not owner.is_workspace else None)
+                if not can_publish_as(db, job.user_id, actor):
+                    raise PublishError("Scheduling actor is no longer a content creator or is unknown; ask a current creator to retry")
                 if account is None or not account.connected or credential is None or account.user_id != job.user_id:
                     raise PublishError("Target account disconnected; reconnect before retrying")
                 if credential.provider != job.provider:
                     raise PublishError("Target provider no longer matches the job")
+                from approvals import require_approved
+                from fastapi import HTTPException
+                try:
+                    require_approved(db, post)
+                except HTTPException as error:
+                    raise PublishError(str(error.detail)) from None
+                from visibility import can_view_campaign
+                if post.campaign_id and not can_view_campaign(db, actor, post.campaign_id):
+                    raise PublishError("Scheduling creator no longer has access to this campaign")
+                if not can_publish_as(db, job.user_id, actor):
+                    raise PublishError("Scheduling actor is no longer a content creator; ask a current creator to retry")
                 result = publisher(db, job, credential)
                 job.provider_post_id, job.status, job.error = result, "published", None
                 log(db, job, "published", "Provider confirmed publication")

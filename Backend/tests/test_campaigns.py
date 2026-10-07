@@ -67,6 +67,8 @@ class CampaignTests(unittest.TestCase):
         self.assertEqual(self.request("GET", "/campaigns", self.user)[1][0]["metrics"]["posts"], 1)
 
     def test_owner_isolation_and_permissions(self):
+        self.admin.role = "content_creator"
+        self.db.commit()
         _, campaign = self.request("POST", "/campaigns", self.admin, self.body())
         self.assertEqual(self.request("GET", f"/campaigns/{campaign['id']}", self.user)[0], 404)
         self.assertEqual(self.request("GET", "/campaigns", self.user)[1], [])
@@ -146,7 +148,7 @@ class PostCampaignLinkTests(unittest.TestCase):
         status, post = self.request("PATCH", f"/posts/{job.post_id}/campaign", self.user, {"campaign_id": None})
         self.assertEqual((status, post["campaign_id"]), (200, None))
         self.assertEqual(self.request("PATCH", f"/posts/{job.post_id}/campaign", self.user, {"campaign_id": 999})[0], 404)
-        self.assertEqual(self.request("PATCH", f"/posts/{job.post_id}/campaign", self.admin, {"campaign_id": None})[0], 404)
+        self.assertEqual(self.request("PATCH", f"/posts/{job.post_id}/campaign", self.admin, {"campaign_id": None})[0], 403)
 
 
 class AccountFixTests(unittest.TestCase):

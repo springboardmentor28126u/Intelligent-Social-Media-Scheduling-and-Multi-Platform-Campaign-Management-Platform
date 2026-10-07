@@ -1,10 +1,10 @@
 # Connecting LinkedIn, X and YouTube
 
 The code is complete. Each platform needs a developer app with a callback URL.
-Put the keys in `Backend/.env.social.local`, restart the backend, then go to
+Supply the keys through the process environment or hosting secret manager, restart the backend, then go to
 **Social Accounts → Connect**.
 
-Run `alembic upgrade head` once to add video support (migration `a21c4e810007`).
+Back up and migrate using `backup_and_migrate.py`; the current single head is `a21c4e810010`. The video-support migration 007 is part of that chain.
 
 The callback URL is `https://<your-tunnel-or-domain>/oauth/<provider>/callback`.
 It has to match the provider portal exactly. LinkedIn, X and Google accept
@@ -17,7 +17,7 @@ It has to match the provider portal exactly. LinkedIn, X and Google accept
 1. Go to <https://www.linkedin.com/developers/apps> and click **Create app**. You need a LinkedIn Page to link it to.
 2. On the **Products** tab, add **Sign In with LinkedIn using OpenID Connect** and **Share on LinkedIn**.
 3. Under **Auth → Authorized redirect URLs**, add `https://<host>/oauth/linkedin/callback`.
-4. Add to `.env.social.local`:
+4. Set these process environment variables:
    ```
    LINKEDIN_CLIENT_ID=...
    LINKEDIN_CLIENT_SECRET=...
@@ -59,7 +59,7 @@ every `X_METRICS_MINUTES` (default 6 hours). Image upload
 2. Set up the **OAuth consent screen** as External, and add your Google account as a **Test user**.
 3. Under **Credentials → Create credentials → OAuth client ID**, choose **Web application**, with the
    authorized redirect URI `https://<host>/oauth/youtube/callback`.
-4. Add to `.env.social.local`:
+4. Set these process environment variables:
    ```
    YOUTUBE_CLIENT_ID=....apps.googleusercontent.com
    YOUTUBE_CLIENT_SECRET=...

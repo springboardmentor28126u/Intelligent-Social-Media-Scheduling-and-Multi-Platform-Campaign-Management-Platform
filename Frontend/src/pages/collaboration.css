@@ -1,0 +1,14 @@
+.collaboration .dashboard-card { padding: 22px; margin: 16px 0; }
+.collab-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 20px; align-items: start; }
+.collab-form { display: flex; flex-direction: column; gap: 14px; }
+.collab-form label { display: flex; flex-direction: column; gap: 8px; }
+.collab-form .collab-checkbox { flex-direction: row; align-items: center; }
+.collab-form .btn { align-self: flex-start; }
+.collab-form p { color: #64748b; line-height: 1.6; }
+.approval-item { display: flex; flex-direction: column; gap: 8px; padding: 16px; margin-top: 8px; width: 100%; text-align: left; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; cursor: pointer; }
+.approval-item span { color: #64748b; }
+.review-event { border-left: 3px solid #6366f1; padding: 8px 12px; overflow-wrap: anywhere; }
+.workspace-selector { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+.workspace-selector select { max-width: 340px; }
+.notification-unread { border-left: 4px solid #6366f1; }
+.collab-form textarea { min-height: 95px; }

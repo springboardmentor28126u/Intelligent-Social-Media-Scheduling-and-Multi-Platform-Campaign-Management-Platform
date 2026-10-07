@@ -1,29 +1,7 @@
-# Adding LinkedIn, X, YouTube (and more)
+# Provider extension guide
 
-Facebook and Instagram are fully wired. For each new platform, follow this checklist.
+Facebook, Instagram, LinkedIn, X and YouTube are already implemented. Current setup is documented in PLATFORM_SETUP.md and OAUTH_CALLBACK_CHECKLIST.md. Supply configuration through the process environment; protected dotenv files are not loaded.
 
-## LinkedIn and X (code already exists)
+To add another provider such as Pinterest, implement its OAuth entry/profile lookup, encrypted credential handling, publishing adapter, validation/media rules, metrics/audience adapter, frontend labels/account controls/previews, and regression tests. Test callback binding, refresh/reconnect, ownership, rate limits and uncertain publishing outcomes before enabling it. Reuse campaign/report aggregation where applicable.
 
-1. Create the developer app and register the callback:
-   `https://<your-tunnel>/oauth/linkedin/callback` or `/oauth/x/callback`.
-2. Add `LINKEDIN_CLIENT_ID/SECRET/REDIRECT_URI` or `X_CLIENT_ID/SECRET/REDIRECT_URI` to `.env.social.local`.
-3. Restart the backend. The Connect button on Social Accounts becomes active.
-   Publishing (text posts) and token refresh for X already work.
-4. For engagement numbers, add a branch to `provider_metrics()` in `analytics.py`,
-   and include the provider in the `in_([...])` filters in `sync_engagement()` and
-   `publishing_worker.sync_all_engagement()`.
-
-## A brand-new platform (for example, YouTube)
-
-| Where | What to add |
-| --- | --- |
-| `social_oauth.py` → `PROVIDERS` | Name, authorize URL, token URL, scopes; a profile lookup in `exchange()` |
-| `publishers.py` → `publish()` | An `elif job.provider == "youtube":` branch that uploads and returns the post ID |
-| `scheduling.py` → `validate_content()` | Content rules (for example, YouTube needs a video) |
-| `posts.py` → `Platform` and the platform set in `validate_target()` | Add `"youtube"` |
-| `analytics.py` → `provider_metrics()` / `provider_audience()` | Views/likes/comments and subscriber count |
-| Frontend: `postUtils.platformName`, `PlatformBadge`, `Accounts` `PLATFORMS`, `Dashboard` `ALL_PLATFORMS`, the platform `<select>` in `Campaigns.jsx` | The label and icon |
-| Frontend: `components/PostPreview.jsx` → `PREVIEWS` | A preview mock-up (optional) |
-
-Campaigns, reports, heatmap, trends and demo data are provider-agnostic, so they
-pick up the new platform automatically.
+LinkedIn/X support text and single images; YouTube supports video URL uploads. Do not describe these as live-verified based only on mocked tests. Provider approvals and paid API access may still be necessary.

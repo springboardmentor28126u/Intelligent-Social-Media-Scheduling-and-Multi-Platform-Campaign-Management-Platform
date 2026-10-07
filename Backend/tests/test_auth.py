@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import ValidationError
 from sqlalchemy import create_engine
@@ -39,14 +39,14 @@ class AuthTests(unittest.TestCase):
     def test_registration_login_and_current_user(self):
         self.assertEqual(self.user.name, "Test User")
         self.assertNotEqual(self.user.password_hash, "test-password")
-        result = main.login_user(schemas.UserLogin(email="test@example.com", password="test-password"), self.db)
+        result = main.login_user(schemas.UserLogin(email="test@example.com", password="test-password"), Request({"type": "http", "client": ("127.0.0.1", 1)}), self.db)
         credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=result["access_token"])
         payload = main.verify_token(credentials, self.db)
         self.assertEqual(main.get_me(payload, self.db)["id"], self.user.id)
 
     def test_wrong_password_and_duplicate_email(self):
         with self.assertRaises(HTTPException) as error:
-            main.login_user(schemas.UserLogin(email="test@example.com", password="wrong"), self.db)
+            main.login_user(schemas.UserLogin(email="test@example.com", password="wrong"), Request({"type": "http", "client": ("127.0.0.1", 1)}), self.db)
         self.assertEqual(error.exception.status_code, 401)
         with self.assertRaises(HTTPException) as error:
             main.register_user(schemas.UserCreate(name="Other", email="test@example.com", password="password"), self.db)
@@ -70,16 +70,13 @@ class AuthTests(unittest.TestCase):
     def test_database_role_overrides_stale_token(self):
         credentials = self.credentials(role="administrator")
         payload = main.verify_token(credentials, self.db)
-        with self.assertRaises(HTTPException) as error:
-            main.require_admin(payload)
-        self.assertEqual(error.exception.status_code, 403)
-        self.user.role = "administrator"
+        self.assertEqual(payload['role'], 'content_creator')
+        self.user.role = 'administrator'
         self.db.commit()
-        main.require_admin(main.verify_token(credentials, self.db))
-        self.user.role = "user"
+        self.assertEqual(main.verify_token(credentials, self.db)['role'], 'administrator')
+        self.user.role = 'user'
         self.db.commit()
-        with self.assertRaises(HTTPException):
-            main.require_admin(main.verify_token(credentials, self.db))
+        self.assertEqual(main.verify_token(credentials, self.db)['role'], 'content_creator')
 
     def test_deleted_user_rejected(self):
         credentials = self.credentials()

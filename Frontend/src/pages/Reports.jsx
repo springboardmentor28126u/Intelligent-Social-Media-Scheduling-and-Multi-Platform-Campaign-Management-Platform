@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Award, CheckCircle2, Clock, Coins, Download, Printer, RefreshCw, TrendingUp, Users, XCircle } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { api } from '../api'
+import { api, downloadReport } from '../api'
 import { MetricCard } from '../components/MetricCard'
 import { Heatmap } from '../components/Heatmap'
 import { useApiData } from '../hooks/useApiData'
@@ -124,10 +124,19 @@ function PublishingPerformance({ days }) {
 export const Reports = ({ canManage = false }) => {
   const [tab, setTab] = useState('campaigns')
   const [days, setDays] = useState(30)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
+  const [download, setDownload] = useState(null)
+  useEffect(() => () => { if (download) URL.revokeObjectURL(download.url) }, [download])
+  const exportFile = async (kind, format) => { setExporting(true); setExportError(''); try { setDownload(await downloadReport(kind, format, days)) } catch (e) { setExportError(e.message) } finally { setExporting(false) } }
   return <div className="cm-page">
     <div className="page-header-row"><div><h1 className="page-main-heading">Reports</h1><p className="page-main-sub">Campaign ROI, audience growth and publishing performance, ready to export.</p></div>
       <div className="time-range-picker no-print">{[7, 30, 90, 365].map(v => <button type="button" key={v} className={`range-pill ${days === v ? 'active' : ''}`} onClick={() => setDays(v)}>{v === 365 ? '1 year' : `${v} days`}</button>)}</div></div>
     <div className="cm-tabs no-print" role="tablist">{TABS.map(([key, name]) => <button type="button" role="tab" aria-selected={tab === key} key={key} className={`cm-tab ${tab === key ? 'active' : ''}`} onClick={() => setTab(key)}>{name}</button>)}</div>
+    <div className="cm-actions no-print"><button className="btn btn-primary" disabled={exporting} onClick={() => exportFile(tab, 'xlsx')}>{exporting ? 'Preparing…' : 'Download Excel'}</button><button className="btn btn-secondary" disabled={exporting} onClick={() => exportFile(tab, 'pdf')}>Download PDF</button><button className="btn btn-secondary" disabled={exporting} onClick={() => exportFile('engagement', 'xlsx')}>Post engagement Excel</button><button className="btn btn-secondary" disabled={exporting} onClick={() => exportFile('engagement', 'pdf')}>Post engagement PDF</button></div>
+    <p className="page-main-sub no-print">Downloads include the full report for the selected period, including all campaigns.</p>
+    {exportError && <p role="alert">{exportError}</p>}
+    {download && <p role="status" className="no-print">Report ready. <a href={download.url} download={download.filename}>Save {download.filename}</a></p>}
     <h2 className="print-only">{TABS.find(t => t[0] === tab)[1]} — last {days} days — generated {new Date().toLocaleString()}</h2>
     {tab === 'campaigns' && <CampaignComparison days={days} />}
     {tab === 'audience' && <AudienceGrowth days={days} canManage={canManage} />}

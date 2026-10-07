@@ -36,7 +36,7 @@ class PostApiTests(unittest.TestCase):
         post = self.create()
         path = f'/posts/{post["id"]}'
         for method, body in [("GET", None), ("PATCH", {"title": "Stolen"}), ("DELETE", None)]:
-            self.assertEqual(self.request(method, path, self.admin, body)[0], 404)
+            self.assertEqual(self.request(method, path, self.admin, body)[0], 404 if method == "GET" else 403)
             self.assertEqual(self.request(method, path, body=body)[0], 401)
         self.assertEqual(self.request("GET", "/posts", self.admin)[1], [])
 

@@ -64,7 +64,7 @@ class SchedulingTests(unittest.TestCase):
         query = urlencode({"start": datetime.now(timezone.utc).isoformat(), "end": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()})
         self.assertEqual(len(self.request("GET", "/calendar", self.user, query=query)[1]), 6)
         self.assertEqual(self.request("GET", f'/queue/{jobs[0]["id"]}/logs', self.admin)[0], 404)
-        self.assertEqual(self.request("POST", f"/posts/{post_id}/cancel", self.admin)[0], 404)
+        self.assertEqual(self.request("POST", f"/posts/{post_id}/cancel", self.admin)[0], 403)
 
     def test_invalid_schedule_and_unverified_account(self):
         account = self.account()

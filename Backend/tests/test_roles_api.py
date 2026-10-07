@@ -28,10 +28,12 @@ class RoleApiTests(unittest.TestCase):
         self.db.close()
         self.engine.dispose()
 
-    def request(self, method, path, user=None, body=None, token=None, query="", cookie=None):
+    def request(self, method, path, user=None, body=None, token=None, query="", cookie=None, workspace=None, raw=False):
         async def run():
             data = json.dumps(body).encode() if body is not None else b""
             headers = [(b"content-type", b"application/json")]
+            if workspace is not None:
+                headers.append((b"x-workspace-id", str(workspace).encode()))
             if cookie:
                 headers.append((b"cookie", cookie.encode()))
             bearer = token or (main.create_access_token(user.id, user.role) if user else None)
@@ -49,62 +51,46 @@ class RoleApiTests(unittest.TestCase):
             status = next(m["status"] for m in messages if m["type"] == "http.response.start")
             self.response_headers = next(m["headers"] for m in messages if m["type"] == "http.response.start")
             result = b"".join(m.get("body", b"") for m in messages if m["type"] == "http.response.body")
-            return status, json.loads(result) if result else None
+            return status, result if raw else (json.loads(result) if result else None)
         return asyncio.run(run())
 
     def test_admin_routes_reject_anonymous_and_non_admin(self):
         for method, path, body in [("GET", "/admin/users", None), ("GET", "/admin/roles", None),
                                    ("PATCH", f"/admin/users/{self.user.id}/role", {"role": "administrator"})]:
-            self.assertEqual(self.request(method, path, body=body)[0], 401)
-            self.assertEqual(self.request(method, path, self.user, body)[0], 403)
+            self.assertEqual(self.request(method, path, body=body)[0], 404)
+            self.assertEqual(self.request(method, path, self.user, body)[0], 404)
 
-    def test_admin_list_is_paginated_and_never_leaks_hashes(self):
-        status, users = self.request("GET", "/admin/users", self.admin, query="limit=1&offset=1")
-        self.assertEqual(status, 200)
-        self.assertEqual(len(users), 1)
-        self.assertEqual(users[0]["id"], self.user.id)
-        self.assertNotIn("password_hash", users[0])
-        self.assertEqual(self.request("GET", "/admin/users", self.admin, query="limit=101")[0], 422)
-        status, roles = self.request("GET", "/admin/roles", self.admin)
-        self.assertEqual(status, 200)
-        self.assertEqual(len(roles), 4)
+    def test_admin_routes_disabled_for_all_roles(self):
+        for role in ['content_creator', 'marketing_manager', 'business_user', 'administrator']:
+            self.user.role = role
+            self.db.commit()
+            for method, path, body in [('GET', '/admin', None), ('GET', '/admin/roles', None), ('GET', '/admin/users', None), ('PATCH', f'/admin/users/{self.admin.id}/role', {'role': 'content_creator'})]:
+                self.assertEqual(self.request(method, path, self.user, body)[0], 404)
 
     def test_role_changes_apply_to_existing_token(self):
-        token = main.create_access_token(self.user.id, "user")
-        status, result = self.request("PATCH", f"/admin/users/{self.user.id}/role", self.admin,
-                                      {"role": "business_user"})
-        self.assertEqual(status, 200)
-        self.assertNotIn("password_hash", result)
-        self.assertEqual(self.request("GET", "/me/permissions", token=token)[1]["role"], "business_user")
-        self.assertEqual(self.request("POST", "/accounts", token=token,
-                                      body={"platform": "Facebook", "account_name": "Test"})[0], 403)
-        self.assertEqual(self.request("GET", "/accounts", token=token)[0], 200)
-
-    def test_self_demotion_invalid_role_and_unknown_user(self):
-        self.assertEqual(self.request("PATCH", f"/admin/users/{self.admin.id}/role", self.admin,
-                                      {"role": "content_creator"})[0], 409)
-        self.assertEqual(self.request("PATCH", f"/admin/users/{self.user.id}/role", self.admin,
-                                      {"role": "superuser"})[0], 422)
-        self.assertEqual(self.request("PATCH", "/admin/users/9999/role", self.admin,
-                                      {"role": "marketing_manager"})[0], 404)
+        token = main.create_access_token(self.user.id, 'user')
+        self.user.role = 'business_user'
+        self.db.commit()
+        self.assertEqual(self.request('GET', '/me/permissions', token=token)[1]['role'], 'business_user')
+        self.assertEqual(self.request('POST', '/accounts', token=token, body={'platform': 'Facebook', 'account_name': 'Test'})[0], 403)
 
     def test_legacy_roles_and_unknown_role(self):
         self.assertEqual(self.request("GET", "/me/permissions", self.user)[1]["role"], "content_creator")
         self.admin.role = "admin"
         self.db.commit()
-        self.assertEqual(self.request("GET", "/admin/users", self.admin)[0], 200)
+        self.assertEqual(self.request("GET", "/admin/users", self.admin)[0], 404)
         self.user.role = "unknown"
         self.db.commit()
         self.assertEqual(self.request("GET", "/accounts", self.user)[0], 403)
 
     def test_all_writing_roles_and_account_ownership(self):
-        for role in ["content_creator", "marketing_manager", "administrator"]:
+        for role in ["content_creator"]:
             self.user.role = role
             self.db.commit()
             status, account = self.request("POST", "/accounts", self.user,
                                            {"platform": "Facebook", "account_name": "Test"})
             self.assertEqual(status, 201)
-            self.assertEqual(self.request("DELETE", f'/accounts/{account["id"]}', self.admin)[0], 404)
+            self.assertEqual(self.request("DELETE", f'/accounts/{account["id"]}', self.admin)[0], 403)
             self.assertEqual(self.request("DELETE", f'/accounts/{account["id"]}', self.user)[0], 200)
 
     def test_signup_cannot_assign_admin_role(self):

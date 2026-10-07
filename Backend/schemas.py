@@ -1,10 +1,4 @@
 from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
-from roles import Role
-
-
-class UserRoleUpdate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    role: Role
 
 
 class UserCreate(BaseModel):

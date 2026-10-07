@@ -1,3 +1,5 @@
+import { ApprovalBadge } from '../components/ApprovalBadge'
+import { publishingMessage } from '../workflowPolicy'
 import { useState } from 'react'
 import {
   Megaphone,
@@ -36,7 +38,7 @@ export const Campaigns = ({
   onCancelForm,
   onEditCampaign,
   onDeleteCampaign,
-  canCreateCampaign,
+  canCreateCampaign, canPublish,
   onDetails, imageUrl, setImageUrl, accountIds, setAccountIds,
   recurrence, setRecurrence, occurrences, setOccurrences,
   connectedAccounts = [], busy, formError,
@@ -207,7 +209,7 @@ export const Campaigns = ({
                   <th>Content Preview</th>
                   <th>Date</th>
                   <th>Time</th>
-                  <th className="text-right">Actions</th>
+                  <th>Approval</th><th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -232,6 +234,7 @@ export const Campaigns = ({
                           <span>{c.time || '—'}</span>
                         </div>
                       </td>
+                      <td><ApprovalBadge status={c.approval_status} /></td>
                       <td className="text-right">
                         <div className="table-action-group">
                           <button
@@ -355,6 +358,7 @@ export const Campaigns = ({
                 />
               </div>
 
+              {canPublish && <fieldset className="cm-fieldset">
               <div className="form-row-2col">
                 <div className="form-group-modern">
                   <label className="form-label">Schedule Date</label>
@@ -381,6 +385,8 @@ export const Campaigns = ({
                 <div className="form-group-modern"><label className="form-label" htmlFor="repeat">Repeat</label><select id="repeat" className="form-input" value={recurrence} onChange={e => setRecurrence(e.target.value)}><option value="none">Once</option><option value="daily">Daily</option><option value="weekly">Weekly</option></select></div>
                 {recurrence !== 'none' && <div className="form-group-modern"><label className="form-label" htmlFor="occurrences">Occurrences (1–52)</label><input id="occurrences" className="form-input" type="number" min="1" max="52" value={occurrences} onChange={e => setOccurrences(e.target.value)} /></div>}
               </div>
+              </fieldset>}
+              {!canPublish && <p role="status">{publishingMessage}</p>}
               <div className="form-group-modern"><span className="form-label">Live preview</span><PostPreview
                 platforms={[...new Set([platform, ...connectedAccounts.filter(a => accountIds.includes(a.id)).map(a => platformName(a.platform.toLowerCase()))].filter(Boolean))]}
                 accountNames={Object.fromEntries(connectedAccounts.filter(a => accountIds.includes(a.id)).map(a => [platformName(a.platform.toLowerCase()), a.account_name]))}
@@ -406,7 +412,8 @@ export const Campaigns = ({
               >
                 {busy ? 'Saving…' : 'Save Draft'}
               </button>
-              <button type="button" className="btn btn-primary" disabled={busy} onClick={() => onSaveCampaign(true)}>Schedule Post</button>
+              {!canPublish && <button type="button" className="btn btn-primary" disabled={busy} onClick={() => onSaveCampaign('approval')}>Send for approval</button>}
+              {canPublish && <><button type="button" className="btn btn-primary" disabled={busy} onClick={() => onSaveCampaign(true)}>Schedule Post</button><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => { if (window.confirm("Publish this post now to the selected accounts?")) onSaveCampaign("now") }}>Publish now</button></>}
             </div>
           </div>
         </div>

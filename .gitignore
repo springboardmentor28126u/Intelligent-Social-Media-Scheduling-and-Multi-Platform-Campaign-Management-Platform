@@ -223,7 +223,7 @@ __marimo__/
 node_modules/
 Frontend/dist/
 .runtime/
-tools/
+tools/cloudflared.exe
 Claude outputs/
 
 # Extra secret safety
@@ -231,3 +231,17 @@ Claude outputs/
 client_secret*.json
 *.pem
 *.key
+
+
+# Added for final submission: private files never committed
+!.env.*.example
+!.env.example
+.env.docker
+backups/
+*.dump
+tmp/
+_to_delete/
+Frontend/.empty-env/
+frontend/.env.local
+Backend/.env
+Backend/.env.social.local

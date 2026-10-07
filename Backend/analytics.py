@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
+from visibility import scoped_query
 from database import get_db
 from models import (AudienceSnapshot, EngagementSnapshot, EngagementWorkflow, Post, PublishingJob,
                     SocialAccount, SocialCredential)
@@ -219,7 +220,7 @@ def sync_engagement(db, user_id, days=30, limit=20, audience=True):
     """Pull fresh counters for recent published posts (API button and background worker)."""
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=days)
-    jobs = db.query(PublishingJob).filter(
+    jobs = scoped_query(db, PublishingJob).filter(
         PublishingJob.user_id == user_id, PublishingJob.status == "published",
         PublishingJob.provider_post_id.is_not(None), PublishingJob.scheduled_at >= cutoff,
         PublishingJob.provider.in_(ALL_PROVIDERS),
@@ -263,7 +264,7 @@ def sync_engagement(db, user_id, days=30, limit=20, audience=True):
 
 
 def latest_snapshots(db, user_id, job_ids=None):
-    query = db.query(EngagementSnapshot).filter_by(user_id=user_id).order_by(
+    query = scoped_query(db, EngagementSnapshot).filter_by(user_id=user_id).order_by(
         EngagementSnapshot.collected_at.desc(), EngagementSnapshot.id.desc())
     if job_ids is not None:
         query = query.filter(EngagementSnapshot.job_id.in_(job_ids))
@@ -295,12 +296,12 @@ def make_router(require_permission):
     @router.post("/analytics/refresh")
     def refresh_engagement(
         days: int = Query(30, ge=1, le=365), limit: int = Query(20, ge=1, le=100),
-        payload=Depends(require_permission("analytics:write")), db: Session = Depends(get_db),
+        payload=Depends(require_permission("analytics:sync")), db: Session = Depends(get_db),
     ):
         return sync_engagement(db, int(payload["sub"]), days=days, limit=limit)
 
     @router.post("/analytics/audience/refresh")
-    def refresh_audience(payload=Depends(require_permission("analytics:write")), db: Session = Depends(get_db)):
+    def refresh_audience(payload=Depends(require_permission("analytics:sync")), db: Session = Depends(get_db)):
         refreshed, failed = collect_audience(db, int(payload["sub"]))
         db.commit()
         return {"refreshed": refreshed, "failed": failed}
@@ -311,7 +312,7 @@ def make_router(require_permission):
         payload=Depends(require_permission("analytics:read")), db: Session = Depends(get_db),
     ):
         user_id, cutoff = int(payload["sub"]), datetime.now(timezone.utc) - timedelta(days=days)
-        jobs = db.query(PublishingJob).filter(
+        jobs = scoped_query(db, PublishingJob).filter(
             PublishingJob.user_id == user_id, PublishingJob.status == "published",
             PublishingJob.scheduled_at >= cutoff,
         ).order_by(PublishingJob.scheduled_at.desc()).all()
@@ -331,7 +332,7 @@ def make_router(require_permission):
         payload=Depends(require_permission("analytics:write")), db: Session = Depends(get_db),
     ):
         user_id = int(payload["sub"])
-        job = db.query(PublishingJob).filter_by(id=job_id, user_id=user_id, status="published").first()
+        job = scoped_query(db, PublishingJob).filter_by(id=job_id, user_id=user_id, status="published").first()
         if job is None:
             raise HTTPException(404, "Published campaign not found")
         workflow = db.get(EngagementWorkflow, job.id)
@@ -348,8 +349,8 @@ def make_router(require_permission):
         payload=Depends(require_permission("analytics:read")), db: Session = Depends(get_db),
     ):
         user_id, cutoff = int(payload["sub"]), datetime.now(timezone.utc) - timedelta(days=days)
-        posts = db.query(Post).filter(Post.user_id == user_id, Post.created_at >= cutoff).all()
-        jobs = db.query(PublishingJob).filter(
+        posts = scoped_query(db, Post).filter(Post.user_id == user_id, Post.created_at >= cutoff).all()
+        jobs = scoped_query(db, PublishingJob).filter(
             PublishingJob.user_id == user_id, PublishingJob.scheduled_at >= cutoff).all()
         published = [job for job in jobs if job.status == "published"]
         snapshots = latest_snapshots(db, user_id, [job.id for job in published])
@@ -385,13 +386,13 @@ def make_router(require_permission):
                         "account_name": account.account_name if account else None,
                         **({key: count(getattr(snapshot, key)) for key in ("likes", "comments", "shares", "reach")} if snapshot else {})})
         workflow_counts = defaultdict(int)
-        for row in db.query(EngagementWorkflow).join(PublishingJob, PublishingJob.id == EngagementWorkflow.job_id).filter(
+        for row in scoped_query(db, EngagementWorkflow).join(PublishingJob, PublishingJob.id == EngagementWorkflow.job_id).filter(
                 EngagementWorkflow.user_id == user_id, PublishingJob.scheduled_at >= cutoff).all():
             workflow_counts[row.status] += 1
         totals["engagements"] = totals["likes"] + totals["comments"] + totals["shares"] + totals["clicks"]
         # Same-length window immediately before this one, for "vs previous period" trend chips.
         prev_start = cutoff - timedelta(days=days)
-        prev_jobs = db.query(PublishingJob).filter(
+        prev_jobs = scoped_query(db, PublishingJob).filter(
             PublishingJob.user_id == user_id, PublishingJob.status == "published",
             PublishingJob.scheduled_at >= prev_start, PublishingJob.scheduled_at < cutoff).all()
         prev_snaps = latest_snapshots(db, user_id, [job.id for job in prev_jobs])
@@ -399,7 +400,7 @@ def make_router(require_permission):
                     for key in ("likes", "comments", "shares", "reach", "impressions", "clicks")}
         previous["engagements"] = previous["likes"] + previous["comments"] + previous["shares"] + previous["clicks"]
         previous["published"] = len(prev_jobs)
-        previous["campaigns"] = db.query(Post).filter(Post.user_id == user_id, Post.created_at >= prev_start,
+        previous["campaigns"] = scoped_query(db, Post).filter(Post.user_id == user_id, Post.created_at >= prev_start,
                                                       Post.created_at < cutoff).count()
         return {
             "previous": previous,

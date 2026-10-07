@@ -34,20 +34,10 @@ export const Header = ({
   const roleConfig = ROLE_CONFIG[currentRole] || ROLE_CONFIG[ROLES.CONTENT_CREATOR]
 
   const userInitial = (userName || 'User').trim().charAt(0).toUpperCase()
-  const seenKey = `notifications_seen_${userEmail || 'user'}`
-  const [seenAt, setSeenAt] = useState(() => { try { return Number(localStorage.getItem(seenKey) || 0) } catch { return 0 } })
-  const isNew = n => n.tone !== 'pending' && new Date(n.at).getTime() > seenAt
+  const isNew = n => !n.read
   const unread = notifications.filter(isNew).length
-  const toggleNotifications = () => {
-    if (!showNotifications) {
-      const now = Date.now()
-      setSeenAt(now)
-      try { localStorage.setItem(seenKey, String(now)) } catch { /* storage unavailable */ }
-    }
-    setShowNotifications(!showNotifications)
-  }
+  const toggleNotifications = () => setShowNotifications(!showNotifications)
 
-  // Close menus on outside click
   useEffect(() => {
     const handleOutsideClick = (e) => {
       if (profileRef.current && !profileRef.current.contains(e.target)) {

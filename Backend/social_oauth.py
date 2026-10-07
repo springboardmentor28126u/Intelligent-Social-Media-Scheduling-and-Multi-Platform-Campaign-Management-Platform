@@ -12,7 +12,6 @@ from urllib.request import Request as URLRequest, build_opener, HTTPRedirectHand
 from urllib.error import URLError
 
 from cryptography.fernet import Fernet
-from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from html import escape
 
@@ -25,7 +24,6 @@ from database import get_db
 from models import OAuthAttempt, SocialAccount, SocialCredential, User
 from roles import permissions_for
 
-load_dotenv(Path(__file__).with_name(".env.social.local"), override=False)
 
 PROVIDERS = {
     "facebook": ("Facebook", "https://www.facebook.com/{version}/dialog/oauth", "https://graph.facebook.com/{version}/oauth/access_token", "pages_show_list,pages_read_engagement,pages_manage_posts"),
@@ -202,13 +200,13 @@ def make_router(require_permission):
         return result
 
     @router.post("/{provider}/authorize")
-    def authorize(provider: str, response: Response, payload=Depends(require_permission("accounts:write")), db: Session = Depends(get_db)):
+    def authorize(provider: str, response: Response, payload=Depends(require_permission("publish:write")), db: Session = Depends(get_db)):
         _, _, redirect, _ = settings(provider)
         state, browser, verifier = secrets.token_urlsafe(32), secrets.token_urlsafe(32), secrets.token_urlsafe(64)
         now = int(time.time())
         db.execute(delete(OAuthAttempt).where(OAuthAttempt.expires_at < now))
         db.add(OAuthAttempt(state_hash=digest(state), user_id=int(payload["sub"]), provider=provider,
-                            browser_hash=digest(browser), encrypted_verifier=cipher().encrypt(verifier.encode()).decode(), expires_at=now + 600))
+                            actor_id=int(payload.get("actor_sub", payload["sub"])), browser_hash=digest(browser), encrypted_verifier=cipher().encrypt(verifier.encode()).decode(), expires_at=now + 600))
         db.commit()
         response.headers["Cache-Control"] = "no-store"
         callback = urlparse(redirect)
@@ -271,15 +269,22 @@ def complete_callback(provider, state, request, response, code, error, db):
     attempt = db.execute(delete(OAuthAttempt).where(
         OAuthAttempt.state_hash == digest(state), OAuthAttempt.provider == provider,
         OAuthAttempt.browser_hash == digest(browser), OAuthAttempt.expires_at >= int(time.time())
-    ).returning(OAuthAttempt.user_id, OAuthAttempt.encrypted_verifier)).mappings().one_or_none()
+    ).returning(OAuthAttempt.user_id, OAuthAttempt.encrypted_verifier, OAuthAttempt.actor_id)).mappings().one_or_none()
     db.commit()
     if attempt is None:
         raise HTTPException(400, "Authorization expired, already used, or opened in a different browser")
     response.delete_cookie("oauth_" + provider, path="/oauth/" + provider)
     response.headers.update({"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
     user = db.get(User, attempt["user_id"])
-    if user is None or "accounts:write" not in permissions_for(user.role):
+    if user is None or "publish:write" not in permissions_for(user.role):
         raise HTTPException(403, "Account connection permission is required")
+    if user.is_workspace:
+        from models import Workspace
+        from teams import membership
+        workspace = db.query(Workspace).filter_by(storage_user_id=user.id).one()
+        _, member = membership(db, workspace.id, attempt["actor_id"])
+        if "publish:write" not in permissions_for(member.role):
+            raise HTTPException(403, "Workspace connection permission was revoked")
     if error or not code:
         raise HTTPException(400, "Authorization was not granted; start again")
     verifier = cipher().decrypt(attempt["encrypted_verifier"].encode()).decode()
@@ -305,6 +310,8 @@ def complete_callback(provider, state, request, response, code, error, db):
             lifetime = token.get("expires_in")
             credential.expires_at = int(time.time()) + int(lifetime) if lifetime is not None else None
             results.append({"id": account.id, "platform": account.platform, "account_name": account.account_name, "connected": True})
+        from notifications import notify_scope
+        notify_scope(db, user.id, "account", f"{provider.title()} account connected", "Account authorization was updated.")
         db.commit()
     except IntegrityError:
         db.rollback()
