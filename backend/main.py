@@ -35,6 +35,9 @@ except Exception as e:
     print(f"Database initialization warning: {e}")
 
 app = FastAPI(title="SocialPilot API", version="2.0.0")
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 app.add_middleware(
     CORSMiddleware,
@@ -160,11 +163,6 @@ def list_social_accounts(
     current_user: models.User = Depends(auth.get_current_user)
 ):
     return db.query(models.SocialAccount).filter(models.SocialAccount.user_id == current_user.id).all()
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-
 
 @app.delete("/social-accounts/{account_id}")
 def disconnect_social_account(
