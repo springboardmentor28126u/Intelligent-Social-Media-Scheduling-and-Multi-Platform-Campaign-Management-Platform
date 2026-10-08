@@ -22,6 +22,12 @@ import {
   Film,
   Check,
   FolderKanban,
+  Image as ImageIcon,
+  Search,
+  X,
+  ExternalLink,
+  HardDrive,
+  Globe,
 } from 'lucide-react';
 import PageHeader from '@/components/common/PageHeader';
 import Card from '@/components/common/Card';
@@ -38,7 +44,20 @@ import {
   toEndDateISOWithOffset,
 } from '@/types/post';
 import type { CampaignOut } from '@/types/campaign';
+import type { MediaItem } from '@/types/media';
 import { getCampaigns } from '@/services/campaigns';
+import { getMediaList, resolveMediaUrl, handleMediaError } from '@/services/media';
+import { generateCaption, type AITone, type GeneratedPost } from '@/lib/ai';
+
+const AI_SUPPORTED_PLATFORMS = ['linkedin', 'youtube', 'instagram', 'facebook'] as const;
+
+const AI_TONE_OPTIONS: { value: AITone; label: string }[] = [
+  { value: 'professional', label: 'Professional' },
+  { value: 'casual', label: 'Casual' },
+  { value: 'friendly', label: 'Friendly' },
+  { value: 'witty', label: 'Witty' },
+  { value: 'inspirational', label: 'Inspirational' },
+];
 
 const API_BASE = 'http://localhost:8000';
 
@@ -53,8 +72,10 @@ function formatBytes(bytes?: number): string {
 type UploadedMediaType = 'image' | 'video';
 
 function getMediaTypeFromUrl(url?: string): UploadedMediaType {
-  const extension = url?.split('?')[0].split('.').pop()?.toLowerCase();
-  return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension || '') ? 'image' : 'video';
+  if (!url || typeof url !== 'string') return 'image';
+  const cleanUrl = url.split('?')[0];
+  const extension = cleanUrl.split('.').pop()?.toLowerCase() || '';
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'avif'].includes(extension) ? 'image' : 'video';
 }
 
 interface SocialAccountData {
@@ -70,7 +91,7 @@ export default function CreatePost() {
   const token = localStorage.getItem('token');
 
   const locationState = location.state as
-    | { editPost?: PostOut; initialVideoUrl?: string; initialCampaignId?: number }
+    | { editPost?: PostOut; initialVideoUrl?: string; initialMediaUrl?: string; initialCampaignId?: number }
     | undefined;
   const editPost = locationState?.editPost;
   const isEditMode = Boolean(editPost);
@@ -115,7 +136,32 @@ export default function CreatePost() {
 
   const [content, setContent] = useState(editPost?.content || '');
   const [title, setTitle] = useState(editPost?.title || '');
-  const [videoUrl, setVideoUrl] = useState(editPost?.media_urls?.[0] || locationState?.initialVideoUrl || '');
+  const [videoUrl, setVideoUrl] = useState<string>(
+    editPost?.media_urls?.[0] || locationState?.initialVideoUrl || (locationState as any)?.initialMediaUrl || ''
+  );
+
+  // Sync initial media URL if navigated to CreatePost with state
+  useEffect(() => {
+    const initUrl = locationState?.initialMediaUrl || locationState?.initialVideoUrl;
+    if (initUrl && !videoUrl) {
+      setVideoUrl(initUrl);
+      const mType = getMediaTypeFromUrl(initUrl);
+      setUploadedMediaType(mType);
+      const fname = initUrl.split('/').pop()?.split('?')[0] || (mType === 'image' ? 'Image asset' : 'Video asset');
+      setUploadedVideoMeta({
+        filename: fname,
+        media_type: mType,
+      });
+    }
+  }, [locationState?.initialMediaUrl, locationState?.initialVideoUrl]);
+
+  // AI Generation State
+  const [aiTopic, setAiTopic] = useState(editPost?.title || '');
+  const [aiTone, setAiTone] = useState<AITone>('professional');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [generatedPosts, setGeneratedPosts] = useState<Record<string, GeneratedPost> | null>(null);
+  const [activeGeneratedPlatform, setActiveGeneratedPlatform] = useState<string | null>(null);
   const [uploadedMediaType, setUploadedMediaType] = useState<UploadedMediaType | null>(() =>
     videoUrl ? getMediaTypeFromUrl(videoUrl) : null
   );
@@ -123,7 +169,16 @@ export default function CreatePost() {
     filename: string;
     size_bytes?: number;
     media_type: UploadedMediaType;
-  } | null>(null);
+  } | null>(() => {
+    if (videoUrl) {
+      const mType = getMediaTypeFromUrl(videoUrl);
+      return {
+        filename: videoUrl.split('/').pop()?.split('?')[0] || (mType === 'image' ? 'Image asset' : 'Video asset'),
+        media_type: mType,
+      };
+    }
+    return null;
+  });
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [postAsShort, setPostAsShort] = useState(Boolean(editPost?.post_as_short));
@@ -131,17 +186,85 @@ export default function CreatePost() {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Media Library Picker & URL Input State
+  const [showMediaPicker, setShowMediaPicker] = useState(false);
+  const [libraryMedia, setLibraryMedia] = useState<MediaItem[]>([]);
+  const [loadingLibrary, setLoadingLibrary] = useState(false);
+  const [libraryFilter, setLibraryFilter] = useState<'all' | 'image' | 'video'>('all');
+  const [librarySearch, setLibrarySearch] = useState('');
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [customUrlInput, setCustomUrlInput] = useState('');
+
+  const fetchLibraryItems = async () => {
+    if (!token) return;
+    setLoadingLibrary(true);
+    try {
+      const data = await getMediaList({
+        media_type: libraryFilter === 'all' ? undefined : libraryFilter,
+        search: librarySearch.trim() || undefined,
+      });
+      setLibraryMedia(data.items || []);
+    } catch (err) {
+      console.error('Failed to load media library items:', err);
+    } finally {
+      setLoadingLibrary(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showMediaPicker) {
+      fetchLibraryItems();
+    }
+  }, [showMediaPicker, libraryFilter]);
+
+  useEffect(() => {
+    if (showMediaPicker) {
+      const timer = setTimeout(() => {
+        fetchLibraryItems();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [librarySearch]);
+
+  const handleSelectFromLibrary = (item: MediaItem) => {
+    setVideoUrl(item.file_url);
+    const mType = item.media_type as UploadedMediaType;
+    setUploadedMediaType(mType);
+    setUploadedVideoMeta({
+      filename: item.original_filename,
+      size_bytes: item.size_bytes,
+      media_type: mType,
+    });
+    setShowMediaPicker(false);
+    setUploadError(null);
+  };
+
+  const handleApplyCustomUrl = () => {
+    if (!customUrlInput.trim()) return;
+    const url = customUrlInput.trim();
+    const mediaType = getMediaTypeFromUrl(url);
+    setVideoUrl(url);
+    setUploadedMediaType(mediaType);
+    setUploadedVideoMeta({
+      filename: url.split('/').pop()?.split('?')[0] || (mediaType === 'image' ? 'Image URL' : 'Video URL'),
+      media_type: mediaType,
+    });
+    setShowUrlInput(false);
+    setCustomUrlInput('');
+    setUploadError(null);
+  };
+
   const handleFileUpload = async (file: File) => {
     if (!token) {
       setUploadError('You must be logged in to upload media files.');
       return;
     }
 
-    const allowedExts = ['.mp4', '.mov', '.avi', '.webm', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    const allowedExts = ['.mp4', '.mov', '.avi', '.webm', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.avif'];
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     if (!allowedExts.includes(ext)) {
       setUploadError(
-        `Unsupported file type "${ext}". Allowed types: .mp4, .mov, .avi, .webm, .jpg, .jpeg, .png, .gif, .webp`
+        `Unsupported file type "${ext}". Allowed types: .mp4, .mov, .avi, .webm, .jpg, .jpeg, .png, .gif, .webp, .bmp, .svg, .avif`
       );
       return;
     }
@@ -150,6 +273,19 @@ export default function CreatePost() {
       setUploadError('File exceeds maximum size limit of 200MB.');
       return;
     }
+
+    const isImageExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.avif'].includes(ext);
+    const mediaType: UploadedMediaType = isImageExt ? 'image' : 'video';
+
+    // Instant local preview
+    const localBlobUrl = URL.createObjectURL(file);
+    setVideoUrl(localBlobUrl);
+    setUploadedMediaType(mediaType);
+    setUploadedVideoMeta({
+      filename: file.name,
+      size_bytes: file.size,
+      media_type: mediaType,
+    });
 
     setUploadingVideo(true);
     setUploadError(null);
@@ -170,18 +306,28 @@ export default function CreatePost() {
 
       if (!response.ok) {
         setUploadError(data.detail || 'Failed to upload media.');
+        URL.revokeObjectURL(localBlobUrl);
+        setVideoUrl('');
+        setUploadedMediaType(null);
+        setUploadedVideoMeta(null);
         return;
       }
 
-      setVideoUrl(data.url);
-      setUploadedMediaType(data.media_type);
+      const fileUrl = data.file_url || data.url || '';
+      URL.revokeObjectURL(localBlobUrl);
+      setVideoUrl(fileUrl);
+      setUploadedMediaType(data.media_type || mediaType);
       setUploadedVideoMeta({
-        filename: file.name,
+        filename: data.original_filename || file.name,
         size_bytes: data.size_bytes || file.size,
-        media_type: data.media_type,
+        media_type: data.media_type || mediaType,
       });
     } catch (err: any) {
       console.error('Error uploading media:', err);
+      URL.revokeObjectURL(localBlobUrl);
+      setVideoUrl('');
+      setUploadedMediaType(null);
+      setUploadedVideoMeta(null);
       setUploadError(err.message || 'An error occurred during media upload.');
     } finally {
       setUploadingVideo(false);
@@ -332,8 +478,95 @@ export default function CreatePost() {
   const hasYouTube = selectedAccounts.some((a) =>
     a.platform.toLowerCase().includes('youtube')
   );
-  const attachedMediaIsVideo = videoUrl.trim() !== '' && (uploadedMediaType === 'video' || getMediaTypeFromUrl(videoUrl) === 'video');
+  const hasAttachedMedia = Boolean(videoUrl && typeof videoUrl === 'string' && videoUrl.trim() !== '');
+  const currentMediaType: UploadedMediaType = uploadedMediaType || (hasAttachedMedia ? getMediaTypeFromUrl(videoUrl) : 'image');
+  const attachedMediaIsVideo = hasAttachedMedia && currentMediaType === 'video';
+  const attachedMediaIsImage = hasAttachedMedia && currentMediaType === 'image';
   const canPostAsShort = hasYouTube && attachedMediaIsVideo;
+
+  // Selected AI platforms from currently chosen accounts
+  const selectedAiPlatforms = Array.from(
+    new Set(
+      selectedAccounts
+        .map((a) => backendPlatformToKey(a.platform))
+        .filter((p) => (AI_SUPPORTED_PLATFORMS as readonly string[]).includes(p))
+    )
+  );
+
+  const isTopicValid = aiTopic.trim().length >= 3;
+  const hasSupportedPlatforms = selectedAiPlatforms.length > 0;
+  const canGenerateAI = isTopicValid && hasSupportedPlatforms && isStatusEditable && !aiLoading;
+
+  let aiValidationHint: string | null = null;
+  if (!hasSupportedPlatforms && !isTopicValid) {
+    aiValidationHint = 'Select at least one supported target account (LinkedIn, YouTube, Instagram, Facebook) and enter a topic (min 3 characters).';
+  } else if (!hasSupportedPlatforms) {
+    aiValidationHint = 'Select at least one target account (LinkedIn, YouTube, Instagram, Facebook) to generate captions.';
+  } else if (!isTopicValid) {
+    aiValidationHint = 'Topic must be at least 3 characters long.';
+  }
+
+  const handleGenerateAI = async () => {
+    if (!canGenerateAI) return;
+    setAiLoading(true);
+    setAiError(null);
+
+    try {
+      const result = await generateCaption(aiTopic.trim(), selectedAiPlatforms, aiTone);
+      const posts = result.posts;
+      setGeneratedPosts(posts);
+
+      const availablePlatforms = Object.keys(posts);
+      if (availablePlatforms.length > 0) {
+        const firstPlatform = selectedAiPlatforms.find((p) => posts[p]) || availablePlatforms[0];
+        setActiveGeneratedPlatform(firstPlatform);
+
+        const firstPost = posts[firstPlatform];
+        if (firstPost) {
+          const applyPost = () => {
+            setContent(firstPost.text);
+            if (firstPost.title && (firstPlatform === 'youtube' || hasYouTube)) {
+              setTitle(firstPost.title);
+            }
+          };
+
+          if (content.trim()) {
+            if (window.confirm('Replace your current text?')) {
+              applyPost();
+            }
+          } else {
+            applyPost();
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error('AI generation error:', err);
+      setAiError(err.message || 'AI generation failed. Please try again.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleSelectGeneratedPlatform = (platformKey: string) => {
+    if (!generatedPosts || !generatedPosts[platformKey]) return;
+    setActiveGeneratedPlatform(platformKey);
+    const post = generatedPosts[platformKey];
+
+    const applyPost = () => {
+      setContent(post.text);
+      if (post.title && (platformKey === 'youtube' || hasYouTube)) {
+        setTitle(post.title);
+      }
+    };
+
+    if (content.trim() && content.trim() !== post.text) {
+      if (window.confirm('Replace your current text?')) {
+        applyPost();
+      }
+    } else {
+      applyPost();
+    }
+  };
 
   const handleSubmit = async (overrideAction?: PostAction) => {
     setError(null);
@@ -712,149 +945,207 @@ export default function CreatePost() {
             </Card>
           )}
 
-          {/* Media Attachment for all selected platforms (LinkedIn, YouTube, etc.) */}
-          {selectedAccountIds.length > 0 && (
-            <Card className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <Film className="h-5 w-5 text-ink-700" />
-                  <div>
-                    <h3 className="text-base font-semibold text-ink-900">Attach photo or video (optional)</h3>
-                    <p className="text-xs text-ink-400">
-                      Upload an image or video to publish on your selected accounts.
-                    </p>
-                  </div>
+          {/* Media Attachment for all selected platforms (LinkedIn, YouTube, etc.) or Drafts */}
+          <Card className="p-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2.5">
+                <Film className="h-5 w-5 text-ink-700" />
+                <div>
+                  <h3 className="text-base font-semibold text-ink-900">Attach photo or video</h3>
+                  <p className="text-xs text-ink-400">
+                    Upload an image or video, select from your library, or paste a media link.
+                  </p>
                 </div>
-                {videoUrl && (
+              </div>
+              <div className="flex items-center gap-2">
+                {videoUrl ? (
                   <Badge variant="success" size="sm">
-                    <Check className="mr-1 h-3 w-3" /> Attached
+                    <Check className="mr-1 h-3 w-3" /> Attached ({attachedMediaIsImage ? 'Image' : 'Video'})
                   </Badge>
+                ) : (
+                  <Badge variant="neutral" size="sm">Optional</Badge>
                 )}
               </div>
+            </div>
 
-              {uploadError && (
-                <div className="mt-4 flex items-center gap-3 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-xs text-danger-700">
-                  <AlertCircle className="h-4 w-4 shrink-0 text-danger-600" />
-                  <span>{uploadError}</span>
+            {uploadError && (
+              <div className="mt-4 flex items-center gap-3 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-xs text-danger-700">
+                <AlertCircle className="h-4 w-4 shrink-0 text-danger-600" />
+                <span>{uploadError}</span>
+              </div>
+            )}
+
+            {/* Hidden file input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileInputChange}
+              accept="video/mp4,video/quicktime,video/x-msvideo,video/webm,image/jpeg,image/png,image/gif,image/webp"
+              className="hidden"
+              disabled={!isStatusEditable || uploadingVideo}
+            />
+
+            {/* URL input toggle if active */}
+            {showUrlInput && (
+              <div className="mt-4 rounded-xl border border-brand-200 bg-brand-50/40 p-3.5 space-y-2.5 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-ink-800 flex items-center gap-1.5">
+                    <Globe className="h-3.5 w-3.5 text-brand-600" />
+                    Enter Image or Video URL
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowUrlInput(false)}
+                    className="text-ink-400 hover:text-ink-600 text-xs"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-              )}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="url"
+                    value={customUrlInput}
+                    onChange={(e) => setCustomUrlInput(e.target.value)}
+                    placeholder="https://example.com/image.jpg or /media/..."
+                    className="flex-1 rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs text-ink-800 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  />
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={handleApplyCustomUrl}
+                    disabled={!customUrlInput.trim()}
+                  >
+                    Attach URL
+                  </Button>
+                </div>
+              </div>
+            )}
 
-              {/* Hidden file input */}
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileInputChange}
-                accept="video/mp4,video/quicktime,video/x-msvideo,video/webm,image/jpeg,image/png,image/gif,image/webp"
-                className="hidden"
-                disabled={!isStatusEditable || uploadingVideo}
-              />
-
-              <div className="mt-4">
-                {uploadingVideo ? (
-                  <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50/40 py-10">
-                    <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
-                    <div className="text-center">
-                      <p className="text-sm font-semibold text-ink-900">Uploading video to server...</p>
-                      <p className="mt-0.5 text-xs text-ink-400">This may take a moment depending on file size.</p>
+            <div className="mt-4">
+              {uploadingVideo ? (
+                <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50/40 py-10">
+                  <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
+                  <div className="text-center">
+                    <p className="text-sm font-semibold text-ink-900">Uploading media to server...</p>
+                    <p className="mt-0.5 text-xs text-ink-400">Preview will update automatically once uploaded.</p>
+                  </div>
+                </div>
+              ) : videoUrl ? (
+                <div className="rounded-xl border border-ink-200 bg-ink-50/50 p-4 space-y-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
+                        {attachedMediaIsImage ? <ImageIcon className="h-5 w-5" /> : <Film className="h-5 w-5" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-ink-900 truncate">
+                          {uploadedVideoMeta?.filename || videoUrl.split('/').pop()?.split('?')[0] || (attachedMediaIsImage ? 'Uploaded image' : 'Uploaded video')}
+                        </p>
+                        <p className="text-xs text-ink-400">
+                          {uploadedVideoMeta?.size_bytes ? formatBytes(uploadedVideoMeta.size_bytes) + ' • ' : ''}
+                          <span className="capitalize">{currentMediaType}</span> attached & ready to publish
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!isStatusEditable}
+                        onClick={() => fileInputRef.current?.click()}
+                        leftIcon={<Upload className="h-3.5 w-3.5" />}
+                      >
+                        Upload New
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!isStatusEditable}
+                        onClick={() => setShowMediaPicker(true)}
+                        leftIcon={<HardDrive className="h-3.5 w-3.5" />}
+                      >
+                        Library
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="danger"
+                        size="sm"
+                        disabled={!isStatusEditable}
+                        onClick={handleRemoveVideo}
+                        leftIcon={<Trash2 className="h-3.5 w-3.5" />}
+                      >
+                        Remove
+                      </Button>
                     </div>
                   </div>
-                ) : videoUrl ? (
-                  <div className="rounded-xl border border-ink-200 bg-ink-50/50 p-4">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
-                          <Film className="h-6 w-6" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold text-ink-900 truncate">
-                                {uploadedVideoMeta?.filename || videoUrl.split('/').pop() || 'Uploaded media'}
-                          </p>
-                          <p className="text-xs text-ink-400">
-                            {uploadedVideoMeta?.size_bytes ? formatBytes(uploadedVideoMeta.size_bytes) + ' • ' : ''}
-                            Ready to publish
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={!isStatusEditable}
-                          onClick={() => fileInputRef.current?.click()}
-                          leftIcon={<Upload className="h-3.5 w-3.5" />}
-                        >
-                          Replace
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="danger"
-                          size="sm"
-                          disabled={!isStatusEditable}
-                          onClick={handleRemoveVideo}
-                          leftIcon={<Trash2 className="h-3.5 w-3.5" />}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    </div>
 
-                    {uploadedMediaType === 'image' ? (
-                      <div className="mt-3 overflow-hidden rounded-lg border border-ink-200 bg-white">
-                        <img src={videoUrl} alt="Uploaded media preview" className="max-h-56 w-full object-contain" />
-                      </div>
-                    ) : (
-                      <div className="mt-3 overflow-hidden rounded-lg border border-ink-200 bg-black">
-                        <video
-                          src={videoUrl}
-                          controls
-                          className="max-h-56 w-full object-contain"
-                          preload="metadata"
+                  {/* Attached Media Preview Frame */}
+                  {attachedMediaIsImage ? (
+                    <div className="relative overflow-hidden rounded-xl border border-ink-200 bg-white">
+                      <img
+                        src={resolveMediaUrl(videoUrl)}
+                        alt="Uploaded media preview"
+                        className="max-h-64 w-full object-contain bg-ink-950/5"
+                        onError={(e) => handleMediaError(e, videoUrl)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="relative overflow-hidden rounded-xl border border-ink-200 bg-black">
+                      <video
+                        src={resolveMediaUrl(videoUrl)}
+                        controls
+                        className="max-h-64 w-full object-contain"
+                        preload="metadata"
+                        onError={(e) => handleMediaError(e, videoUrl)}
+                      />
+                    </div>
+                  )}
+
+                  {hasYouTube && attachedMediaIsImage && (
+                    <div className="flex items-start gap-2 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-xs text-warning-800">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning-600" />
+                      <span>
+                        YouTube posts require a video &mdash; this image will only be used for other selected platforms (LinkedIn, Instagram, Facebook).
+                      </span>
+                    </div>
+                  )}
+
+                  {hasYouTube && (
+                    <div className="border-t border-ink-200 pt-3">
+                      <label className="flex cursor-pointer items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={postAsShort}
+                          onChange={(e) => {
+                            setPostAsShort(e.target.checked);
+                            setShortsError(null);
+                          }}
+                          disabled={!isStatusEditable || !attachedMediaIsVideo}
+                          className="mt-0.5 h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
                         />
-                      </div>
-                    )}
-
-                    {hasYouTube && uploadedMediaType === 'image' && (
-                      <div className="mt-3 flex items-start gap-2 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-xs text-warning-800">
-                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning-600" />
                         <span>
-                          YouTube posts require a video &mdash; this image will only be used for other selected platforms.
-                        </span>
-                      </div>
-                    )}
-
-                    {hasYouTube && (
-                      <div className="mt-4 border-t border-ink-100 pt-4">
-                        <label className="flex cursor-pointer items-start gap-3">
-                          <input
-                            type="checkbox"
-                            checked={postAsShort}
-                            onChange={(e) => {
-                              setPostAsShort(e.target.checked);
-                              setShortsError(null);
-                            }}
-                            disabled={!isStatusEditable || !attachedMediaIsVideo}
-                            className="mt-0.5 h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
-                          />
-                          <span>
-                            <span className="block text-sm font-semibold text-ink-900">Post as YouTube Short</span>
-                            <span className="mt-0.5 block text-xs text-ink-400">
-                              {attachedMediaIsVideo
-                                ? 'Video must be 3 minutes or shorter and vertical/square (not horizontal).'
-                                : 'Attach a video to enable YouTube Shorts.'}
-                            </span>
+                          <span className="block text-sm font-semibold text-ink-900">Post as YouTube Short</span>
+                          <span className="mt-0.5 block text-xs text-ink-400">
+                            {attachedMediaIsVideo
+                              ? 'Video must be 3 minutes or shorter and vertical/square (not horizontal).'
+                              : 'Attach a video to enable YouTube Shorts.'}
                           </span>
-                        </label>
-                        {shortsError && (
-                          <div className="mt-3 flex items-start gap-2 rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-xs text-danger-700">
-                            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger-600" />
-                            <span>{shortsError}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ) : (
+                        </span>
+                      </label>
+                      {shortsError && (
+                        <div className="mt-3 flex items-start gap-2 rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-xs text-danger-700">
+                          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger-600" />
+                          <span>{shortsError}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
                   <div
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
@@ -874,14 +1165,182 @@ export default function CreatePost() {
                         Click to browse or drag and drop a photo or video
                       </p>
                       <p className="mt-1 text-xs text-ink-400">
-                        MP4, MOV, AVI, WebM, JPG, PNG, GIF, WebP (up to 200MB)
+                        JPG, PNG, WEBP, GIF, MP4, MOV, AVI, WEBM (up to 200MB)
                       </p>
                     </div>
                   </div>
+
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!isStatusEditable}
+                      onClick={() => setShowMediaPicker(true)}
+                      leftIcon={<HardDrive className="h-3.5 w-3.5 text-brand-600" />}
+                    >
+                      Choose from Media Library
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={!isStatusEditable}
+                      onClick={() => setShowUrlInput((prev) => !prev)}
+                      leftIcon={<Globe className="h-3.5 w-3.5 text-ink-500" />}
+                    >
+                      {showUrlInput ? 'Hide URL Input' : 'Paste Image URL'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Generate with AI Card */}
+          <Card className="p-6 border-brand-200/80 bg-gradient-to-br from-brand-50/25 via-white to-purple-50/15">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-purple-600 text-white shadow-xs">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-ink-900">Generate with AI</h3>
+                  <p className="text-xs text-ink-400">
+                    Create platform-tailored captions using Gemini AI.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-1 sm:mt-0">
+                <Badge variant="brand" size="sm">
+                  <Sparkles className="mr-1 h-3 w-3" /> AI Assistant
+                </Badge>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+                {/* Topic Input */}
+                <div className="sm:col-span-2">
+                  <label htmlFor="ai-topic-input" className="block text-xs font-semibold text-ink-700">
+                    Topic / Key Message
+                  </label>
+                  <input
+                    id="ai-topic-input"
+                    type="text"
+                    disabled={!isStatusEditable || aiLoading}
+                    value={aiTopic}
+                    onChange={(e) => setAiTopic(e.target.value)}
+                    placeholder="e.g. Launching our new student discount"
+                    maxLength={500}
+                    className="mt-1.5 w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-800 placeholder:text-ink-400 transition-all focus:border-brand-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10 disabled:bg-ink-50 disabled:text-ink-400"
+                  />
+                </div>
+
+                {/* Tone Dropdown */}
+                <div>
+                  <label htmlFor="ai-tone-select" className="block text-xs font-semibold text-ink-700">
+                    Tone
+                  </label>
+                  <select
+                    id="ai-tone-select"
+                    disabled={!isStatusEditable || aiLoading}
+                    value={aiTone}
+                    onChange={(e) => setAiTone(e.target.value as AITone)}
+                    className="mt-1.5 w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-800 transition-all focus:border-brand-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10 disabled:bg-ink-50 disabled:text-ink-400"
+                  >
+                    {AI_TONE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Action Button & Hint */}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-1">
+                <div>
+                  <Button
+                    id="generate-ai-btn"
+                    type="button"
+                    variant="secondary"
+                    size="md"
+                    disabled={!canGenerateAI}
+                    onClick={handleGenerateAI}
+                    leftIcon={
+                      aiLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-4 w-4" />
+                      )
+                    }
+                  >
+                    {aiLoading ? 'Generating...' : 'Generate with AI'}
+                  </Button>
+                </div>
+
+                {aiValidationHint && (
+                  <p className="text-xs text-ink-500 flex items-center gap-1.5">
+                    <AlertCircle className="h-3.5 w-3.5 text-ink-400 shrink-0" />
+                    <span>{aiValidationHint}</span>
+                  </p>
                 )}
               </div>
-            </Card>
-          )}
+
+              {/* Error Alert */}
+              {aiError && (
+                <div
+                  id="ai-error-alert"
+                  className="flex items-start gap-2.5 rounded-xl border border-danger-200 bg-danger-50 p-3.5 text-xs text-danger-700"
+                >
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger-600" />
+                  <span>{aiError}</span>
+                </div>
+              )}
+
+              {/* Generated Drafts Platform Tabs / Chips */}
+              {generatedPosts && Object.keys(generatedPosts).length > 0 && (
+                <div className="rounded-xl border border-brand-100 bg-white p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-ink-700">
+                      Generated Drafts ({Object.keys(generatedPosts).length} platform{Object.keys(generatedPosts).length > 1 ? 's' : ''}):
+                    </span>
+                    <span className="text-[11px] text-ink-400">Click a platform tab to apply</span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {Object.keys(generatedPosts).map((platformKey) => {
+                      const platformConfig = platforms.find((x) => x.key === platformKey);
+                      const isActive = activeGeneratedPlatform === platformKey;
+                      return (
+                        <button
+                          key={platformKey}
+                          id={`ai-tab-${platformKey}`}
+                          type="button"
+                          onClick={() => handleSelectGeneratedPlatform(platformKey)}
+                          className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+                            isActive
+                              ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-xs ring-1 ring-brand-500 font-semibold'
+                              : 'border-ink-200 bg-white text-ink-700 hover:border-ink-300 hover:bg-ink-50'
+                          }`}
+                        >
+                          <PlatformIcon platform={platformKey as any} className="h-3.5 w-3.5" />
+                          <span>{platformConfig?.name || platformKey}</span>
+                          {isActive && <Check className="h-3 w-3 text-brand-600 ml-0.5" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <p className="text-[11px] text-ink-400 flex items-center gap-1.5 pt-1.5 border-t border-ink-100">
+                    <Sparkles className="h-3 w-3 text-brand-500 shrink-0" />
+                    <span>AI-generated draft. Review before posting.</span>
+                  </p>
+                </div>
+              )}
+            </div>
+          </Card>
 
           {/* Content editor */}
           <Card className="p-6">
@@ -1160,19 +1619,69 @@ export default function CreatePost() {
               </Badge>
             </div>
 
-            {/* Preview cards for selected platforms */}
+            {/* Preview cards for selected platforms or generic preview when none selected */}
             {selectedAccounts.length === 0 ? (
-              <Card className="p-6">
-                <EmptyState
-                  compact
-                  icon={<Plus className="h-6 w-6" />}
-                  title={action === 'draft' ? 'Draft preview' : 'Select an account'}
-                  description={
-                    action === 'draft'
-                      ? 'You can save a draft without selecting an account. Select one to preview layout.'
-                      : 'Choose target accounts to see how your post will look across platforms.'
-                  }
-                />
+              <Card className="overflow-hidden shadow-sm">
+                <div className="flex items-center justify-between border-b border-ink-100 p-3 bg-ink-50/50">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-ink-100 text-ink-700">
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-semibold text-ink-900">Post Preview</span>
+                      <span className="ml-1.5 text-xs text-ink-400">(Draft / General)</span>
+                    </div>
+                  </div>
+                  <Badge variant="neutral" size="sm">No account selected</Badge>
+                </div>
+                <div className="p-4 space-y-3">
+                  {content ? (
+                    <p className="text-sm leading-relaxed text-ink-700 whitespace-pre-wrap">
+                      {content}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-ink-300 italic">Your content preview will appear here...</p>
+                  )}
+
+                  {videoUrl ? (
+                    attachedMediaIsImage ? (
+                      <div className="overflow-hidden rounded-xl border border-ink-200 bg-white">
+                        <img
+                          src={resolveMediaUrl(videoUrl)}
+                          alt="Post media preview"
+                          className="max-h-48 w-full object-cover"
+                          onError={(e) => handleMediaError(e, videoUrl)}
+                        />
+                        <div className="flex items-center gap-2 bg-ink-900 px-3 py-1.5 text-xs text-ink-200">
+                          <ImageIcon className="h-3.5 w-3.5 text-brand-400" />
+                          <span className="truncate">{uploadedVideoMeta?.filename || videoUrl.split('/').pop()?.split('?')[0] || 'Attached Image'}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="overflow-hidden rounded-xl border border-ink-200 bg-black">
+                        <video
+                          src={resolveMediaUrl(videoUrl)}
+                          controls
+                          className="max-h-48 w-full object-contain"
+                          preload="metadata"
+                          onError={(e) => handleMediaError(e, videoUrl)}
+                        />
+                        <div className="flex items-center gap-2 bg-ink-900 px-3 py-1.5 text-xs text-ink-200">
+                          <Film className="h-3.5 w-3.5 text-brand-400" />
+                          <span className="truncate">{uploadedVideoMeta?.filename || videoUrl.split('/').pop()?.split('?')[0] || 'Attached Video'}</span>
+                        </div>
+                      </div>
+                    )
+                  ) : (
+                    <div className="mt-2 h-14 rounded-xl border border-dashed border-ink-100 bg-ink-50/30 flex items-center justify-center">
+                      <span className="text-xs text-ink-400">No media attached</span>
+                    </div>
+                  )}
+
+                  <p className="text-[11px] text-ink-400 pt-1">
+                    Select target accounts on the left to preview platform-specific layouts.
+                  </p>
+                </div>
               </Card>
             ) : (
               <div className="space-y-4">
@@ -1229,18 +1738,34 @@ export default function CreatePost() {
                         )}
 
                         {videoUrl ? (
-                          <div className="overflow-hidden rounded-xl border border-ink-200 bg-black">
-                            <video
-                              src={videoUrl}
-                              controls
-                              className="max-h-48 w-full object-contain"
-                              preload="metadata"
-                            />
-                            <div className="flex items-center gap-2 bg-ink-900 px-3 py-1.5 text-xs text-ink-200">
-                              <Film className="h-3.5 w-3.5 text-brand-400" />
-                              <span className="truncate">{uploadedVideoMeta?.filename || 'Attached Video'}</span>
+                          attachedMediaIsImage ? (
+                            <div className="overflow-hidden rounded-xl border border-ink-200 bg-white">
+                              <img
+                                src={resolveMediaUrl(videoUrl)}
+                                alt="Post media preview"
+                                className="max-h-48 w-full object-cover"
+                                onError={(e) => handleMediaError(e, videoUrl)}
+                              />
+                              <div className="flex items-center gap-2 bg-ink-900 px-3 py-1.5 text-xs text-ink-200">
+                                <ImageIcon className="h-3.5 w-3.5 text-brand-400" />
+                                <span className="truncate">{uploadedVideoMeta?.filename || videoUrl.split('/').pop()?.split('?')[0] || 'Attached Image'}</span>
+                              </div>
                             </div>
-                          </div>
+                          ) : (
+                            <div className="overflow-hidden rounded-xl border border-ink-200 bg-black">
+                              <video
+                                src={resolveMediaUrl(videoUrl)}
+                                controls
+                                className="max-h-48 w-full object-contain"
+                                preload="metadata"
+                                onError={(e) => handleMediaError(e, videoUrl)}
+                              />
+                              <div className="flex items-center gap-2 bg-ink-900 px-3 py-1.5 text-xs text-ink-200">
+                                <Film className="h-3.5 w-3.5 text-brand-400" />
+                                <span className="truncate">{uploadedVideoMeta?.filename || videoUrl.split('/').pop()?.split('?')[0] || 'Attached Video'}</span>
+                              </div>
+                            </div>
+                          )
                         ) : (
                           <div className="mt-2 h-16 rounded-xl border border-dashed border-ink-100 bg-ink-50/30 flex items-center justify-center">
                             <span className="text-xs text-ink-400">No media attached</span>
@@ -1255,6 +1780,139 @@ export default function CreatePost() {
           </div>
         </div>
       </div>
+
+      {/* Choose from Media Library Picker Modal */}
+      {showMediaPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="relative flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-ink-100 px-6 py-4">
+              <div>
+                <h3 className="text-base font-semibold text-ink-900">Select Media from Library</h3>
+                <p className="text-xs text-ink-400">
+                  Choose any uploaded image or video to attach to your post.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMediaPicker(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Filter & Search Toolbar */}
+            <div className="flex flex-col gap-3 border-b border-ink-100 bg-ink-50/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-1.5">
+                {(
+                  [
+                    { key: 'all', label: 'All' },
+                    { key: 'image', label: 'Images' },
+                    { key: 'video', label: 'Videos' },
+                  ] as const
+                ).map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setLibraryFilter(t.key)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                      libraryFilter === t.key
+                        ? 'bg-brand-600 text-white shadow-xs font-semibold'
+                        : 'bg-white text-ink-600 border border-ink-200 hover:bg-ink-100'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative flex-1 sm:max-w-xs">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-400" />
+                <input
+                  type="text"
+                  value={librarySearch}
+                  onChange={(e) => setLibrarySearch(e.target.value)}
+                  placeholder="Search files..."
+                  className="w-full rounded-lg border border-ink-200 bg-white py-1.5 pl-8 pr-3 text-xs text-ink-800 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Modal Body / Items Grid */}
+            <div className="flex-1 overflow-y-auto p-5">
+              {loadingLibrary ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
+                  <p className="mt-3 text-xs text-ink-500 font-medium">Loading library items...</p>
+                </div>
+              ) : libraryMedia.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-ink-100 text-ink-400 mb-3">
+                    <ImageIcon className="h-6 w-6" />
+                  </div>
+                  <p className="text-sm font-semibold text-ink-800">No media files found</p>
+                  <p className="mt-1 text-xs text-ink-400 max-w-sm">
+                    {librarySearch ? `No results match "${librarySearch}".` : 'Your media library is currently empty. Upload files from your computer.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                  {libraryMedia.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => handleSelectFromLibrary(item)}
+                      className="group relative cursor-pointer overflow-hidden rounded-xl border border-ink-200 bg-white p-2 transition-all hover:border-brand-500 hover:ring-2 hover:ring-brand-500/20 hover:shadow-md"
+                    >
+                      <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-ink-950 flex items-center justify-center">
+                        {item.media_type === 'image' ? (
+                          <img
+                            src={resolveMediaUrl(item.file_url)}
+                            alt={item.original_filename}
+                            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                            onError={(e) => handleMediaError(e, item.file_url)}
+                          />
+                        ) : (
+                          <div className="relative h-full w-full flex items-center justify-center bg-ink-900 text-brand-400">
+                            <Film className="h-8 w-8" />
+                          </div>
+                        )}
+                        <span className="absolute top-1.5 left-1.5 rounded bg-black/60 backdrop-blur-sm px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                          {item.media_type.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="mt-2 min-w-0">
+                        <p className="truncate text-xs font-semibold text-ink-900 group-hover:text-brand-600">
+                          {item.original_filename}
+                        </p>
+                        <p className="text-[10px] text-ink-400">
+                          {formatBytes(item.size_bytes)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between border-t border-ink-100 bg-ink-50 px-6 py-3">
+              <span className="text-xs text-ink-400">
+                {libraryMedia.length} file{libraryMedia.length !== 1 ? 's' : ''} available
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMediaPicker(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

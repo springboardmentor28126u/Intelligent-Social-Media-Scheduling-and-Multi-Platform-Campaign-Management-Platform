@@ -355,13 +355,15 @@ export default function AdminAnalyticsPage() {
             </div>
           ) : (
             <div className="mt-5 space-y-3">
-              {[
-                { key: 'linkedin', name: 'LinkedIn', color: 'bg-blue-600' },
-                { key: 'youtube', name: 'YouTube', color: 'bg-red-600' },
-                { key: 'instagram', name: 'Instagram', color: 'bg-pink-600' },
-                { key: 'facebook', name: 'Facebook', color: 'bg-blue-700' },
-                { key: 'x', name: 'X (Twitter)', color: 'bg-ink-900' },
-              ].map((platform) => {
+              {(
+                [
+                  { key: 'linkedin', name: 'LinkedIn', color: 'bg-blue-600' },
+                  { key: 'youtube', name: 'YouTube', color: 'bg-red-600' },
+                  { key: 'instagram', name: 'Instagram', color: 'bg-pink-600' },
+                  { key: 'facebook', name: 'Facebook', color: 'bg-blue-700' },
+                  { key: 'x', name: 'X (Twitter)', color: 'bg-ink-900' },
+                ] as const
+              ).map((platform) => {
                 const count = data?.platform_distribution?.[platform.key] || 0;
                 return (
                   <div

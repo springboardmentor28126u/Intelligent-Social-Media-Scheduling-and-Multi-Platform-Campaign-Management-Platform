@@ -179,7 +179,7 @@ def list_media(
     )
 
 
-@router.get("/{media_id}", response_model=schemas.MediaOut)
+@router.get("/item/{media_id}", response_model=schemas.MediaOut)
 def get_media_item(
     media_id: int,
     db: Session = Depends(get_db),
@@ -196,6 +196,7 @@ def get_media_item(
     return media
 
 
+@router.delete("/item/{media_id}")
 @router.delete("/{media_id}")
 def delete_media_item(
     media_id: int,

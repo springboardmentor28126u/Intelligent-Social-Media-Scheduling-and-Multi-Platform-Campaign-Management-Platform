@@ -26,7 +26,7 @@ export default function AdminUsers() {
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'creator'>('all');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const [userToDelete, setUserToDelete] = useState<{ id: string; email: string; full_name?: string } | null>(null);
+  const [userToDelete, setUserToDelete] = useState<{ id: string; email: string | null; full_name?: string | null } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);

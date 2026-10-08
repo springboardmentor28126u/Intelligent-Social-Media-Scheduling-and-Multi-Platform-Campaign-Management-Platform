@@ -11,7 +11,6 @@ router = APIRouter(prefix="/posts", tags=["posts"])
 
 VALID_PATTERNS = {"daily", "weekly", "monthly"}
 
-
 def _validate_accounts(db, current_user, social_account_ids):
     accounts = db.query(models.SocialAccount).filter(
         models.SocialAccount.id.in_(social_account_ids),
@@ -254,6 +253,7 @@ def delete_post(
         raise HTTPException(status_code=404, detail="Post not found")
     if post.status == "published":
         raise HTTPException(status_code=400, detail="Cannot delete a published post")
+    db.query(models.Notification).filter(models.Notification.related_post_id == post_id).delete(synchronize_session=False)
     db.delete(post)
     db.commit()
     return {"message": "Post deleted"}

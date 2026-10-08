@@ -40,6 +40,10 @@ class Media(Base):
 
     user = relationship("User", back_populates="media")
 
+    @property
+    def url(self) -> str:
+        return self.file_url
+
 
 class SystemSetting(Base):
     __tablename__ = "system_settings"

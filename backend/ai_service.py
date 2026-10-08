@@ -1,7 +1,9 @@
 import os
 import json
+import logging
 from google import genai
 from google.genai import types
+logger = logging.getLogger("uvicorn.error")
 
 
 class AIServiceError(Exception):
@@ -49,6 +51,7 @@ def generate_captions(topic: str, platforms: list[str], tone: str = "professiona
         )
         return json.loads(resp.text)["posts"]
     except AIServiceError:
-        raise
+            raise
     except Exception as e:
+        logger.error("Gemini call failed: %r", e)
         raise AIServiceError("AI generation failed. Please try again.") from e

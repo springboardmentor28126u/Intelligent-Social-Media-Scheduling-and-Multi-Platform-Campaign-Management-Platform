@@ -27,7 +27,7 @@ import Badge from '@/components/common/Badge';
 import EmptyState from '@/components/common/EmptyState';
 import { Skeleton } from '@/components/common/Skeleton';
 import type { MediaItem, MediaFilterType, MediaSortOption } from '@/types/media';
-import { getMediaList, uploadMediaFile, deleteMediaItem } from '@/services/media';
+import { getMediaList, uploadMediaFile, deleteMediaItem, resolveMediaUrl, handleMediaError } from '@/services/media';
 
 function formatBytes(bytes?: number): string {
   if (!bytes || bytes === 0) return '0 B';
@@ -173,7 +173,7 @@ export default function MediaLibrary() {
   };
 
   const handleUseInPost = (url: string) => {
-    navigate('/app/create', { state: { initialVideoUrl: url } });
+    navigate('/app/create', { state: { initialMediaUrl: url, initialVideoUrl: url } });
   };
 
   const confirmDelete = async () => {
@@ -462,17 +462,19 @@ export default function MediaLibrary() {
                 >
                   {item.media_type === 'image' ? (
                     <img
-                      src={item.file_url}
+                      src={resolveMediaUrl(item.file_url)}
                       alt={item.original_filename}
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       loading="lazy"
+                      onError={(e) => handleMediaError(e, item.file_url)}
                     />
                   ) : (
                     <div className="relative h-full w-full flex items-center justify-center bg-ink-900">
                       <video
-                        src={item.file_url}
+                        src={resolveMediaUrl(item.file_url)}
                         className="h-full w-full object-cover opacity-80"
                         preload="metadata"
+                        onError={(e) => handleMediaError(e, item.file_url)}
                       />
                       <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-ink-900 shadow-md transition-transform group-hover:scale-110">
@@ -587,9 +589,10 @@ export default function MediaLibrary() {
                 <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-ink-100 overflow-hidden">
                   {item.media_type === 'image' ? (
                     <img
-                      src={item.file_url}
+                      src={resolveMediaUrl(item.file_url)}
                       alt={item.original_filename}
                       className="h-full w-full object-cover"
+                      onError={(e) => handleMediaError(e, item.file_url)}
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-purple-100 text-purple-700">
@@ -682,16 +685,18 @@ export default function MediaLibrary() {
             <div className="flex-1 bg-ink-950 flex items-center justify-center overflow-hidden min-h-[320px] max-h-[550px]">
               {previewItem.media_type === 'image' ? (
                 <img
-                  src={previewItem.file_url}
+                  src={resolveMediaUrl(previewItem.file_url)}
                   alt={previewItem.original_filename}
                   className="max-h-full max-w-full object-contain"
+                  onError={(e) => handleMediaError(e, previewItem.file_url)}
                 />
               ) : (
                 <video
-                  src={previewItem.file_url}
+                  src={resolveMediaUrl(previewItem.file_url)}
                   controls
                   autoPlay
                   className="max-h-full max-w-full object-contain"
+                  onError={(e) => handleMediaError(e, previewItem.file_url)}
                 />
               )}
             </div>

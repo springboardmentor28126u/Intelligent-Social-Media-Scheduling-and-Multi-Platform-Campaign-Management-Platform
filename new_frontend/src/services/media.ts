@@ -73,3 +73,34 @@ export async function deleteMediaItem(id: number): Promise<{ message: string; id
 
   return data;
 }
+
+export function resolveMediaUrl(url?: string): string {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/media/')) {
+    return `${API_BASE}${trimmed}`;
+  }
+  if (trimmed.startsWith('media/')) {
+    return `${API_BASE}/${trimmed}`;
+  }
+  return trimmed;
+}
+
+export function handleMediaError(e: React.SyntheticEvent<HTMLImageElement | HTMLVideoElement>, originalUrl?: string) {
+  const target = e.currentTarget;
+  if (originalUrl && originalUrl.includes('/media/') && !target.src.includes('localhost:8000')) {
+    const filename = originalUrl.split('/media/').pop()?.split('?')[0];
+    if (filename) {
+      target.src = `${API_BASE}/media/${filename}`;
+      return;
+    }
+  }
+  if (target instanceof HTMLImageElement) {
+    target.alt = 'Failed to load image preview';
+  }
+}
+
