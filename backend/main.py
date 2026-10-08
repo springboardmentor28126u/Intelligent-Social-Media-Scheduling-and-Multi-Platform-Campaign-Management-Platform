@@ -160,6 +160,10 @@ def list_social_accounts(
     current_user: models.User = Depends(auth.get_current_user)
 ):
     return db.query(models.SocialAccount).filter(models.SocialAccount.user_id == current_user.id).all()
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
 
 
 @app.delete("/social-accounts/{account_id}")
