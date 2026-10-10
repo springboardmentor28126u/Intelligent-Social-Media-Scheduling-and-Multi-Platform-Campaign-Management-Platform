@@ -116,7 +116,7 @@ export default function AudiencePage() {
           {/* AGE BRACKETS */}
           <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-800">
-              <h2 className="text-base font-bold text-white">Age Distribution (Module 6)</h2>
+              <h2 className="text-base font-bold text-white">Age Distribution</h2>
               <span className="text-xs font-bold text-indigo-400 bg-indigo-950/80 px-2.5 py-0.5 rounded-full border border-indigo-800/60">
                 Core: 25–34
               </span>

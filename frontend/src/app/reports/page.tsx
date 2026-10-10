@@ -21,11 +21,11 @@ interface ReportItem {
 }
 
 const REPORT_TYPES: ReportItem[] = [
-  { id: "engagement", name: "Engagement Performance Report", description: "Interactions, CTR, comments, and conversation depth across channels", badge: "Module 6" },
-  { id: "campaign", name: "Campaign Milestone & ROI Report", description: "Budget spend vs returns, reach milestones, and conversion efficiency", badge: "Module 4" },
-  { id: "audience_growth", name: "Audience Growth & Demographics Report", description: "Net new followers, geographic distribution, and age brackets", badge: "Module 6" },
-  { id: "publishing", name: "Publishing Cadence & Reliability Log", description: "Scheduled vs published posts, webhook execution success, and retry logs", badge: "Module 5" },
-  { id: "platform_comparison", name: "Multi-Platform Benchmark Report", description: "Side-by-side volume, impressions, and viral velocity for all 6 networks", badge: "Module 2" },
+  { id: "engagement", name: "Engagement Performance Report", description: "Interactions, CTR, comments, and conversation depth across channels", badge: "Performance" },
+  { id: "campaign", name: "Campaign Milestone & ROI Report", description: "Budget spend vs returns, reach milestones, and conversion efficiency", badge: "Campaigns" },
+  { id: "audience_growth", name: "Audience Growth & Demographics Report", description: "Net new followers, geographic distribution, and age brackets", badge: "Demographics" },
+  { id: "publishing", name: "Publishing Cadence & Reliability Log", description: "Scheduled vs published posts, webhook execution success, and retry logs", badge: "Publishing" },
+  { id: "platform_comparison", name: "Multi-Platform Benchmark Report", description: "Side-by-side volume, impressions, and viral velocity for all 6 networks", badge: "Benchmarks" },
 ];
 
 export default function ReportsPage() {
@@ -154,7 +154,7 @@ export default function ReportsPage() {
         {/* REPORT TYPE SELECTOR CARDS */}
         <div>
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-            Select Report Type (Milestone 3 Specification)
+            Select Report Type
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {REPORT_TYPES.map((rep) => {

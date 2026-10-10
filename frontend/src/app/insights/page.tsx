@@ -101,7 +101,7 @@ export default function InsightsPage() {
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="text-base font-bold text-white">Network-by-Network Performance (Module 6)</h2>
+              <h2 className="text-base font-bold text-white">Network-by-Network Performance</h2>
               <p className="text-xs text-slate-400 mt-0.5">Reach, engagement rate, and audience growth breakdown</p>
             </div>
             <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">

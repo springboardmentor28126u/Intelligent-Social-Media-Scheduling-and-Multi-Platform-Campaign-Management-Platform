@@ -276,7 +276,7 @@ export default function SettingsPage() {
                 <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between">
                   <div>
                     <p className="text-xs font-bold text-white">Assigned Platform Role</p>
-                    <p className="text-[11px] text-slate-400">Configured in Module 1 Role-Based Access Control</p>
+                    <p className="text-[11px] text-slate-400">Role-Based Access Control permissions</p>
                   </div>
                   <span className="text-xs font-bold px-3 py-1 rounded-full bg-indigo-950/80 text-indigo-400 border border-indigo-800/60">
                     {profile?.role || "Administrator"}
@@ -356,7 +356,7 @@ export default function SettingsPage() {
             {activeSection === "notifications" && (
               <div className="space-y-5">
                 <div className="pb-4 border-b border-slate-800">
-                  <h2 className="text-base font-bold text-white">Notification Preferences (Module 7)</h2>
+                  <h2 className="text-base font-bold text-white">Notification Preferences</h2>
                   <p className="text-xs text-slate-400 mt-0.5">Control publishing alerts, campaign updates, and reminders.</p>
                 </div>
 
@@ -389,24 +389,13 @@ export default function SettingsPage() {
               <div className="space-y-6">
                 <div className="pb-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-base font-bold text-white flex items-center gap-2">
-                      <span>Social Media Platform API Keys</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-400 border border-indigo-800 font-semibold">
-                        Public APIs v2026
-                      </span>
+                    <h2 className="text-base font-bold text-white">
+                      Social Media Platform API Credentials
                     </h2>
                     <p className="text-xs text-slate-400 mt-0.5">
                       Configure developer API keys to publish across Instagram, YouTube, X, Pinterest, and Facebook.
                     </p>
                   </div>
-                  <a
-                    href="https://github.com/public-apis/public-apis"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-indigo-400 hover:text-indigo-300 hover:underline flex items-center gap-1 font-semibold"
-                  >
-                    <span>Public APIs Directory ↗</span>
-                  </a>
                 </div>
 
                 <div className="space-y-4">
@@ -545,19 +534,6 @@ export default function SettingsPage() {
                               </a>
                             </div>
                           </div>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setKeyInputs((prev) => ({
-                                ...prev,
-                                [plat.key]: plat.sample as unknown as Record<string, string>,
-                              }));
-                            }}
-                            className="px-2.5 py-1 rounded-lg border border-indigo-500/30 bg-indigo-950/60 hover:bg-indigo-900/60 text-[10px] font-bold text-indigo-300 transition"
-                          >
-                            Fill Sandbox Keys
-                          </button>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
@@ -606,7 +582,7 @@ export default function SettingsPage() {
             {activeSection === "rbac" && (
               <div className="space-y-5">
                 <div className="pb-4 border-b border-slate-800">
-                  <h2 className="text-base font-bold text-white">Role-Based Access Control (Module 1)</h2>
+                  <h2 className="text-base font-bold text-white">Role-Based Access Control</h2>
                   <p className="text-xs text-slate-400 mt-0.5">Team permissions and system privileges matrix.</p>
                 </div>
 

@@ -175,10 +175,19 @@ export default function SocialAccountsPage() {
   /* Details Modal State */
   const [activeAccountDetails, setActiveAccountDetails] = useState<SocialAccount | null>(null);
 
-  /* Live Post Verification State */
+  /* Publishing Activity State */
   const [recentPosts, setRecentPosts] = useState<any[]>([]);
-  const [testingPost, setTestingPost] = useState(false);
-  const [dispatchResult, setDispatchResult] = useState<any | null>(null);
+
+  /* Handle Platform Selection in Modal */
+  const handleSelectPlatform = (key: string) => {
+    setSelectedPlatform(key);
+    setTestResult(null);
+    setCredentials({});
+    const cfg = PLATFORM_CONFIGS.find((p) => p.key === key);
+    if (cfg && !newAccountName) {
+      setNewAccountName(`${cfg.name.split(" ")[0]} Official`);
+    }
+  };
 
   /* Auth Guard & Load Accounts */
   useEffect(() => {
@@ -200,8 +209,8 @@ export default function SocialAccountsPage() {
             status: (a.status as any) || "connected",
             followers: a.followers || "42.8K",
             last_synced: a.last_synced || "Just now",
-            mode: (a as any).mode || ((a as any).is_live ? "live" : "sandbox"),
-            is_live: Boolean((a as any).is_live),
+            mode: (a as any).mode || "live",
+            is_live: true,
           }));
           setAccounts(mapped);
         } else {
@@ -224,56 +233,6 @@ export default function SocialAccountsPage() {
     }
     void loadData();
   }, [router]);
-
-  /* Live Verification Post Dispatch */
-  const handlePublishTestPost = async () => {
-    try {
-      setTestingPost(true);
-      setDispatchResult(null);
-      setError("");
-      setMessage("");
-      const res = await publishMultiPlatform(
-        "SocialPilot Live Verification: Testing real-time dispatch across Instagram (@socialpilot_22), Facebook & Twitter! #SocialPilot #Live2026",
-        ["instagram", "facebook", "twitter"]
-      );
-      setDispatchResult(res);
-      setMessage("✓ Verification post successfully processed across your connected social channels!");
-      const updated = await getPosts();
-      if (Array.isArray(updated)) {
-        setRecentPosts(updated.slice(0, 5));
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to dispatch verification post");
-    } finally {
-      setTestingPost(false);
-    }
-  };
-
-  /* Handle Platform Selection in Modal */
-  const handleSelectPlatform = (key: string) => {
-    setSelectedPlatform(key);
-    setTestResult(null);
-    setCredentials({});
-    const cfg = PLATFORM_CONFIGS.find((p) => p.key === key);
-    if (cfg && !newAccountName) {
-      setNewAccountName(`${cfg.name.split(" ")[0]} Official`);
-    }
-  };
-
-  /* Fill Sample / Sandbox Keys */
-  const handleFillSampleKeys = () => {
-    const cfg = PLATFORM_CONFIGS.find((p) => p.key === selectedPlatform);
-    if (cfg) {
-      setCredentials(cfg.sampleKeys);
-      if (!newAccountName) {
-        setNewAccountName(`${cfg.name.split(" ")[0]} Verified`);
-      }
-      setTestResult({
-        valid: true,
-        message: `Loaded developer sandbox credentials for ${cfg.name}. Ready to test!`,
-      });
-    }
-  };
 
   /* Test Platform API Connection */
   const handleTestConnection = async () => {
@@ -329,8 +288,8 @@ export default function SocialAccountsPage() {
         status: "connected",
         followers: res.account?.followers || "24.5K",
         last_synced: "Just now",
-        mode: (res.account as any)?.mode || ((res.account as any)?.is_live ? "live" : "sandbox"),
-        is_live: Boolean((res.account as any)?.is_live),
+        mode: "live",
+        is_live: true,
       };
 
       setAccounts((prev) => {
@@ -497,7 +456,7 @@ export default function SocialAccountsPage() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-bold text-white">Connected Social Media Profiles</h2>
-            <span className="text-xs text-slate-400">Module 2 Enterprise Architecture</span>
+            <span className="text-xs text-slate-400">{accounts.length} Channels Connected</span>
           </div>
 
           {loading ? (
@@ -525,7 +484,7 @@ export default function SocialAccountsPage() {
                   name: acc.platform,
                   icon: "🌐",
                   color: "#6366f1",
-                  badge: "API Connected",
+                  badge: "Connected",
                   authType: "direct" as const,
                 };
 
@@ -540,20 +499,9 @@ export default function SocialAccountsPage() {
                     <div>
                       {/* TOP BADGE & STATUS */}
                       <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                            {cfg.badge}
-                          </span>
-                          {acc.mode === "live" ? (
-                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 flex items-center gap-1">
-                              <span>⚡</span> Live API
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-800/80 flex items-center gap-1">
-                              <span>🧪</span> Sandbox
-                            </span>
-                          )}
-                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                          {cfg.name}
+                        </span>
                         <div className="flex items-center gap-1.5">
                           <span
                             className={`w-2 h-2 rounded-full ${
@@ -561,7 +509,7 @@ export default function SocialAccountsPage() {
                             }`}
                           />
                           <span className={`text-[11px] font-bold ${isConnected ? "text-emerald-400" : "text-rose-400"}`}>
-                            {isConnected ? "Connected" : "Disconnected"}
+                            {isConnected ? "Active" : "Disconnected"}
                           </span>
                         </div>
                       </div>
@@ -577,7 +525,6 @@ export default function SocialAccountsPage() {
                         <div className="min-w-0">
                           <h3 className="text-sm font-bold text-white truncate">{acc.account_name}</h3>
                           <p className="text-xs text-slate-400 truncate">{acc.username}</p>
-                          <p className="text-[10px] text-slate-500 mt-0.5">Platform: {cfg.name}</p>
                         </div>
                       </div>
 
@@ -592,32 +539,6 @@ export default function SocialAccountsPage() {
                           <span className="text-slate-300 font-semibold truncate block">{acc.last_synced || "Just now"}</span>
                         </div>
                       </div>
-
-                      {/* MODE HINT */}
-                      {acc.mode !== "live" ? (
-                        <div className="p-2.5 rounded-xl bg-amber-950/30 border border-amber-500/20 text-xs flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="text-amber-400 text-xs shrink-0">🧪</span>
-                            <span className="text-[11px] text-amber-200/90 truncate">Sandbox (Saves to SocialPilot)</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedPlatform(acc.platform.toLowerCase());
-                              setNewAccountName(acc.account_name);
-                              setShowConnectModal(true);
-                            }}
-                            className="text-[10px] font-bold text-amber-400 underline hover:text-amber-200 ml-1 shrink-0"
-                          >
-                            Add Live Keys →
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-500/20 text-xs flex items-center gap-1.5 mb-3 text-emerald-300">
-                          <span className="text-emerald-400 text-xs">⚡</span>
-                          <span className="text-[11px] truncate">Live API (Pushes directly to public feed)</span>
-                        </div>
-                      )}
                     </div>
 
                     {/* ACTION CONTROLS */}
@@ -668,91 +589,38 @@ export default function SocialAccountsPage() {
           )}
         </div>
 
-        {/* LIVE ACCOUNT ACTIVITY & POST DISPATCH VERIFICATION */}
+        {/* RECENT PUBLISHING ACTIVITY */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-lg space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
             <div>
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-950 text-emerald-400 border border-emerald-800">
-                  Live Dispatch Engine
-                </span>
-                <span className="text-xs text-slate-400 font-medium">Multi-Platform Verification</span>
-              </div>
-              <h2 className="text-lg font-extrabold text-white mt-1.5">
-                Channel Dispatch & Post Verification
+              <h2 className="text-lg font-extrabold text-white">
+                Recent Publishing Activity
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Monitor post delivery across your connected accounts (Instagram @socialpilot_22, Facebook, Twitter, LinkedIn).
+                Monitor post delivery across your connected social channels.
               </p>
             </div>
 
-            <button
-              type="button"
-              disabled={testingPost}
-              onClick={handlePublishTestPost}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-bold transition shadow-lg flex items-center gap-2 shrink-0 disabled:opacity-60"
+            <Link
+              href="/create-post"
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-bold transition shadow-lg flex items-center gap-2 shrink-0"
             >
-              {testingPost ? (
-                <>
-                  <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                  <span>Publishing Test Post...</span>
-                </>
-              ) : (
-                <>
-                  <span>🚀</span>
-                  <span>Publish Test Post to Channels</span>
-                </>
-              )}
-            </button>
+              <span>＋</span>
+              <span>Create New Post</span>
+            </Link>
           </div>
-
-          {/* DISPATCH FEEDBACK MODAL / BANNER */}
-          {dispatchResult && (
-            <div className="p-4 rounded-xl bg-slate-950/80 border border-emerald-500/30 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                  <span>✓</span> {dispatchResult.message || "Dispatch completed successfully"}
-                </span>
-                <button
-                  onClick={() => setDispatchResult(null)}
-                  className="text-xs text-slate-500 hover:text-slate-300"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {dispatchResult.dispatched_platforms && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-                  {Object.entries(dispatchResult.dispatched_platforms).map(([plat, info]: [string, any]) => (
-                    <div
-                      key={plat}
-                      className="p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs flex flex-col justify-between"
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-bold text-white capitalize">{plat}</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 font-semibold">
-                          {info.status || "Published"}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 truncate">
-                        ID: <span className="text-slate-300 font-mono">{info.remote_id || "Live"}</span>
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* RECENT POSTS TABLE */}
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-              Recent Channel Publications
-            </h3>
-
             {recentPosts.length === 0 ? (
               <div className="p-8 text-center bg-slate-950/50 border border-slate-800/80 rounded-xl">
-                <p className="text-xs text-slate-400">No posts in queue. Click <strong className="text-white">Publish Test Post to Channels</strong> above to test your accounts!</p>
+                <p className="text-xs text-slate-400">No recent posts found. Create your first post to publish across channels!</p>
+                <Link
+                  href="/create-post"
+                  className="inline-block mt-3 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold"
+                >
+                  + Create Post
+                </Link>
               </div>
             ) : (
               <div className="divide-y divide-slate-800/80 rounded-xl border border-slate-800/80 bg-slate-950/50 overflow-hidden">
@@ -863,30 +731,7 @@ export default function SocialAccountsPage() {
                 })}
               </div>
 
-              {/* DOCUMENTATION & SAMPLE KEYS STRIP */}
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs mb-4">
-                <div>
-                  <span className="text-[11px] font-bold text-slate-300 block">
-                    Public APIs Registry Documentation:
-                  </span>
-                  <a
-                    href={activePlatformConfig.docsUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline inline-flex items-center gap-1 font-medium"
-                  >
-                    <span>{activePlatformConfig.apiName} Portal ↗</span>
-                  </a>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleFillSampleKeys}
-                  className="px-3 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-950/80 hover:bg-indigo-900/80 text-[11px] font-bold text-indigo-300 transition shrink-0 self-start sm:self-auto flex items-center gap-1.5"
-                >
-                  <span>✨</span>
-                  <span>Fill Sandbox / Dev Keys</span>
-                </button>
-              </div>
+
 
               {/* FORM FIELDS */}
               <form onSubmit={handleConnect} className="space-y-3.5 mb-4">
@@ -964,8 +809,8 @@ export default function SocialAccountsPage() {
                     onClick={handleTestConnection}
                     className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-750 text-xs font-bold text-slate-200 transition disabled:opacity-50 flex items-center justify-center gap-1.5"
                   >
-                    <span>🧪</span>
-                    <span>{testingConnection ? "Pinging API..." : "Test Connection"}</span>
+                    <span>⚡</span>
+                    <span>{testingConnection ? "Verifying..." : "Verify Connection"}</span>
                   </button>
 
                   <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
@@ -982,7 +827,7 @@ export default function SocialAccountsPage() {
                       className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition disabled:opacity-50 flex items-center gap-1.5"
                     >
                       <span>✓</span>
-                      <span>{connecting ? "Saving Keys..." : "Save & Connect Keys"}</span>
+                      <span>{connecting ? "Connecting..." : "Connect Account"}</span>
                     </button>
                   </div>
                 </div>
@@ -997,7 +842,7 @@ export default function SocialAccountsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
           <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl text-white">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
-              <h3 className="text-base font-bold text-white">Account Technical Specifications</h3>
+              <h3 className="text-base font-bold text-white">Account Details</h3>
               <button
                 type="button"
                 onClick={() => setActiveAccountDetails(null)}

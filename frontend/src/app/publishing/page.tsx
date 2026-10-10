@@ -190,7 +190,7 @@ export default function PublishingQueuePage() {
           <div className="bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
             <div className="p-5 border-b border-slate-800 flex items-center justify-between">
               <div>
-                <h2 className="text-base font-bold text-white">Scheduled Dispatch Queue (Module 5)</h2>
+                <h2 className="text-base font-bold text-white">Scheduled Dispatch Queue</h2>
                 <p className="text-xs text-slate-400">Items ordered by execution priority and scheduled time</p>
               </div>
               <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">

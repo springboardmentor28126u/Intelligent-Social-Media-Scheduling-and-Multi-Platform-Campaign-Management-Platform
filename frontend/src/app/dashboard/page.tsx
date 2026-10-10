@@ -1009,7 +1009,7 @@ export default function DashboardPage() {
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
                   <span>Social Account Management Hub</span>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                    Module 2
+                    Channels
                   </span>
                 </h2>
                 <p className="text-xs text-slate-400">
@@ -1113,7 +1113,7 @@ export default function DashboardPage() {
                   <h2 className="text-lg font-bold text-white flex items-center gap-2">
                     <span>Content Analytics & Performance Trends</span>
                     <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                      Module 6
+                      Analytics
                     </span>
                   </h2>
                   <p className="text-xs text-slate-400">
@@ -1218,7 +1218,7 @@ export default function DashboardPage() {
               {/* CONTENT TYPES PERFORMANCE COMPARISON (6 CONTENT TYPES) */}
               <div className="mt-5 pt-4 border-t border-slate-800/80">
                 <p className="text-xs font-bold text-white mb-2.5">
-                  Content Types Engagement Benchmark (Module 3 Specification)
+                  Content Types Engagement Benchmark
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                   {[
@@ -1499,7 +1499,7 @@ export default function DashboardPage() {
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
                   <span>Active Campaign Performance & Tracking</span>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                    Module 4
+                    Campaigns
                   </span>
                 </h2>
                 <p className="text-xs text-slate-400">
@@ -1589,7 +1589,7 @@ export default function DashboardPage() {
             <div className="p-5 border-b border-slate-800 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-white text-base">Notification Center</h3>
-                <p className="text-xs text-slate-400">Module 7: Automated reminders & alert workflows</p>
+                <p className="text-xs text-slate-400">Automated reminders & alert workflows</p>
               </div>
               <button
                 onClick={() => setShowNotificationDrawer(false)}
@@ -1643,7 +1643,7 @@ export default function DashboardPage() {
       )}
 
       {/* =========================================================
-          REPORTS & EXPORT MODAL (MODULE 8 SPECIFICATION)
+          REPORTS & EXPORT MODAL
       ========================================================= */}
       {showExportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
@@ -1651,7 +1651,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-bold text-white text-lg">Reports & Export Hub</h3>
-                <p className="text-xs text-slate-400">Module 8: PDF & Excel multi-platform reporting</p>
+                <p className="text-xs text-slate-400">PDF & Excel multi-platform reporting</p>
               </div>
               <button
                 onClick={() => setShowExportModal(false)}

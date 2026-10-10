@@ -125,7 +125,7 @@ export default function ContentManagementPage() {
       // local delete
     }
     setPosts((prev) => prev.filter((p) => p.id !== postId));
-    setMessage("Post deleted from publishing registry!");
+    setMessage("Post deleted successfully!");
     setTimeout(() => setMessage(""), 3500);
   };
 
@@ -509,7 +509,7 @@ export default function ContentManagementPage() {
           <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl text-white">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
               <div>
-                <h3 className="text-base font-bold text-white">Post Inspection (Module 3)</h3>
+                <h3 className="text-base font-bold text-white">Post Details</h3>
                 <p className="text-xs text-slate-400">ID #{selectedPost.id} • {selectedPost.campaign}</p>
               </div>
               <button

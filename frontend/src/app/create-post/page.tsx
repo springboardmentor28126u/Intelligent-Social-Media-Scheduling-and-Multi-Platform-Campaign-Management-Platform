@@ -373,7 +373,7 @@ export default function CreatePostPage() {
             <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 bg-indigo-950/80 px-2.5 py-0.5 rounded-full border border-indigo-800/80">
-                  Step 1: Content Draft
+                  Content Draft
                 </span>
                 <span
                   className={`text-xs font-bold ${
@@ -568,7 +568,7 @@ export default function CreatePostPage() {
             <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 bg-indigo-950/80 px-2.5 py-0.5 rounded-full border border-indigo-800/80">
-                  Step 2: Target Networks ({selectedPlatforms.length} selected)
+                  Target Networks ({selectedPlatforms.length} selected)
                 </span>
                 <span className="text-xs text-slate-400 font-medium">Multi-platform sync</span>
               </div>
@@ -617,35 +617,13 @@ export default function CreatePostPage() {
                         <span className="text-slate-400 truncate max-w-[90px]">
                           {matchedAcc ? matchedAcc.account_name : "Not Connected"}
                         </span>
-                        {isLive ? (
-                          <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/80 font-bold shrink-0">
-                            Live API
-                          </span>
-                        ) : (
-                          <span className="px-1.5 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800/80 font-bold shrink-0">
-                            Sandbox
-                          </span>
-                        )}
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/80 font-bold shrink-0">
+                          Active
+                        </span>
                       </div>
                     </button>
                   );
                 })}
-              </div>
-
-              {/* SANDBOX / SIMULATION TRANSPARENCY NOTICE */}
-              <div className="mt-3 p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-xs text-slate-300 flex items-start gap-2.5">
-                <span className="text-amber-400 text-sm mt-0.5">ℹ️</span>
-                <div className="flex-1">
-                  <p className="font-semibold text-slate-200">
-                    Publishing Mode Overview
-                  </p>
-                  <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
-                    Platforms marked <strong className="text-amber-300 font-bold">Sandbox</strong> record, preview, and schedule posts within your SocialPilot dashboard & calendar. To dispatch live posts directly to your external mobile app / public feed (e.g. real Instagram or X account), connect your live API tokens in{" "}
-                    <Link href="/social-accounts" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">
-                      Social Accounts
-                    </Link>.
-                  </p>
-                </div>
               </div>
             </div>
 
@@ -653,7 +631,7 @@ export default function CreatePostPage() {
             <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 bg-indigo-950/80 px-2.5 py-0.5 rounded-full border border-indigo-800/80">
-                  Step 3: Content Format (Module 3 Specification)
+                  Content Format
                 </span>
                 <span className="text-xs text-slate-400 font-medium">Native render</span>
               </div>
@@ -687,7 +665,7 @@ export default function CreatePostPage() {
             <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 bg-indigo-950/80 px-2.5 py-0.5 rounded-full border border-indigo-800/80">
-                  Step 4: Publishing Engine & Cadence
+                  Publishing Schedule & Cadence
                 </span>
               </div>
 
@@ -731,10 +709,10 @@ export default function CreatePostPage() {
                 </div>
               </div>
 
-              {/* CAMPAIGN ASSOCIATION (MODULE 4) */}
+              {/* CAMPAIGN ASSOCIATION */}
               <div className="mt-4 pt-3 border-t border-slate-800">
                 <label className="text-[11px] font-bold text-slate-400 block mb-1">
-                  Associate with Campaign (Module 4)
+                  Associate with Campaign
                 </label>
                 <select
                   value={selectedCampaign}
