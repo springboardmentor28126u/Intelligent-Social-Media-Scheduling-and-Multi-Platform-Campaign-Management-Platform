@@ -1,15 +1,4 @@
-"""
-alembic/env.py
---------------
-Alembic migration environment — configured for SocialPilot.
 
-Key setup:
-  - DATABASE_URL is read from the same .env as the FastAPI app
-    (via app.core.config.settings), so there's a single source of truth.
-  - target_metadata is set to Base.metadata which discovers all ORM models
-    registered in app.db.base (all models are imported there).
-  - Both online (direct DB) and offline (SQL script) modes are supported.
-"""
 
 import sys
 import os
