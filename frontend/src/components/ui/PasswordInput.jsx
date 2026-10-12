@@ -1,7 +1,3 @@
-/**
- * src/components/ui/PasswordInput.jsx
- * Text input with password visibility toggle.
- */
 
 import { useState } from 'react'
 import Input from './Input'
