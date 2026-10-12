@@ -64,10 +64,7 @@ Modern businesses and digital creators face severe workflow fragmentation when m
 ### Objectives Achieved in this Repository
 1. Implement a **stateless, secure FastAPI backend** backed by PostgreSQL with full Alembic schema versioning.
 2. Build an **OAuth 2.0 provider integration suite** supporting Facebook, Instagram, LinkedIn, X, YouTube, and Pinterest, with Google OAuth user authentication.
-3. Secure credentials with **Fernet token encryption**, ensuring secrets are never exposed in API responses or plain text tables.
-4. Establish a **robust task queue** using Celery and Redis to handle asynchronous publishing with exponential backoff and transient failure detection.
-5. Provide a **responsive React 19 single-page application** powered by Vite, featuring a glassmorphism design system, role-based access control, scheduling calendar, and interactive analytics.
-6. Provide an automated **test suite** ensuring reliability across all endpoints, security layers, and scheduling lifecycles.
+3. Provide an automated **test suite** ensuring reliability across all endpoints, security layers, and scheduling lifecycles.
 
 ---
 
@@ -859,10 +856,9 @@ The repository includes a root `vercel.json` and `frontend/vercel.json` configur
 2. Configure Environment Variable: `VITE_API_BASE_URL=https://socialpilot-lyart.vercel.app/`.
 
 ### Backend Deployment (Docker / Cloud Hosting)
-1. **Container Image**: Built via `backend/Dockerfile`.
-2. **Environment Variables**: Configure the production settings detailed in [Environment Configuration](#-environment-configuration).
-3. **Database Migration**: Run `alembic upgrade head` during release phase.
-4. **Services Required in Production**:
+1. **Environment Variables**: Configure the production settings detailed in [Environment Configuration](#-environment-configuration).
+2. **Database Migration**: Run `alembic upgrade head` during release phase.
+3. **Services Required in Production**:
    - Web Process: `uvicorn app.main:app --host 0.0.0.0 --port 8000`
    - Celery Worker: `celery -A app.worker.celery_app worker --loglevel=info`
    - Celery Beat: `celery -A app.worker.celery_app beat --loglevel=info`
@@ -915,5 +911,5 @@ Special thanks to our **Infosys Springboard Mentors** for their guidance, archit
 ---
 
 <div align="center">
-  <sub>Built with ❤️ using FastAPI, React, PostgreSQL, Celery, and Redis.</sub>
+  
 </div>
