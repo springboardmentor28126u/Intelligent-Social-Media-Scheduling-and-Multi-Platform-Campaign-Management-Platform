@@ -3,6 +3,7 @@ from app.models.profile import Profile
 from app.models.social_account import SocialAccount
 from app.models.post import Post
 from app.models.post_social_account import PostSocialAccount
+from app.models.campaign_performance import CampaignPerformanceHistory
 from app.models.publishing_log import PublishingLog
 from app.models.post_media import (
     PostMedia,
@@ -21,6 +22,7 @@ __all__ = [
     "SocialAccount",
     "Post",
     "PostSocialAccount",
+    "CampaignPerformanceHistory",
     "PublishingLog",
     "PostMedia",
     "MediaType",

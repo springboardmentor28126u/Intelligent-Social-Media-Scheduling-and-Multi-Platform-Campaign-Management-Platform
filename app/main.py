@@ -1,34 +1,40 @@
+
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import notifications
-from app.routes import teams
+from fastapi.staticfiles import StaticFiles
 
 from app.routes import (
     admin,
     auth,
     campaigns,
     media,
+    notifications,
     posts,
     profile,
     publishing_logs,
     social_accounts,
     social_auth,
-
+    teams,
 )
 
 app = FastAPI(title="SocialPilot API")
+
+# Static files
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
+# Register API routers
 app.include_router(auth.router)
 app.include_router(profile.router)
 app.include_router(posts.router)
@@ -42,13 +48,13 @@ app.include_router(notifications.router)
 app.include_router(teams.router)
 
 
-
-
+# Root endpoint
 @app.get("/")
 def home():
     return {"message": "SocialPilot backend is running"}
 
 
+# Health check endpoint
 @app.get("/health")
 def health():
     return {"status": "healthy"}
