@@ -1,6 +1,8 @@
 import random
 import uuid
 import secrets
+import hashlib
+import base64
 from typing import List, Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -108,8 +110,20 @@ def get_oauth_url(
             detail=f"OAuth not supported for '{platform_key}'. Supported: {supported}"
         )
 
+    # Generate PKCE code_verifier for platforms that use PKCE (Twitter)
+    extra_state = {}
+    code_challenge = None
+    if platform_key in ["twitter", "x"]:
+        code_verifier = secrets.token_urlsafe(48)
+        code_challenge = (
+            base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode("utf-8")).digest())
+            .decode("utf-8")
+            .rstrip("=")
+        )
+        extra_state["code_verifier"] = code_verifier
+
     # Encode user_id in cryptographically secure HMAC state
-    state = create_oauth_state(user_id=current_user["user_id"])
+    state = create_oauth_state(user_id=current_user["user_id"], extra_data=extra_state if extra_state else None)
     redirect_uri = (
         (settings.LINKEDIN_REDIRECT_URI or f"{settings.BACKEND_URL}/api/linkedin/callback")
         if platform_key == "linkedin"
@@ -119,14 +133,29 @@ def get_oauth_url(
             else (
                 (settings.FACEBOOK_REDIRECT_URI or f"{settings.BACKEND_URL}/api/facebook/callback")
                 if platform_key == "facebook"
-                else f"{settings.BACKEND_URL}/social-accounts/oauth/{platform_key}/callback"
+                else (
+                    (getattr(settings, "TWITTER_REDIRECT_URI", None) or f"{settings.BACKEND_URL}/social-auth/twitter/callback")
+                    if platform_key in ["twitter", "x"]
+                    else (
+                        (getattr(settings, "YOUTUBE_REDIRECT_URI", None) or f"{settings.BACKEND_URL}/social-auth/youtube/callback")
+                        if platform_key == "youtube"
+                        else f"{settings.BACKEND_URL}/social-accounts/oauth/{platform_key}/callback"
+                    )
+                )
             )
         )
     )
 
-
     provider = get_oauth_provider(platform_key)
-    auth_url = provider.get_auth_url(state=state, redirect_uri=redirect_uri)
+    if platform_key in ["twitter", "x"] and hasattr(provider, "get_auth_url"):
+        auth_url = provider.get_auth_url(
+            state=state,
+            redirect_uri=redirect_uri,
+            code_challenge=code_challenge,
+            code_challenge_method="S256"
+        )
+    else:
+        auth_url = provider.get_auth_url(state=state, redirect_uri=redirect_uri)
 
     configured = bool(list_configured_platforms().__contains__(platform_key))
     
@@ -178,6 +207,7 @@ def oauth_callback(
         )
 
     user_id = state_data["user_id"]
+    code_verifier = state_data.get("extra", {}).get("code_verifier", "challenge")
 
     try:
         redirect_uri = (
@@ -189,12 +219,23 @@ def oauth_callback(
                 else (
                     (settings.FACEBOOK_REDIRECT_URI or f"{settings.BACKEND_URL}/api/facebook/callback")
                     if platform_key == "facebook"
-                    else f"{settings.BACKEND_URL}/social-accounts/oauth/{platform_key}/callback"
+                    else (
+                        (getattr(settings, "TWITTER_REDIRECT_URI", None) or f"{settings.BACKEND_URL}/social-auth/twitter/callback")
+                        if platform_key in ["twitter", "x"]
+                        else (
+                            (getattr(settings, "YOUTUBE_REDIRECT_URI", None) or f"{settings.BACKEND_URL}/social-auth/youtube/callback")
+                            if platform_key == "youtube"
+                            else f"{settings.BACKEND_URL}/social-accounts/oauth/{platform_key}/callback"
+                        )
+                    )
                 )
             )
         )
         provider = get_oauth_provider(platform_key)
-        token_data = provider.exchange_code_for_token(code=code, redirect_uri=redirect_uri)
+        if platform_key in ["twitter", "x"] and hasattr(provider, "exchange_code_for_token"):
+            token_data = provider.exchange_code_for_token(code=code, redirect_uri=redirect_uri, code_verifier=code_verifier)
+        else:
+            token_data = provider.exchange_code_for_token(code=code, redirect_uri=redirect_uri)
 
         target_account_id = token_data.get("account_id") or f"{platform_key}_{uuid.uuid4().hex[:8]}"
 

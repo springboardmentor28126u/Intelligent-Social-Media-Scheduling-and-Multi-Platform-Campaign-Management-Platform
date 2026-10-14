@@ -320,6 +320,28 @@ export const api = {
       apiRequest("/api/facebook/publish", { method: "POST", body: JSON.stringify(data) }),
   },
 
+  // ── Twitter / X Dedicated Integration ────────────────────────
+  twitter: {
+    getConnectUrl: (redirectUri?: string) =>
+      apiRequest(`/api/twitter/connect${redirectUri ? `?redirect_uri=${encodeURIComponent(redirectUri)}` : ""}`),
+    getStatus: () => apiRequest("/api/twitter/status"),
+    disconnect: () => apiRequest("/api/twitter/disconnect", { method: "POST" }),
+    sync: () => apiRequest("/api/twitter/sync", { method: "POST" }),
+    publish: (data: { content: string; media_urls?: string[]; post_type?: string; title?: string }) =>
+      apiRequest("/api/twitter/publish", { method: "POST", body: JSON.stringify(data) }),
+  },
+
+  // ── YouTube Dedicated Integration ───────────────────────────
+  youtube: {
+    getConnectUrl: (redirectUri?: string) =>
+      apiRequest(`/api/youtube/connect${redirectUri ? `?redirect_uri=${encodeURIComponent(redirectUri)}` : ""}`),
+    getStatus: () => apiRequest("/api/youtube/status"),
+    disconnect: () => apiRequest("/api/youtube/disconnect", { method: "POST" }),
+    sync: () => apiRequest("/api/youtube/sync", { method: "POST" }),
+    publish: (data: { content: string; media_urls?: string[]; post_type?: string; title?: string; privacy?: string }) =>
+      apiRequest("/api/youtube/publish", { method: "POST", body: JSON.stringify(data) }),
+  },
+
 
   // ── Media ───────────────────────────────────────────────────
   media: {

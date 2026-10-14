@@ -1,0 +1,74 @@
+version: '3.8'
+
+# ═════════════════════════════════════════════════════════════════════════════
+# SocialPilot - Cloud PostgreSQL Deployment Orchestration
+# Architecture:
+#   Frontend Container (Nginx / React SPA) -> Backend Container (FastAPI) -> Existing Cloud PostgreSQL
+# ═════════════════════════════════════════════════════════════════════════════
+
+services:
+  # --------------------------------------------------------------------------
+  # Backend API (FastAPI + Uvicorn)
+  # Connects directly to external Cloud PostgreSQL (DATABASE_URL)
+  # --------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: socialpilot_backend_cloud
+    restart: unless-stopped
+    environment:
+      - APP_NAME=${APP_NAME:-SocialPilot}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DEBUG=${DEBUG:-False}
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - BACKEND_URL=${BACKEND_URL:-http://localhost:8000}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-}
+      - FACEBOOK_CLIENT_ID=${FACEBOOK_CLIENT_ID:-}
+      - FACEBOOK_CLIENT_SECRET=${FACEBOOK_CLIENT_SECRET:-}
+      - INSTAGRAM_CLIENT_ID=${INSTAGRAM_CLIENT_ID:-}
+      - INSTAGRAM_CLIENT_SECRET=${INSTAGRAM_CLIENT_SECRET:-}
+      - INSTAGRAM_REDIRECT_URI=${INSTAGRAM_REDIRECT_URI:-}
+      - LINKEDIN_CLIENT_ID=${LINKEDIN_CLIENT_ID:-}
+      - LINKEDIN_CLIENT_SECRET=${LINKEDIN_CLIENT_SECRET:-}
+      - LINKEDIN_REDIRECT_URI=${LINKEDIN_REDIRECT_URI:-}
+      - TWITTER_CLIENT_ID=${TWITTER_CLIENT_ID:-}
+      - TWITTER_CLIENT_SECRET=${TWITTER_CLIENT_SECRET:-}
+      - YOUTUBE_CLIENT_ID=${YOUTUBE_CLIENT_ID:-}
+      - YOUTUBE_CLIENT_SECRET=${YOUTUBE_CLIENT_SECRET:-}
+      - PINTEREST_CLIENT_ID=${PINTEREST_CLIENT_ID:-}
+      - PINTEREST_CLIENT_SECRET=${PINTEREST_CLIENT_SECRET:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_uploads:/app/uploads
+    networks:
+      - socialpilot_cloud_net
+
+  # --------------------------------------------------------------------------
+  # Frontend SPA (React 19 + Nginx)
+  # --------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: socialpilot_frontend_cloud
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    networks:
+      - socialpilot_cloud_net
+
+networks:
+  socialpilot_cloud_net:
+    driver: bridge
+
+volumes:
+  backend_uploads:

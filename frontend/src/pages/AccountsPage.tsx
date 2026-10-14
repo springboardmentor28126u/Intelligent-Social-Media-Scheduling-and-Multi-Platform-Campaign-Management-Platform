@@ -139,6 +139,33 @@ export default function AccountsPage() {
           return;
         }
       }
+
+      if (platform.toLowerCase() === "twitter" || platform.toLowerCase() === "x") {
+        try {
+          const twRes = await api.twitter.getConnectUrl();
+          if (twRes && twRes.auth_url) {
+            window.location.href = twRes.auth_url;
+            return;
+          }
+        } catch (err: any) {
+          showToast("Twitter/X Error", err.message || "Failed to connect Twitter/X account", "error");
+          return;
+        }
+      }
+
+      if (platform.toLowerCase() === "youtube") {
+        try {
+          const ytRes = await api.youtube.getConnectUrl();
+          if (ytRes && ytRes.auth_url) {
+            window.location.href = ytRes.auth_url;
+            return;
+          }
+        } catch (err: any) {
+          showToast("YouTube Error", err.message || "Failed to connect YouTube account", "error");
+          return;
+        }
+      }
+
       const oauthRes = await api.accounts.getOAuthUrl(platform);
       if (oauthRes && oauthRes.is_real_oauth && oauthRes.auth_url) {
         window.location.href = oauthRes.auth_url;
@@ -247,7 +274,9 @@ export default function AccountsPage() {
                 {/* Metrics Pill Grid */}
                 <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
                   <div>
-                    <p className="text-xs text-slate-500">Followers</p>
+                    <p className="text-xs text-slate-500">
+                      {acc.platform?.toLowerCase() === "youtube" ? "Subscribers" : "Followers"}
+                    </p>
                     <p className="text-base font-extrabold text-slate-900 mt-0.5">
                       {acc.followers_count !== null && acc.followers_count !== undefined && acc.followers_count > 0
                         ? acc.followers_count.toLocaleString()

@@ -29,6 +29,8 @@ from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.linkedin import router as linkedin_router
 from app.api.routes.instagram import router as instagram_router
 from app.api.routes.facebook import router as facebook_router, callback_router as facebook_callback_router
+from app.api.routes.twitter import router as twitter_router, callback_router as twitter_callback_router
+from app.api.routes.youtube import router as youtube_router, callback_router as youtube_callback_router
 
 
 
@@ -156,6 +158,10 @@ app.include_router(linkedin_router)
 app.include_router(instagram_router)
 app.include_router(facebook_router)
 app.include_router(facebook_callback_router)
+app.include_router(twitter_router)
+app.include_router(twitter_callback_router)
+app.include_router(youtube_router)
+app.include_router(youtube_callback_router)
 
 
 

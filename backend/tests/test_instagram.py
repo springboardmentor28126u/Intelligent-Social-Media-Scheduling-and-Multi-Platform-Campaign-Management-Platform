@@ -241,12 +241,18 @@ def test_instagram_publish_endpoint(client, db_session):
     mock_publish_resp.status_code = 200
     mock_publish_resp.json.return_value = {"id": "18011223344556677"}
 
+    # Step 3: container status check response
+    mock_status_resp = MagicMock()
+    mock_status_resp.ok = True
+    mock_status_resp.status_code = 200
+    mock_status_resp.json.return_value = {"status_code": "FINISHED", "status": "Finished"}
+
     def mock_requests_post(url, *args, **kwargs):
         if "media_publish" in url:
             return mock_publish_resp
         return mock_container_resp
 
-    with patch("requests.post", side_effect=mock_requests_post):
+    with patch("requests.post", side_effect=mock_requests_post), patch("requests.get", return_value=mock_status_resp):
         resp = client.post("/api/instagram/publish", json=publish_payload, headers=headers)
         assert resp.status_code == 200
         data = resp.json()
@@ -307,12 +313,17 @@ def test_instagram_scheduler_publishing(client, db_session):
     mock_publish_resp.status_code = 200
     mock_publish_resp.json.return_value = {"id": "1800000000000"}
 
+    mock_status_resp = MagicMock()
+    mock_status_resp.ok = True
+    mock_status_resp.status_code = 200
+    mock_status_resp.json.return_value = {"status_code": "FINISHED", "status": "Finished"}
+
     def mock_requests_post(url, *args, **kwargs):
         if "media_publish" in url:
             return mock_publish_resp
         return mock_container_resp
 
-    with patch("requests.post", side_effect=mock_requests_post):
+    with patch("requests.post", side_effect=mock_requests_post), patch("requests.get", return_value=mock_status_resp):
         result = _publish_to_platform_target(target=target, post=post, db=db_session)
         assert result["status"] == "published"
         assert target.status == "published"

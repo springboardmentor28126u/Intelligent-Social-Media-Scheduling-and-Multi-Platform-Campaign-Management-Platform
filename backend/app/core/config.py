@@ -79,14 +79,21 @@ class Settings(BaseSettings):
     # Twitter / X (OAuth 2.0 PKCE)
     TWITTER_CLIENT_ID: str = ""
     TWITTER_CLIENT_SECRET: str = ""
+    TWITTER_REDIRECT_URI: str = "https://guise-reclusive-sample.ngrok-free.dev/social-auth/twitter/callback"
+    TWITTER_SCOPES: str = "tweet.read tweet.write users.read offline.access"
     TWITTER_ACCESS_TOKEN: str = ""
     TWITTER_ACCESS_TOKEN_SECRET: str = ""
     TWITTER_BEARER_TOKEN: str = ""
 
+    # Buffer & Dry Run
+    BUFFER_API_KEY: str = ""
+    SOCIAL_DRY_RUN: bool = False
+
     # YouTube / Google
     YOUTUBE_CLIENT_ID: str = ""
     YOUTUBE_CLIENT_SECRET: str = ""
-    YOUTUBE_REDIRECT_URI: str = "http://localhost:8000/social-accounts/oauth/youtube/callback"
+    YOUTUBE_REDIRECT_URI: str = "https://guise-reclusive-sample.ngrok-free.dev/social-auth/youtube/callback"
+    YOUTUBE_SCOPES: str = "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly openid profile email"
 
     # Pinterest
     PINTEREST_CLIENT_ID: str = ""
