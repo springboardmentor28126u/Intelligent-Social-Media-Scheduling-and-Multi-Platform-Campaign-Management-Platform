@@ -1818,55 +1818,45 @@ export default function App() {
           </div>
         </div>
 
-        <div className="dashboard-cards">
-          <div className="dashboard-card">
-            <div className="card-icon">📢</div>
-            <span>Campaigns</span>
-            <strong>
-              {dashboardStats.campaigns}
-            </strong>
-          </div>
 
-          <div className="dashboard-card">
-            <div className="card-icon">👥</div>
-            <span>Social Accounts</span>
-            <strong>
-              {dashboardStats.socialAccounts}
-            </strong>
-          </div>
+<div className="dashboard-cards">
+  <div className="dashboard-card">
+    <div className="card-icon">📢</div>
+    <span>Campaigns</span>
+    <strong>{dashboardStats.campaigns}</strong>
+  </div>
 
-          <div className="dashboard-card">
-            <div className="card-icon">📝</div>
-            <span>Posts</span>
-            <strong>
-              {dashboardStats.posts}
-            </strong>
-          </div>
+  <div className="dashboard-card">
+    <div className="card-icon">👥</div>
+    <span>Social Accounts</span>
+    <strong>{dashboardStats.socialAccounts}</strong>
+  </div>
 
-          <div className="dashboard-card">
-            <div className="card-icon">📅</div>
-            <span>Scheduled</span>
-            <strong>
-              {dashboardStats.scheduled}
-            </strong>
-          </div>
+  <div className="dashboard-card">
+    <div className="card-icon">📝</div>
+    <span>Posts</span>
+    <strong>{dashboardStats.posts}</strong>
+  </div>
 
-          <div className="dashboard-card">
-            <div className="card-icon">✓</div>
-            <span>Published</span>
-            <strong>
-              {dashboardStats.published}
-            </strong>
-          </div>
+  <div className="dashboard-card">
+    <div className="card-icon">📅</div>
+    <span>Scheduled</span>
+    <strong>{dashboardStats.scheduled}</strong>
+  </div>
 
-          <div className="dashboard-card">
-            <div className="card-icon">⏳</div>
-            <span>Pending</span>
-            <strong>
-              {dashboardStats.pending}
-            </strong>
-          </div>
-        </div>
+  <div className="dashboard-card">
+    <div className="card-icon">✓</div>
+    <span>Published</span>
+    <strong>{dashboardStats.published}</strong>
+  </div>
+
+  <div className="dashboard-card">
+    <div className="card-icon">⏳</div>
+    <span>Pending</span>
+    <strong>{dashboardStats.pending}</strong>
+  </div>
+</div>
+
 
         <div className="dashboard-grid">
           <div className="dashboard-panel">
@@ -3928,7 +3918,7 @@ export default function App() {
           </div>
 
           <button
-            type="button"
+            t
             className="refresh-button"
             onClick={loadAllData}
             disabled={loading}
