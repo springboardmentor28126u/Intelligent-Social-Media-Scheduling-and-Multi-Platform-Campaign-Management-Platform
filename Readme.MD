@@ -9,10 +9,11 @@
 [![Redis](https://img.shields.io/badge/Redis-7%2B-DC382D.svg?logo=redis&logoColor=white)](https://redis.io/)
 [![Celery](https://img.shields.io/badge/Celery-5.4.0-37814A.svg?logo=celery&logoColor=white)](https://docs.celeryq.dev/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg?logo=docker&logoColor=white)](https://www.docker.com/)
-[![Internship](https://img.shields.io/badge/Infosys-Springboard%20Project-FF6B00.svg)](https://springboard.infosys.com/)
+
 
 > **SocialPilot** is an enterprise-grade, centralized social media management and campaign scheduling platform. Built as part of the **Infosys Springboard Internship**, it enables content creators, marketing agencies, and business teams to plan, compose, schedule, queue, publish, and analyze multi-platform content across six major social networks from a unified dashboard.
 
+## Live Demo :- [**Open SocialPilot**](https://socialpilot-lyart.vercel.app)
 ---
 
 ## 📋 Table of Contents
@@ -426,145 +427,90 @@ VITE_API_URL=http://localhost:5173
 
 ---
 
-## 🛠️ Local Installation & Setup Guide
-
-Follow these steps in sequence to set up and run SocialPilot locally.
+## 🛠️ Local Installation & Setup
 
 ### Step 1: Clone the Repository
+
 ```bash
-git clone https://github.com/Govind-Verma07/SocialPilot.git
-cd SocialPilot
+git clone -b Govind-Verma https://github.com/springboardmentor28126u/Intelligent-Social-Media-Scheduling-and-Multi-Platform-Campaign-Management-Platform.git
+cd Intelligent-Social-Media-Scheduling-and-Multi-Platform-Campaign-Management-Platform
 ```
 
----
+### Step 2: Setup the Backend
 
-### Step 2: Configure the Backend
-
-#### A. Create and Activate a Python Virtual Environment
-**On Windows (PowerShell):**
-```powershell
+```bash
 cd backend
 python -m venv venv
+```
+
+Activate the virtual environment on Windows:
+
+```powershell
 .\venv\Scripts\Activate.ps1
 ```
 
-**On Linux / macOS (Bash):**
-```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate
-```
+Install dependencies:
 
-#### B. Install Python Dependencies
 ```bash
-pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-#### C. Set Up Backend Environment Variables
+### Step 3: Configure Environment Variables
+
+Copy `.env.example` to `.env` inside the `backend` folder and configure your database credentials and required secret keys.
+
 ```powershell
-# Windows
 Copy-Item .env.example .env
-
-# Linux / macOS
-cp .env.example .env
 ```
-Open `.env` in an editor and configure:
-1. `DATABASE_URL`: Ensure your PostgreSQL database exists and is reachable.
-2. `JWT_SECRET_KEY`: Generate a random secret via:
-   ```bash
-   python -c "import secrets; print(secrets.token_hex(32))"
-   ```
 
----
+Ensure PostgreSQL is running and `DATABASE_URL` is correctly configured.
 
-### Step 3: Run Database Migrations
+### Step 4: Setup the Database
 
-Apply Alembic migrations to construct the PostgreSQL schema:
+Run these commands from the `backend` folder:
+
 ```bash
-# Verify Alembic sees your current revision
-alembic current
-
-# Apply all migrations to the latest revision (head)
 alembic upgrade head
 ```
 
-To view the complete migration history:
+### Step 5: Start the Backend
+
 ```bash
-alembic history --verbose
+uvicorn app.main:app --reload 
 ```
 
----
+Backend API: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-### Step 4: Start the Backend API Server
+### Step 6: Start the Frontend
 
-With your virtual environment active in `backend/`:
-```bash
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-- **API Base URL**: `http://localhost:8000`
-- **Interactive Swagger Docs**: `http://localhost:8000/docs`
-- **ReDoc Documentation**: `http://localhost:8000/redoc`
-- **Health Check Endpoint**: `http://localhost:8000/`
+Open a new terminal in the project root and run:
 
----
-
-### Step 5: Start Redis and Celery Workers (Optional / Recommended)
-
-Background post scheduling and automated retry jobs can be executed using Celery workers with a local Redis instance.
-
-1. **Start Redis Server**:
-   Ensure Redis is running on port `6379`.
-   ```bash
-   redis-server
-   ```
-   *(Or run via Docker: `docker run -d -p 6379:6379 --name socialpilot_redis redis:7-alpine`)*
-
-2. **Start the Celery Worker**:
-   Open a separate terminal in `backend/` with the virtual environment activated:
-   - **On Windows (requires the solo pool)**:
-     ```bash
-     celery -A app.worker.celery_app worker --loglevel=info -P solo
-     ```
-   - **On Linux / macOS**:
-     ```bash
-     celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
-     ```
-
-3. **Start Celery Beat (Periodic Task Scheduler)**:
-   Open another terminal in `backend/`:
-   ```bash
-   celery -A app.worker.celery_app beat --loglevel=info
-   ```
-
-> [!NOTE]
-> **Built-in Fallback**: If you do not have Redis or Celery running locally, the backend includes an automated in-process background scheduler (`ENABLE_INPROCESS_SCHEDULER=true` in `.env`) that scans and dispatches due posts every 15 seconds.
-
----
-
-### Step 6: Start the Frontend Application
-
-Open a new terminal window in the project root:
 ```bash
 cd frontend
 npm install
+```
+
+Create a `.env` file inside `frontend` and add:
+
+```env
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+Start the frontend:
+
+```bash
 npm run dev
 ```
-The Vite development server will launch at:
-- **Web Application**: `http://localhost:5173`
 
----
+Open: [http://localhost:5173](http://localhost:5173)
 
-### Step 7: (Optional) Public Tunnel for Live Social OAuth Callbacks
+### Step 7: Background Services (If Required)
 
-External OAuth providers (Facebook, Google, LinkedIn) require public HTTPS redirect URIs:
-```bash
-# From the backend directory
-python start_pinggy.py
-```
-This starts an SSH tunnel via Pinggy and prints a public HTTPS URL (e.g. `https://xxxx.a.pinggy.link`). Update `PUBLIC_BASE_URL` in your backend `.env` accordingly.
+If scheduled publishing requires background workers, ensure Redis is running and start Celery using the project's configured commands.
 
----
+**Note:** Add valid OAuth credentials to connect social media accounts. Never commit `.env` files or secrets to GitHub.
+
+
 
 ## 🗄️ Database & Alembic Migrations
 
