@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import AiCaptionGenerator from "../components/AiCaptionGenerator";
+import AiPostRewriter from "../components/AiPostRewriter";
 import "./CreatePost.css";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
@@ -948,6 +950,10 @@ function CreatePost() {
               </div>
 
               {/* =========================================== */}
+              {/* AI CAPTION GENERATOR */}
+              {/* =========================================== */}
+
+              {/* =========================================== */}
               {/* CONTENT */}
               {/* =========================================== */}
 
@@ -973,6 +979,17 @@ function CreatePost() {
                   rows="10"
                   maxLength={5000}
                   required
+                />
+
+                <AiCaptionGenerator
+                  apiBaseUrl={API_BASE_URL}
+                  onUseCaption={setContent}
+                />
+
+                <AiPostRewriter
+                  apiBaseUrl={API_BASE_URL}
+                  content={content}
+                  onUseContent={setContent}
                 />
 
                 <div className="composer-tools">

@@ -5,6 +5,7 @@ import "./Reports.css";
 
 const API_URL = "http://127.0.0.1:8000";
 const PERIODS = { "7d": "Last 7 days", "30d": "Last 30 days", "90d": "Last 90 days" };
+const formatMetric = (value) => value == null ? "Not tracked" : Number(value).toLocaleString();
 
 function Reports() {
   const navigate = useNavigate();
@@ -116,7 +117,7 @@ function Reports() {
     ["Reach", overview?.reach],
     ["Impressions", overview?.impressions],
     ["Engagement", overview?.engagement],
-    ["Engagement rate", overview ? `${overview.engagement_rate}%` : null],
+    ["Engagement rate", overview?.engagement_rate == null ? null : `${overview.engagement_rate}%`],
   ];
 
   return <div className="workspace-page reports-page">
@@ -131,9 +132,9 @@ function Reports() {
     <section className="reports-summary" aria-label="Report summary">{summary.map(([label, value]) => <article key={label}><span>{label}</span><strong>{value == null ? "Not tracked" : typeof value === "number" ? value.toLocaleString() : value}</strong></article>)}</section>
     <nav className="report-tabs" aria-label="Report type">{tabs.map((tab) => <button key={tab} className={activeReport === tab ? "active" : ""} onClick={() => setActiveReport(tab)}>{tab[0].toUpperCase() + tab.slice(1)} report</button>)}</nav>
 
-    {activeReport === "campaigns" && <section className="report-content"><header><div><p className="eyebrow">CAMPAIGN REPORTS</p><h2>Campaign performance</h2></div></header><div className="reports-table-wrap"><table><thead><tr><th>Campaign</th><th>Platform</th><th>Posts</th><th>Reach</th><th>Engagement</th><th>Clicks</th><th>Status</th><th>Actions</th></tr></thead><tbody>{performance.map((row) => <tr key={row.campaign_id}><td>{row.campaign_name}</td><td>{row.platform}</td><td>{row.posts}</td><td>{row.reach.toLocaleString()}</td><td>{row.engagement.toLocaleString()}</td><td>{row.clicks.toLocaleString()}</td><td><StatusBadge value={row.status} /></td><td><div className="report-row-actions"><button onClick={() => navigate(`/campaigns/${row.campaign_id}`)}>View</button><button disabled={exporting === row.campaign_id} onClick={() => exportCampaignReport(row.campaign_id, row.campaign_name)}>{exporting === row.campaign_id ? "Exporting..." : "Export"}</button></div></td></tr>)}</tbody></table></div>{!performance.length && <EmptyState title="No matching campaigns" description="Adjust the report filters to see results." />}</section>}
+    {activeReport === "campaigns" && <section className="report-content"><header><div><p className="eyebrow">CAMPAIGN REPORTS</p><h2>Campaign performance</h2></div></header><div className="reports-table-wrap"><table><thead><tr><th>Campaign</th><th>Platform</th><th>Posts</th><th>Reach</th><th>Engagement</th><th>Clicks</th><th>Status</th><th>Actions</th></tr></thead><tbody>{performance.map((row) => <tr key={row.campaign_id}><td>{row.campaign_name}</td><td>{row.platform}</td><td>{row.posts}</td><td>{formatMetric(row.reach)}</td><td>{formatMetric(row.engagement)}</td><td>{formatMetric(row.clicks)}</td><td><StatusBadge value={row.status} /></td><td><div className="report-row-actions"><button onClick={() => navigate(`/campaigns/${row.campaign_id}`)}>View</button><button disabled={exporting === row.campaign_id} onClick={() => exportCampaignReport(row.campaign_id, row.campaign_name)}>{exporting === row.campaign_id ? "Exporting..." : "Export"}</button></div></td></tr>)}</tbody></table></div>{!performance.length && <EmptyState title="No matching campaigns" description="Adjust the report filters to see results." />}</section>}
 
-    {activeReport === "engagement" && <section className="report-content"><header><div><p className="eyebrow">ENGAGEMENT REPORT</p><h2>Interactions by type</h2></div></header><div className="report-metric-grid">{[["Likes", overview?.likes], ["Comments", overview?.comments], ["Shares", overview?.shares], ["Clicks", overview?.clicks], ["Views", overview?.views]].map(([label, value]) => <article key={label}><span>{label}</span><strong>{value == null ? "Not tracked" : value.toLocaleString()}</strong></article>)}</div><p className="reports-note">Engagement values are estimates derived from published post and platform data.</p></section>}
+    {activeReport === "engagement" && <section className="report-content"><header><div><p className="eyebrow">ENGAGEMENT REPORT</p><h2>Interactions by type</h2></div></header><div className="report-metric-grid">{[["Likes", overview?.likes], ["Comments", overview?.comments], ["Shares", overview?.shares], ["Clicks", overview?.clicks], ["Views", overview?.views]].map(([label, value]) => <article key={label}><span>{label}</span><strong>{formatMetric(value)}</strong></article>)}</div><p className="reports-note">Engagement metrics are unavailable until connected platforms provide metric data.</p></section>}
 
     {activeReport === "audience" && <section className="report-content"><header><div><p className="eyebrow">AUDIENCE REPORT</p><h2>Follower movement</h2></div></header><div className="report-metric-grid">{[["Current followers", audience?.current_followers], ["New followers", audience?.new_followers], ["Lost followers", audience?.lost_followers], ["Net growth", audience?.net_growth], ["Growth rate", audience?.growth_percentage == null ? null : `${audience.growth_percentage}%`]].map(([label, value]) => <article key={label}><span>{label}</span><strong>{value == null ? "Not tracked" : typeof value === "number" ? value.toLocaleString() : value}</strong></article>)}</div><p className="reports-note">{audience?.message || "Follower history is not tracked for connected accounts yet."}</p></section>}
 

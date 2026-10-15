@@ -9,6 +9,7 @@ from app.routers.social_accounts import router as social_accounts_router
 from app.routers.posts import router as posts_router
 from app.routers.campaigns import router as campaigns_router
 from app.routers.admin import router as admin_router
+from app.routers.captions import router as captions_router
 
 from app.services.scheduler import scheduler
 
@@ -91,6 +92,7 @@ app.include_router(social_accounts_router)
 app.include_router(posts_router)
 app.include_router(campaigns_router)
 app.include_router(admin_router)
+app.include_router(captions_router)
 
 
 # ---------------------------------------------------------

@@ -1,990 +1,572 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Calendar.css";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+const STATUS_OPTIONS = ["scheduled", "published", "failed", "draft"];
 
-
-// ============================================================
-// INDIAN DATE/TIME PARSER
-// ============================================================
-
-// Database value example:
-//
-// 2026-09-07 21:48:00
-//
-// Treat this directly as Indian local time.
-//
-// No UTC conversion.
-// No toISOString().
-// No timezone shifting.
-
-function parseIndianDateTime(value) {
-  if (!value) {
-    return null;
-  }
-
-  const cleaned = String(value)
+function parseLocalDate(value) {
+  if (!value) return null;
+  const match = String(value)
     .replace("T", " ")
     .replace("Z", "")
-    .trim();
+    .match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (!match) return null;
 
-  const match = cleaned.match(
-    /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/
+  return new Date(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+    Number(match[4] || 0),
+    Number(match[5] || 0),
+    Number(match[6] || 0)
   );
-
-  if (!match) {
-    return null;
-  }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-
-  const hours = Number(
-    match[4] || 0
-  );
-
-  const minutes = Number(
-    match[5] || 0
-  );
-
-  const seconds = Number(
-    match[6] || 0
-  );
-
-  const date = new Date(
-    year,
-    month - 1,
-    day,
-    hours,
-    minutes,
-    seconds,
-    0
-  );
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return date;
 }
 
+function getPostDate(post) {
+  const status = String(post.status || "").toLowerCase();
+  if (status === "published") {
+    return parseLocalDate(post.published_at || post.scheduled_at || post.created_at);
+  }
+  return parseLocalDate(post.scheduled_at || post.created_at || post.published_at);
+}
 
-// ============================================================
-// CALENDAR COMPONENT
-// ============================================================
+function toDateTimeLocal(value) {
+  const date = parseLocalDate(value);
+  if (!date) return "";
+  const pad = (part) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function formatDate(date, options = { weekday: "long", month: "long", day: "numeric", year: "numeric" }) {
+  return date.toLocaleDateString("en-IN", options);
+}
+
+function formatTime(date) {
+  if (!date) return "Time not set";
+  return date.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function normalizeStatus(status) {
+  const value = String(status || "draft").toLowerCase();
+  if (value === "scheduled" || value === "published" || value === "failed" || value === "draft") {
+    return value;
+  }
+  if (value === "publishing") return "scheduled";
+  return null;
+}
+
+function platformIcon(platform) {
+  const value = String(platform || "").toLowerCase();
+  if (value.includes("instagram")) return "◎";
+  if (value.includes("facebook")) return "f";
+  if (value.includes("linkedin")) return "in";
+  if (value.includes("youtube")) return "▶";
+  if (value.includes("twitter") || value === "x") return "𝕏";
+  return "•";
+}
 
 function Calendar() {
   const navigate = useNavigate();
-
   const [posts, setPosts] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [view, setView] = useState("month");
+  const [platformFilter, setPlatformFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [campaignFilter, setCampaignFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [rescheduleValue, setRescheduleValue] = useState("");
+  const [savingReschedule, setSavingReschedule] = useState(false);
 
-  const [currentDate, setCurrentDate] =
-    useState(new Date());
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [error, setError] =
-    useState("");
-
-  const token =
-    localStorage.getItem("access_token");
-
-
-  // ============================================================
-  // FETCH SCHEDULED POSTS
-  // ============================================================
-
-  const fetchScheduledPosts = async () => {
-    const currentToken =
-      localStorage.getItem("access_token");
-
-    if (!currentToken) {
-      navigate("/login");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError("");
-
-      const response = await fetch(
-        `${API_URL}/posts/scheduled`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${currentToken}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-
-      // --------------------------------------------------------
-      // UNAUTHORIZED
-      // --------------------------------------------------------
-
-      if (response.status === 401) {
-        localStorage.removeItem(
-          "access_token"
-        );
-
-        localStorage.removeItem("role");
-
-        navigate("/login");
-
-        return;
-      }
-
-
-      let data = null;
-
-      try {
-        data = await response.json();
-      } catch {
-        data = null;
-      }
-
-      console.log(
-        "Scheduled posts:",
-        data
-      );
-
-
-      // --------------------------------------------------------
-      // ERROR
-      // --------------------------------------------------------
-
-      if (!response.ok) {
-        const errorDetail = data && (data.detail || data.message)
-          ? data.detail || data.message
-          : "Failed to load scheduled posts.";
-
-        const message = Array.isArray(errorDetail)
-          ? errorDetail.map((item) => item?.msg || item?.detail || String(item)).join("; ")
-          : typeof errorDetail === "string"
-            ? errorDetail
-            : JSON.stringify(errorDetail);
-
-        setError(message);
-
-        return;
-      }
-
-
-      // --------------------------------------------------------
-      // SAVE POSTS
-      // --------------------------------------------------------
-
-      if (Array.isArray(data)) {
-        setPosts(data);
-      } else {
-        setPosts([]);
-      }
-
-    } catch (err) {
-      console.error(
-        "Calendar fetch error:",
-        err
-      );
-
-      setError(
-        "Cannot connect to backend. Please make sure FastAPI is running."
-      );
-
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
-  // ============================================================
-  // LOAD SCHEDULED POSTS
-  // ============================================================
-
-  useEffect(() => {
+  const loadCalendar = useCallback(async () => {
+    const token = localStorage.getItem("access_token");
     if (!token) {
       navigate("/login");
       return;
     }
 
-    fetchScheduledPosts();
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const [postsResponse, campaignsResponse] = await Promise.all([
+        fetch(`${API_URL}/posts/`, { headers }),
+        fetch(`${API_URL}/campaigns`, { headers }),
+      ]);
 
+      if (postsResponse.status === 401 || campaignsResponse.status === 401) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("role");
+        navigate("/login");
+        return;
+      }
+
+      const [postsData, campaignsData] = await Promise.all([
+        postsResponse.json(),
+        campaignsResponse.json(),
+      ]);
+      if (!postsResponse.ok) {
+        throw new Error(postsData.detail || "Failed to load posts for the calendar.");
+      }
+      if (!campaignsResponse.ok) {
+        throw new Error(campaignsData.detail || "Failed to load campaigns for the calendar.");
+      }
+
+      setPosts(Array.isArray(postsData) ? postsData : []);
+      setCampaigns(Array.isArray(campaignsData) ? campaignsData : []);
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Unable to load the content calendar."
+      );
+    } finally {
+      setLoading(false);
+    }
   }, [navigate]);
 
+  useEffect(() => {
+    const loadTimer = window.setTimeout(() => {
+      loadCalendar();
+    }, 0);
+    return () => window.clearTimeout(loadTimer);
+  }, [loadCalendar]);
 
-  // ============================================================
-  // CURRENT MONTH / YEAR
-  // ============================================================
+  const campaignNames = useMemo(
+    () => new Map(campaigns.map((campaign) => [String(campaign.id), campaign.name])),
+    [campaigns]
+  );
+  const platforms = useMemo(
+    () => [...new Set(posts.map((post) => post.platform).filter(Boolean))].sort(),
+    [posts]
+  );
 
-  const month =
-    currentDate.getMonth();
-
-  const year =
-    currentDate.getFullYear();
-
-
-  // ============================================================
-  // MONTH NAMES
-  // ============================================================
-
-  const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-
-
-  // ============================================================
-  // DAY NAMES
-  // ============================================================
-
-  const dayNames = [
-    "Sun",
-    "Mon",
-    "Tue",
-    "Wed",
-    "Thu",
-    "Fri",
-    "Sat",
-  ];
-
-
-  // ============================================================
-  // NUMBER OF DAYS IN CURRENT MONTH
-  // ============================================================
-
-  const daysInMonth =
-    new Date(
-      year,
-      month + 1,
-      0
-    ).getDate();
-
-
-  // ============================================================
-  // FIRST DAY OF CURRENT MONTH
-  // ============================================================
-
-  const firstDay =
-    new Date(
-      year,
-      month,
-      1
-    ).getDay();
-
-
-  // ============================================================
-  // PREVIOUS MONTH
-  // ============================================================
-
-  const previousMonth = () => {
-    setCurrentDate(
-      new Date(
-        year,
-        month - 1,
-        1
-      )
-    );
-  };
-
-
-  // ============================================================
-  // NEXT MONTH
-  // ============================================================
-
-  const nextMonth = () => {
-    setCurrentDate(
-      new Date(
-        year,
-        month + 1,
-        1
-      )
-    );
-  };
-
-
-  // ============================================================
-  // GO TO TODAY
-  // ============================================================
-
-  const goToToday = () => {
-    setCurrentDate(
-      new Date()
-    );
-  };
-
-
-  // ============================================================
-  // CHECK TODAY
-  // ============================================================
-
-  const isToday = (day) => {
-    const today =
-      new Date();
-
-    return (
-      today.getDate() === day &&
-      today.getMonth() === month &&
-      today.getFullYear() === year
-    );
-  };
-
-
-  // ============================================================
-  // GET POSTS FOR PARTICULAR DATE
-  // ============================================================
-
-  const getPostsForDate = (day) => {
-    return posts.filter(
-      (post) => {
-        const eventDateValue = post.scheduled_at || post.published_at;
-
-        if (!eventDateValue) {
-          return false;
-        }
-
-        const postDate =
-          parseIndianDateTime(
-            eventDateValue
-          );
-
-        if (!postDate) {
-          return false;
-        }
-
+  const filteredPosts = useMemo(
+    () =>
+      posts.filter((post) => {
+        const status = normalizeStatus(post.status);
         return (
-          postDate.getDate() === day &&
-          postDate.getMonth() === month &&
-          postDate.getFullYear() === year
+          status !== null &&
+          (platformFilter === "all" || post.platform === platformFilter) &&
+          (statusFilter === "all" || status === statusFilter) &&
+          (campaignFilter === "all" || String(post.campaign_id || "") === campaignFilter)
         );
-      }
-    );
-  };
+      }),
+    [posts, platformFilter, statusFilter, campaignFilter]
+  );
 
+  const startDate = useMemo(() => {
+    if (view === "week") {
+      const sunday = new Date(currentDate);
+      sunday.setDate(currentDate.getDate() - currentDate.getDay());
+      sunday.setHours(0, 0, 0, 0);
+      return sunday;
+    }
+    return new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+  }, [currentDate, view]);
 
-  // ============================================================
-  // FORMAT TIME
-  // ============================================================
-
-  const formatTime = (dateString) => {
-    if (!dateString) {
-      return "";
+  const calendarDates = useMemo(() => {
+    if (view === "week") {
+      return Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + index);
+        return date;
+      });
     }
 
-    const date =
-      parseIndianDateTime(
-        dateString
+    const first = new Date(startDate);
+    const firstWeekday = first.getDay();
+    first.setDate(1 - firstWeekday);
+    const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    const totalCells = Math.ceil((firstWeekday + lastDay.getDate()) / 7) * 7;
+    return Array.from({ length: totalCells }, (_, index) => {
+      const date = new Date(first);
+      date.setDate(first.getDate() + index);
+      return date;
+    });
+  }, [currentDate, startDate, view]);
+
+  const postsByDate = useMemo(() => {
+    const grouped = new Map();
+    filteredPosts.forEach((post) => {
+      const date = getPostDate(post);
+      if (!date) return;
+      const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push({ ...post, calendarDate: date });
+    });
+    grouped.forEach((dayPosts) => {
+      dayPosts.sort((first, second) => first.calendarDate - second.calendarDate);
+    });
+    return grouped;
+  }, [filteredPosts]);
+
+  const getDayPosts = (date) =>
+    postsByDate.get(`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`) || [];
+
+  const movePeriod = (amount) => {
+    const nextDate = new Date(currentDate);
+    if (view === "week") nextDate.setDate(nextDate.getDate() + amount * 7);
+    else nextDate.setMonth(nextDate.getMonth() + amount, 1);
+    setCurrentDate(nextDate);
+  };
+
+  const rangeTitle = () => {
+    if (view === "month") {
+      return `${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    }
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+    if (startDate.getMonth() === endDate.getMonth()) {
+      return `${MONTHS[startDate.getMonth()]} ${startDate.getDate()}–${endDate.getDate()}, ${endDate.getFullYear()}`;
+    }
+    return `${MONTHS[startDate.getMonth()]} ${startDate.getDate()} – ${MONTHS[endDate.getMonth()]} ${endDate.getDate()}, ${endDate.getFullYear()}`;
+  };
+
+  const openPost = (post) => {
+    setSelectedPost(post);
+    setRescheduleValue(toDateTimeLocal(post.scheduled_at || post.created_at));
+    setActionError("");
+  };
+
+  const handleDelete = async () => {
+    if (!selectedPost || !window.confirm("Delete this post? This cannot be undone.")) return;
+    const token = localStorage.getItem("access_token");
+    try {
+      const response = await fetch(`${API_URL}/posts/${selectedPost.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = response.status === 204 ? {} : await response.json();
+      if (response.status === 401) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("role");
+        navigate("/login");
+        return;
+      }
+      if (!response.ok) throw new Error(result.detail || "Failed to delete post.");
+      setPosts((current) => current.filter((post) => post.id !== selectedPost.id));
+      setSelectedPost(null);
+    } catch (actionFailure) {
+      setActionError(actionFailure instanceof Error ? actionFailure.message : "Failed to delete post.");
+    }
+  };
+
+  const handleReschedule = async (event) => {
+    event.preventDefault();
+    if (!selectedPost || !rescheduleValue) return;
+    if (new Date(rescheduleValue) <= new Date()) {
+      setActionError("Choose a future date and time.");
+      return;
+    }
+
+    const token = localStorage.getItem("access_token");
+    setSavingReschedule(true);
+    setActionError("");
+    try {
+      const query = new URLSearchParams({ scheduled_at: rescheduleValue });
+      const response = await fetch(
+        `${API_URL}/posts/${selectedPost.id}?${query.toString()}`,
+        {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
-
-    if (!date) {
-      return "";
-    }
-
-    return date.toLocaleTimeString(
-      "en-IN",
-      {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
+      const result = await response.json();
+      if (response.status === 401) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("role");
+        navigate("/login");
+        return;
       }
-    );
-  };
-
-  const formatEventTime = (post) => {
-    if (post.status && post.status.toLowerCase() === "published") {
-      return formatTime(post.published_at || post.scheduled_at);
-    }
-
-    return formatTime(post.scheduled_at || post.published_at);
-  };
-
-
-  // ============================================================
-  // FORMAT FULL DATE
-  // ============================================================
-
-  const formatDate = (dateString) => {
-    if (!dateString) {
-      return "";
-    }
-
-    const date =
-      parseIndianDateTime(
-        dateString
+      if (!response.ok) throw new Error(result.detail || "Failed to reschedule post.");
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === selectedPost.id
+            ? { ...post, scheduled_at: result.scheduled_at, status: result.status }
+            : post
+        )
       );
-
-    if (!date) {
-      return "";
+      setSelectedPost((current) =>
+        current ? { ...current, scheduled_at: result.scheduled_at, status: result.status } : null
+      );
+      setRescheduleValue(toDateTimeLocal(result.scheduled_at));
+    } catch (actionFailure) {
+      setActionError(actionFailure instanceof Error ? actionFailure.message : "Failed to reschedule post.");
+    } finally {
+      setSavingReschedule(false);
     }
-
-    return date.toLocaleDateString(
-      "en-IN",
-      {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      }
-    );
   };
 
-
-  // ============================================================
-  // PLATFORM ICON
-  // ============================================================
-
-  const getPlatformIcon = (
-    platform
-  ) => {
-
-    if (!platform) {
-      return "🌐";
-    }
-
-    const value =
-      platform.toLowerCase();
-
-
-    if (
-      value.includes("instagram")
-    ) {
-      return "📸";
-    }
-
-
-    if (
-      value.includes("facebook")
-    ) {
-      return "📘";
-    }
-
-
-    if (
-      value.includes("twitter") ||
-      value === "x"
-    ) {
-      return "🐦";
-    }
-
-
-    if (
-      value.includes("linkedin")
-    ) {
-      return "💼";
-    }
-
-
-    if (
-      value.includes("youtube")
-    ) {
-      return "▶️";
-    }
-
-
-    return "🌐";
+  const editPost = () => {
+    navigate("/create-post", { state: { editMode: true, post: selectedPost } });
   };
 
-
-  // ============================================================
-  // RECURRING LABEL
-  // ============================================================
-
-  const getRecurrenceLabel = (
-    post
-  ) => {
-
-    if (!post.is_recurring) {
-      return null;
-    }
-
-    if (!post.recurrence_type) {
-      return "Recurring";
-    }
-
-    const type =
-      post.recurrence_type.toLowerCase();
-
-
-    if (type === "daily") {
-      return "Daily";
-    }
-
-
-    if (type === "weekly") {
-      return "Weekly";
-    }
-
-
-    if (type === "monthly") {
-      return "Monthly";
-    }
-
-
-    return "Recurring";
+  const duplicatePost = () => {
+    navigate("/create-post", {
+      state: {
+        post: {
+          ...selectedPost,
+          status: "draft",
+          scheduled_at: null,
+          published_at: null,
+          is_recurring: false,
+        },
+      },
+    });
   };
 
+  const retryLoadCalendar = () => {
+    setError("");
+    setLoading(true);
+    loadCalendar();
+  };
 
-  // ============================================================
-  // CREATE CALENDAR CELLS
-  // ============================================================
-
-  const calendarCells = [];
-
-
-  // ============================================================
-  // EMPTY CELLS BEFORE FIRST DAY
-  // ============================================================
-
-  for (
-    let i = 0;
-    i < firstDay;
-    i++
-  ) {
-
-    calendarCells.push(
-
-      <div
-        className="calendar-day empty-day"
-        key={`empty-${i}`}
-      >
-      </div>
-
-    );
-  }
-
-
-  // ============================================================
-  // ACTUAL DAYS
-  // ============================================================
-
-  for (
-    let day = 1;
-    day <= daysInMonth;
-    day++
-  ) {
-
-    const dayPosts =
-      getPostsForDate(day);
-
-
-    calendarCells.push(
-
-      <div
-        className={`calendar-day ${
-          isToday(day)
-            ? "today"
-            : ""
-        }`}
-        key={day}
-      >
-
-        {/* ===================================================
-            DATE NUMBER
-        =================================================== */}
-
-        <div className="date-number">
-
-          <span>
-            {day}
-          </span>
-
-          {isToday(day) && (
-
-            <small>
-              Today
-            </small>
-
-          )}
-
-        </div>
-
-
-        {/* ===================================================
-            POSTS
-        =================================================== */}
-
-        <div className="day-posts">
-
-          {dayPosts.length === 0 ? (
-
-            <div className="calendar-empty-day">
-            </div>
-
-          ) : (
-
-            dayPosts.map(
-              (post) => (
-
-                <div
-                  className="calendar-post"
-                  key={post.id}
-                  title={post.content}
-                >
-
-                  {/* =========================================
-                      TIME
-                  ========================================= */}
-
-                  <div className="calendar-post-time">
-
-                    {formatEventTime(post)}
-
-                  </div>
-
-
-                  {/* =========================================
-                      PLATFORM
-                  ========================================= */}
-
-                  <div className="calendar-post-platform">
-
-                    <span>
-                      {getPlatformIcon(
-                        post.platform
-                      )}
-                    </span>
-
-                    <span>
-                      {post.platform ||
-                        "Social Media"}
-                    </span>
-
-                  </div>
-
-
-                  {/* =========================================
-                      CONTENT
-                  ========================================= */}
-
-                  <div className="calendar-post-content">
-
-                    {post.content}
-
-                  </div>
-
-
-                  {/* =========================================
-                      RECURRING
-                  ========================================= */}
-
-                  {post.is_recurring && (
-
-                    <div className="calendar-post-recurring">
-
-                      🔄{" "}
-                      {getRecurrenceLabel(
-                        post
-                      )}
-
-                    </div>
-
-                  )}
-
-                </div>
-
-              )
-            )
-
-          )}
-
-        </div>
-
-      </div>
-
-    );
-  }
-
-
-  // ============================================================
-  // LOADING
-  // ============================================================
+  const activePostCount = filteredPosts.length;
 
   if (loading) {
-
     return (
-
-      <div className="calendar-loading">
-
-        <div className="calendar-loading-icon">
-          📅
-        </div>
-
-        <h2>
-          Loading Calendar...
-        </h2>
-
-        <p>
-          Loading your scheduled posts.
-        </p>
-
-      </div>
-
+      <main className="calendar-page">
+        <div className="calendar-state-card" role="status">Loading your content calendar…</div>
+      </main>
     );
   }
-
-
-  // ============================================================
-  // ERROR
-  // ============================================================
 
   if (error) {
-
     return (
-
-      <div className="calendar-error-page">
-
-        <div className="calendar-error-card">
-
-          <div className="calendar-error-icon">
-            ⚠️
-          </div>
-
-          <h2>
-            Unable to Load Calendar
-          </h2>
-
-          <p>
-            {error}
-          </p>
-
-
-          <div className="calendar-error-buttons">
-
-            <button
-              onClick={
-                fetchScheduledPosts
-              }
-            >
-              Try Again
-            </button>
-
-
-            <button
-              onClick={() =>
-                navigate("/dashboard")
-              }
-            >
-              ← Dashboard
-            </button>
-
-          </div>
-
+      <main className="calendar-page">
+        <div className="calendar-state-card calendar-load-error">
+          <h1>Content Calendar</h1>
+          <p>{error}</p>
+          <button type="button" onClick={retryLoadCalendar}>Try again</button>
         </div>
-
-      </div>
-
+      </main>
     );
   }
 
-
-  // ============================================================
-  // MAIN CALENDAR
-  // ============================================================
-
   return (
-
-    <div className="calendar-page">
-
+    <main className="calendar-page">
       <div className="calendar-container">
-
-
-        {/* ===================================================
-            HEADER
-        =================================================== */}
-
-        <div className="calendar-header">
-
+        <header className="calendar-header">
           <div className="calendar-title">
-
-            <h1>
-              📅 Publishing Calendar
-            </h1>
-
-            <p>
-              View all your scheduled social media posts.
-            </p>
-
+            <span className="calendar-eyebrow">PUBLISHING WORKSPACE</span>
+            <h1>Content Calendar</h1>
+            <p>Plan and manage scheduled posts, drafts, and publishing activity.</p>
           </div>
+          <button
+            className="calendar-create-button"
+            type="button"
+            onClick={() => navigate("/create-post")}
+          >
+            + Create Post
+          </button>
+        </header>
 
-
-          <div className="calendar-header-actions">
-
-            <button
-              className="calendar-dashboard-button"
-              onClick={() =>
-                navigate("/dashboard")
-              }
-            >
-              ← Dashboard
+        <section className="calendar-controls" aria-label="Calendar controls">
+          <div className="calendar-period-controls">
+            <button type="button" className="calendar-nav-button" onClick={() => movePeriod(-1)} aria-label={`Previous ${view}`}>
+              ‹
             </button>
-
-
-            <button
-              className="calendar-create-button"
-              onClick={() =>
-                navigate("/create-post")
-              }
-            >
-              + Create Post
+            <h2>{rangeTitle()}</h2>
+            <button type="button" className="calendar-nav-button" onClick={() => movePeriod(1)} aria-label={`Next ${view}`}>
+              ›
             </button>
-
+            <button type="button" className="calendar-today-button" onClick={() => setCurrentDate(new Date())}>
+              Today
+            </button>
           </div>
+          <div className="calendar-view-toggle" role="group" aria-label="Calendar view">
+            <button
+              type="button"
+              className={view === "month" ? "is-active" : ""}
+              aria-pressed={view === "month"}
+              onClick={() => setView("month")}
+            >
+              Month
+            </button>
+            <button
+              type="button"
+              className={view === "week" ? "is-active" : ""}
+              aria-pressed={view === "week"}
+              onClick={() => setView("week")}
+            >
+              Week
+            </button>
+          </div>
+        </section>
 
-        </div>
+        <section className="calendar-filters" aria-label="Filter calendar posts">
+          <label>
+            <span>Platform</span>
+            <select value={platformFilter} onChange={(event) => setPlatformFilter(event.target.value)}>
+              <option value="all">All platforms</option>
+              {platforms.map((platform) => <option key={platform} value={platform}>{platform}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Status</span>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="all">All statuses</option>
+              {STATUS_OPTIONS.map((status) => (
+                <option key={status} value={status}>{status[0].toUpperCase() + status.slice(1)}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Campaign</span>
+            <select value={campaignFilter} onChange={(event) => setCampaignFilter(event.target.value)}>
+              <option value="all">All campaigns</option>
+              {campaigns.map((campaign) => (
+                <option key={campaign.id} value={String(campaign.id)}>{campaign.name}</option>
+              ))}
+            </select>
+          </label>
+          <span className="calendar-result-count">{activePostCount} {activePostCount === 1 ? "post" : "posts"}</span>
+        </section>
 
-
-        {/* ===================================================
-            TOOLBAR
-        =================================================== */}
-
-        <div className="calendar-toolbar">
-
-
-          {/* PREVIOUS */}
-
-          <button
-            className="calendar-navigation-button"
-            onClick={
-              previousMonth
-            }
-          >
-            ←
-          </button>
-
-
-          {/* MONTH */}
-
-          <h2>
-            {monthNames[month]}{" "}
-            {year}
-          </h2>
-
-
-          {/* NEXT */}
-
-          <button
-            className="calendar-navigation-button"
-            onClick={
-              nextMonth
-            }
-          >
-            →
-          </button>
-
-
-          {/* TODAY */}
-
-          <button
-            className="today-button"
-            onClick={
-              goToToday
-            }
-          >
-            Today
-          </button>
-
-        </div>
-
-
-        {/* ===================================================
-            CALENDAR
-        =================================================== */}
-
-        <div className="calendar-wrapper">
-
-
-          {/* DAY HEADERS */}
-
-          <div className="calendar-weekdays">
-
-            {dayNames.map(
-              (day) => (
-
+        <section className="calendar-grid-wrap" aria-label={`${view} content calendar`}>
+          <div className="calendar-weekday-row">
+            {WEEKDAYS.map((day) => <div key={day}>{day}</div>)}
+          </div>
+          <div className={`calendar-grid ${view === "week" ? "is-week-view" : ""}`}>
+            {calendarDates.map((date) => {
+              const dayPosts = getDayPosts(date);
+              const inCurrentMonth = date.getMonth() === currentDate.getMonth();
+              const today = new Date();
+              const isToday = date.toDateString() === today.toDateString();
+              return (
                 <div
-                  className="calendar-weekday"
-                  key={day}
+                  className={`calendar-day${inCurrentMonth || view === "week" ? "" : " is-outside-month"}${isToday ? " is-today" : ""}`}
+                  key={`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`}
                 >
-                  {day}
+                  <div className="calendar-day-heading">
+                    <span>{date.getDate()}</span>
+                    {isToday && <small>Today</small>}
+                  </div>
+                  <div className="calendar-day-posts">
+                    {dayPosts.map((post) => {
+                      const status = normalizeStatus(post.status);
+                      return (
+                        <button
+                          className={`calendar-post-card status-${status}`}
+                          type="button"
+                          key={post.id}
+                          onClick={() => openPost(post)}
+                          title={`Open ${post.platform || "social"} post details`}
+                        >
+                          <span className="calendar-post-card-top">
+                            <span className="calendar-post-platform">
+                              <b aria-hidden="true">{platformIcon(post.platform)}</b>
+                              {post.platform || "Social"}
+                            </span>
+                            <span className={`calendar-status status-${status}`}>{status}</span>
+                          </span>
+                          <span className="calendar-post-time">{formatTime(post.calendarDate)}</span>
+                          <span className="calendar-post-preview">{post.content || "No content"}</span>
+                          {post.campaign_id && (
+                            <span className="calendar-post-campaign">
+                              {campaignNames.get(String(post.campaign_id)) || "Campaign"}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-
-              )
-            )}
-
+              );
+            })}
           </div>
+        </section>
 
-
-          {/* CALENDAR GRID */}
-
-          <div className="calendar-grid">
-
-            {calendarCells}
-
+        <footer className="calendar-legend">
+          <span>{activePostCount} posts in this filter</span>
+          <div aria-label="Post status legend">
+            {STATUS_OPTIONS.map((status) => (
+              <span className={`calendar-legend-item status-${status}`} key={status}>
+                <i aria-hidden="true" />
+                {status[0].toUpperCase() + status.slice(1)}
+              </span>
+            ))}
           </div>
-
-        </div>
-
-
-        {/* ===================================================
-            FOOTER
-        =================================================== */}
-
-        <div className="calendar-footer">
-
-
-          <div className="calendar-info">
-
-            <span className="info-dot">
-            </span>
-
-            <span>
-              Scheduled Posts:{" "}
-              <strong>
-                {posts.length}
-              </strong>
-            </span>
-
-          </div>
-
-
-          <button
-            className="create-calendar-post"
-            onClick={() =>
-              navigate("/create-post")
-            }
-          >
-            + Schedule New Post
-          </button>
-
-        </div>
-
-
-        {/* ===================================================
-            INDIAN TIME INFORMATION
-        =================================================== */}
-
-        <div className="calendar-timezone-info">
-
-          🇮🇳{" "}
-          All scheduled times are shown in Indian Standard Time.
-
-        </div>
-
-
+        </footer>
       </div>
 
-    </div>
-
+      {selectedPost && (
+        <div className="calendar-modal-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setSelectedPost(null);
+        }}>
+          <section
+            className="calendar-post-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="calendar-post-modal-title"
+          >
+            <div className="calendar-modal-header">
+              <div>
+                <span className={`calendar-status status-${normalizeStatus(selectedPost.status)}`}>
+                  {normalizeStatus(selectedPost.status)}
+                </span>
+                <h2 id="calendar-post-modal-title">Post details</h2>
+              </div>
+              <button type="button" className="calendar-modal-close" onClick={() => setSelectedPost(null)} aria-label="Close post details">
+                ×
+              </button>
+            </div>
+            <dl className="calendar-post-details">
+              <div><dt>Date</dt><dd>{getPostDate(selectedPost) ? formatDate(getPostDate(selectedPost)) : "Not set"}</dd></div>
+              <div><dt>Time</dt><dd>{formatTime(getPostDate(selectedPost))}</dd></div>
+              <div><dt>Platform</dt><dd>{selectedPost.platform || "Social"}</dd></div>
+              <div><dt>Campaign</dt><dd>{selectedPost.campaign_id ? campaignNames.get(String(selectedPost.campaign_id)) || "Campaign" : "None"}</dd></div>
+              <div className="calendar-detail-content"><dt>Caption / content</dt><dd>{selectedPost.content || "No content"}</dd></div>
+            </dl>
+            {actionError && <p className="calendar-action-error" role="alert">{actionError}</p>}
+            {normalizeStatus(selectedPost.status) !== "published" && (
+              <form className="calendar-reschedule-form" onSubmit={handleReschedule}>
+                <label htmlFor="calendar-reschedule">Reschedule</label>
+                <div>
+                  <input
+                    id="calendar-reschedule"
+                    type="datetime-local"
+                    value={rescheduleValue}
+                    onChange={(event) => setRescheduleValue(event.target.value)}
+                    required
+                  />
+                  <button type="submit" disabled={savingReschedule}>
+                    {savingReschedule ? "Saving…" : "Save time"}
+                  </button>
+                </div>
+              </form>
+            )}
+            <div className="calendar-modal-actions">
+              <button type="button" onClick={editPost}>Edit</button>
+              <button type="button" onClick={duplicatePost}>Duplicate</button>
+              <button type="button" className="calendar-delete-button" onClick={handleDelete}>Delete</button>
+            </div>
+          </section>
+        </div>
+      )}
+    </main>
   );
 }
 

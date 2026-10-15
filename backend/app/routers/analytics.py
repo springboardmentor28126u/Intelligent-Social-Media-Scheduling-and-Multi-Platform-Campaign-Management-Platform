@@ -1,18 +1,26 @@
 from datetime import date, datetime, timedelta
+import csv
+import logging
+import os
+from io import BytesIO, StringIO
+from zipfile import ZIP_DEFLATED, ZipFile
+from xml.sax.saxutils import escape
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
+import requests
+from sqlalchemy import and_, case, func
 from sqlalchemy.orm import Session
+from starlette.responses import Response
 
 from app.core.security import get_current_user
 from app.database.postgres import SessionLocal
 from app.models.campaign import Campaign
 from app.models.post import Post
 from app.models.social_account import SocialAccount
-from app.services.campaign_service import build_campaign_analytics
 
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
+logger = logging.getLogger(__name__)
 
 
 def get_db():
@@ -54,9 +62,12 @@ def _get_analytics_data(
             Post.published_at < datetime.combine(end_date + timedelta(days=1), datetime.min.time())
         )
     if platform:
+        normalized_platform = _normalize_platform(platform)
         post_query = post_query.join(SocialAccount).filter(
             SocialAccount.user_id == user_id,
-            func.lower(SocialAccount.platform) == platform.lower(),
+            func.lower(SocialAccount.platform).in_(
+                _platform_filter_values(normalized_platform or platform)
+            ),
         )
 
     posts = post_query.order_by(Post.published_at.asc().nullslast()).all()
@@ -64,17 +75,85 @@ def _get_analytics_data(
 
 
 def _metrics(campaigns: list[Campaign], posts: list[Post]) -> dict:
-    metrics = build_campaign_analytics(campaigns, posts)
     return {
-        "reach": metrics["reach"],
-        "impressions": metrics["impressions"],
-        "engagement": metrics["total_engagement"],
-        "engagement_rate": metrics["engagement_rate"],
-        "clicks": metrics["clicks"],
-        "likes": metrics["likes"],
-        "comments": metrics["comments"],
-        "shares": metrics["shares"],
-        "views": metrics["views"],
+        "reach": None,
+        "impressions": None,
+        "engagement": None,
+        "engagement_rate": None,
+        "clicks": None,
+        "likes": None,
+        "comments": None,
+        "shares": None,
+        "views": None,
+    }
+
+
+def _instagram_engagement(posts: list[Post]) -> dict:
+    totals = {"likes": None, "comments": None}
+    timeline: dict[str, dict] = {}
+    failed_posts = 0
+    api_version = os.getenv("INSTAGRAM_API_VERSION", "v26.0")
+
+    for post in posts:
+        account = post.social_account
+        if (
+            not account
+            or account.user_id != post.user_id
+            or (account.platform or "").strip().lower() != "instagram"
+        ):
+            continue
+        if not account.access_token or not post.platform_post_id:
+            failed_posts += 1
+            continue
+
+        media_url = (
+            f"https://graph.instagram.com/{api_version}/"
+            f"{post.platform_post_id}"
+        )
+        try:
+            response = requests.get(
+                media_url,
+                params={
+                    "fields": "like_count,comments_count",
+                    "access_token": account.access_token,
+                },
+                timeout=10,
+            )
+            response.raise_for_status()
+            media_metrics = response.json()
+        except (requests.RequestException, ValueError) as exc:
+            logger.warning(
+                "Could not fetch Instagram metrics for post %s (%s)",
+                post.id,
+                type(exc).__name__,
+            )
+            failed_posts += 1
+            continue
+
+        if not isinstance(media_metrics, dict):
+            failed_posts += 1
+            continue
+
+        post_date = (post.published_at or post.created_at).date().isoformat()
+        date_metrics = timeline.setdefault(post_date, {
+            "date": post_date,
+            "likes": None,
+            "comments": None,
+        })
+        for response_key, metric_key in (
+            ("like_count", "likes"),
+            ("comments_count", "comments"),
+        ):
+            value = media_metrics.get(response_key)
+            if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                totals[metric_key] = (totals[metric_key] or 0) + value
+                date_metrics[metric_key] = (date_metrics[metric_key] or 0) + value
+
+    return {
+        **totals,
+        "timeline": [timeline[key] for key in sorted(timeline)],
+        "failed_posts": failed_posts,
+        "available": totals["likes"] is not None or totals["comments"] is not None,
     }
 
 
@@ -95,6 +174,8 @@ def _performance_rows(campaigns: list[Campaign], posts: list[Post]) -> list[dict
             "posts": len(campaign_posts),
             **metrics,
             "status": campaign.status,
+            "available": False,
+            "message": "Platform engagement metrics are not available from connected accounts.",
         })
     return rows
 
@@ -113,6 +194,603 @@ def _filters(
     }
 
 
+def _normalize_platform(platform: str | None) -> str | None:
+    if not platform:
+        return None
+    normalized = platform.strip().lower()
+    if normalized in {"x", "x (twitter)", "twitter"}:
+        return "X"
+    known_platforms = {
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "linkedin": "LinkedIn",
+        "youtube": "YouTube",
+    }
+    return known_platforms.get(normalized, platform.strip())
+
+
+def _platform_filter_values(platform: str) -> list[str]:
+    if platform == "X":
+        return ["x", "x (twitter)", "twitter"]
+    return [platform.lower()]
+
+
+def _csv_safe_value(value) -> str:
+    text = "" if value is None else str(value)
+    if text.lstrip().startswith(("=", "+", "-", "@", "\t", "\r")):
+        return f"'{text}"
+    return text
+
+
+def _xlsx_column_name(index: int) -> str:
+    name = ""
+    while index:
+        index, remainder = divmod(index - 1, 26)
+        name = chr(65 + remainder) + name
+    return name
+
+
+def _build_xlsx(fieldnames: list[str], rows: list[dict]) -> bytes:
+    sheet_rows = [fieldnames, *[
+        [row.get(fieldname, "") for fieldname in fieldnames]
+        for row in rows
+    ]]
+    xml_rows = []
+    for row_number, values in enumerate(sheet_rows, start=1):
+        cells = []
+        for column_number, value in enumerate(values, start=1):
+            cell_reference = f"{_xlsx_column_name(column_number)}{row_number}"
+            if isinstance(value, int) and not isinstance(value, bool):
+                cell_xml = f'<c r="{cell_reference}"><v>{value}</v></c>'
+            else:
+                safe_value = escape("" if value is None else str(value))
+                cell_xml = (
+                    f'<c r="{cell_reference}" t="inlineStr"><is><t '
+                    'xml:space="preserve">'
+                    f"{safe_value}</t></is></c>"
+                )
+            cells.append(cell_xml)
+        xml_rows.append(f'<row r="{row_number}">{"".join(cells)}</row>')
+
+    worksheet = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        f'<sheetData>{"".join(xml_rows)}</sheetData></worksheet>'
+    )
+    workbook = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        '<sheets><sheet name="Analytics" sheetId="1" r:id="rId1"/></sheets></workbook>'
+    )
+    workbook_relationships = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rId1" '
+        'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
+        'Target="worksheets/sheet1.xml"/></Relationships>'
+    )
+    package_relationships = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rId1" '
+        'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" '
+        'Target="xl/workbook.xml"/></Relationships>'
+    )
+    content_types = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        '<Default Extension="rels" '
+        'ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        '<Default Extension="xml" ContentType="application/xml"/>'
+        '<Override PartName="/xl/workbook.xml" '
+        'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        '<Override PartName="/xl/worksheets/sheet1.xml" '
+        'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+        '</Types>'
+    )
+    workbook_buffer = BytesIO()
+    with ZipFile(workbook_buffer, "w", ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", content_types)
+        archive.writestr("_rels/.rels", package_relationships)
+        archive.writestr("xl/workbook.xml", workbook)
+        archive.writestr("xl/_rels/workbook.xml.rels", workbook_relationships)
+        archive.writestr("xl/worksheets/sheet1.xml", worksheet)
+    return workbook_buffer.getvalue()
+
+
+@router.get("/export")
+def export_analytics_report(
+    start_date: date,
+    end_date: date,
+    platform: str | None = None,
+    campaign_id: int | None = None,
+    report_type: str = Query(
+        default="post_details",
+        pattern="^(post_details|platform_summary|campaign_summary)$",
+    ),
+    file_format: str = Query(default="csv", pattern="^(csv|xlsx)$"),
+    current_user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if start_date > end_date:
+        raise HTTPException(
+            status_code=422,
+            detail="start_date must be on or before end_date.",
+        )
+
+    selected_platform = _normalize_platform(platform)
+    allowed_platforms = {"Facebook", "Instagram", "LinkedIn", "YouTube", "X"}
+    if selected_platform and selected_platform not in allowed_platforms:
+        raise HTTPException(status_code=422, detail="Unsupported platform filter.")
+
+    if campaign_id is not None:
+        campaign_exists = (
+            db.query(Campaign.id)
+            .filter(
+                Campaign.id == campaign_id,
+                Campaign.user_id == current_user_id,
+            )
+            .first()
+        )
+        if not campaign_exists:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+
+    status = func.lower(Post.status)
+    event_timestamp = case(
+        (
+            status == "published",
+            func.coalesce(Post.published_at, Post.created_at),
+        ),
+        (
+            status == "scheduled",
+            func.coalesce(Post.scheduled_at, Post.created_at),
+        ),
+        else_=Post.created_at,
+    )
+    event_date = func.date(event_timestamp)
+    query = (
+        db.query(
+            event_date.label("event_date"),
+            SocialAccount.platform.label("platform"),
+            status.label("status"),
+            Campaign.id.label("campaign_id"),
+            Campaign.name.label("campaign_name"),
+        )
+        .select_from(Post)
+        .outerjoin(
+            SocialAccount,
+            and_(
+                Post.social_account_id == SocialAccount.id,
+                SocialAccount.user_id == current_user_id,
+            ),
+        )
+        .outerjoin(
+            Campaign,
+            and_(
+                Post.campaign_id == Campaign.id,
+                Campaign.user_id == current_user_id,
+            ),
+        )
+        .filter(
+            Post.user_id == current_user_id,
+            event_date >= start_date,
+            event_date <= end_date,
+        )
+    )
+    if campaign_id is not None:
+        query = query.filter(Post.campaign_id == campaign_id)
+    if selected_platform:
+        query = query.filter(
+            func.lower(SocialAccount.platform).in_(
+                _platform_filter_values(selected_platform)
+            )
+        )
+
+    records = query.order_by(event_date.asc(), Post.id.asc()).all()
+    rows = []
+    if report_type == "post_details":
+        for record in records:
+            record_date = (
+                record.event_date.isoformat()
+                if isinstance(record.event_date, date)
+                else str(record.event_date)[:10]
+            )
+            record_status = (record.status or "").lower()
+            rows.append({
+                "Date": record_date,
+                "Platform": _normalize_platform(record.platform) or "Unknown",
+                "Posts": 1,
+                "Published Posts": int(record_status == "published"),
+                "Scheduled Posts": int(record_status == "scheduled"),
+                "Failed Posts": int(record_status == "failed"),
+                "Status": record_status,
+                "Campaign": record.campaign_name or "",
+                "Campaigns": "",
+            })
+    elif report_type == "platform_summary":
+        summaries = {}
+        for record in records:
+            platform_name = _normalize_platform(record.platform) or "Unknown"
+            summary = summaries.setdefault(
+                platform_name,
+                {
+                    "Posts": 0,
+                    "Published Posts": 0,
+                    "Scheduled Posts": 0,
+                    "Failed Posts": 0,
+                    "Campaigns": set(),
+                },
+            )
+            record_status = (record.status or "").lower()
+            summary["Posts"] += 1
+            if record_status in {"published", "scheduled", "failed"}:
+                summary[f"{record_status.title()} Posts"] += 1
+            if record.campaign_name:
+                summary["Campaigns"].add(record.campaign_name)
+        rows = [
+            {
+                "Date": f"{start_date.isoformat()} to {end_date.isoformat()}",
+                "Platform": platform_name,
+                "Posts": summary["Posts"],
+                "Published Posts": summary["Published Posts"],
+                "Scheduled Posts": summary["Scheduled Posts"],
+                "Failed Posts": summary["Failed Posts"],
+                "Status": "",
+                "Campaign": "",
+                "Campaigns": ", ".join(sorted(summary["Campaigns"])),
+            }
+            for platform_name, summary in sorted(summaries.items())
+        ]
+    else:
+        summaries = {}
+        for record in records:
+            if record.campaign_id is None:
+                continue
+            summary = summaries.setdefault(
+                record.campaign_id,
+                {
+                    "Campaign": record.campaign_name or "",
+                    "Posts": 0,
+                    "Published Posts": 0,
+                    "Scheduled Posts": 0,
+                    "Failed Posts": 0,
+                    "Platforms": set(),
+                },
+            )
+            record_status = (record.status or "").lower()
+            summary["Posts"] += 1
+            if record_status in {"published", "scheduled", "failed"}:
+                summary[f"{record_status.title()} Posts"] += 1
+            if record.platform:
+                summary["Platforms"].add(
+                    _normalize_platform(record.platform) or record.platform
+                )
+        rows = [
+            {
+                "Date": f"{start_date.isoformat()} to {end_date.isoformat()}",
+                "Platform": ", ".join(sorted(summary["Platforms"])),
+                "Posts": summary["Posts"],
+                "Published Posts": summary["Published Posts"],
+                "Scheduled Posts": summary["Scheduled Posts"],
+                "Failed Posts": summary["Failed Posts"],
+                "Status": "",
+                "Campaign": summary["Campaign"],
+                "Campaigns": "",
+            }
+            for _, summary in sorted(summaries.items())
+        ]
+
+    unavailable_metrics = [
+        "Engagement",
+        "Likes",
+        "Comments",
+        "Shares",
+        "Clicks",
+        "Reach",
+        "Impressions",
+        "Views",
+    ]
+    fieldnames = [
+        "Date",
+        "Platform",
+        "Posts",
+        "Published Posts",
+        "Scheduled Posts",
+        "Failed Posts",
+        "Status",
+        "Campaign",
+        "Campaigns",
+        *unavailable_metrics,
+    ]
+    csv_buffer = StringIO(newline="")
+    writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames, lineterminator="\r\n")
+    writer.writeheader()
+    for row in rows:
+        row.update({metric: "Data unavailable" for metric in unavailable_metrics})
+    base_filename = (
+        f"socialpilot-analytics-{report_type}-{start_date.isoformat()}-"
+        f"{end_date.isoformat()}"
+    )
+    if file_format == "xlsx":
+        content = _build_xlsx(fieldnames, rows)
+        media_type = (
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        filename = f"{base_filename}.xlsx"
+    else:
+        for row in rows:
+            writer.writerow({key: _csv_safe_value(row.get(key)) for key in fieldnames})
+        content = csv_buffer.getvalue()
+        media_type = "text/csv; charset=utf-8"
+        filename = f"{base_filename}.csv"
+
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/advanced")
+def get_advanced_analytics(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    platform: str | None = None,
+    campaign_id: int | None = None,
+    current_user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    range_end = end_date or date.today()
+    range_start = start_date or range_end - timedelta(days=29)
+    if range_start > range_end:
+        raise HTTPException(
+            status_code=422,
+            detail="start_date must be on or before end_date.",
+        )
+
+    selected_platform = _normalize_platform(platform)
+    allowed_platforms = {"Facebook", "Instagram", "LinkedIn", "YouTube", "X"}
+    if selected_platform and selected_platform not in allowed_platforms:
+        raise HTTPException(status_code=422, detail="Unsupported platform filter.")
+
+    status = func.lower(Post.status)
+    event_timestamp = case(
+        (
+            status == "published",
+            func.coalesce(Post.published_at, Post.created_at),
+        ),
+        (
+            status == "scheduled",
+            func.coalesce(Post.scheduled_at, Post.created_at),
+        ),
+        else_=Post.created_at,
+    )
+    event_date = func.date(event_timestamp)
+    query = (
+        db.query(
+            event_date.label("event_date"),
+            status.label("status"),
+            SocialAccount.platform.label("platform"),
+            Campaign.id.label("campaign_id"),
+            Campaign.name.label("campaign_name"),
+            func.count(Post.id).label("post_count"),
+        )
+        .outerjoin(
+            SocialAccount,
+            and_(
+                Post.social_account_id == SocialAccount.id,
+                SocialAccount.user_id == current_user_id,
+            ),
+        )
+        .outerjoin(
+            Campaign,
+            and_(
+                Post.campaign_id == Campaign.id,
+                Campaign.user_id == current_user_id,
+            ),
+        )
+        .filter(
+            Post.user_id == current_user_id,
+            event_date >= range_start,
+            event_date <= range_end,
+        )
+    )
+    if campaign_id is not None:
+        campaign_exists = (
+            db.query(Campaign.id)
+            .filter(
+                Campaign.id == campaign_id,
+                Campaign.user_id == current_user_id,
+            )
+            .first()
+        )
+        if not campaign_exists:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        query = query.filter(Post.campaign_id == campaign_id)
+
+    if selected_platform:
+        query = query.filter(
+            func.lower(SocialAccount.platform).in_(
+                _platform_filter_values(selected_platform)
+            )
+        )
+
+    grouped_rows = query.group_by(
+        event_date,
+        status,
+        SocialAccount.platform,
+        Campaign.id,
+        Campaign.name,
+    ).all()
+
+    status_counts = {"draft": 0, "scheduled": 0, "published": 0, "failed": 0}
+    posts_by_date: dict[str, dict[str, int]] = {}
+    platforms: dict[str, dict[str, int]] = {}
+    campaigns: dict[int, dict] = {}
+    total_posts = 0
+
+    for row in grouped_rows:
+        count = int(row.post_count)
+        row_status = (row.status or "").lower()
+        row_date = (
+            row.event_date.isoformat()
+            if isinstance(row.event_date, date)
+            else str(row.event_date)[:10]
+        )
+        total_posts += count
+        if row_status in status_counts:
+            status_counts[row_status] += count
+
+        date_bucket = posts_by_date.setdefault(
+            row_date,
+            {
+                "total_posts": 0,
+                "published_posts": 0,
+                "scheduled_posts": 0,
+                "failed_posts": 0,
+            },
+        )
+        date_bucket["total_posts"] += count
+        if row_status in {"published", "scheduled", "failed"}:
+            date_bucket[f"{row_status}_posts"] += count
+
+        platform_name = _normalize_platform(row.platform) if row.platform else None
+        if platform_name:
+            platform_row = platforms.setdefault(
+                platform_name,
+                {
+                    "platform": platform_name,
+                    "total_posts": 0,
+                    "published_posts": 0,
+                    "failed_posts": 0,
+                },
+            )
+            platform_row["total_posts"] += count
+            if row_status in {"published", "failed"}:
+                platform_row[f"{row_status}_posts"] += count
+
+        if row.campaign_id is not None:
+            campaign_row = campaigns.setdefault(
+                row.campaign_id,
+                {
+                    "campaign_id": row.campaign_id,
+                    "campaign_name": row.campaign_name,
+                    "total_posts": 0,
+                    "published_posts": 0,
+                    "scheduled_posts": 0,
+                    "failed_posts": 0,
+                },
+            )
+            campaign_row["total_posts"] += count
+            if row_status in {"published", "scheduled", "failed"}:
+                campaign_row[f"{row_status}_posts"] += count
+
+    time_bucket = "day"
+    if (range_end - range_start).days <= 366:
+        posts_over_time = []
+        current_date = range_start
+        while current_date <= range_end:
+            key = current_date.isoformat()
+            posts_over_time.append({
+                "date": key,
+                **posts_by_date.get(
+                    key,
+                    {
+                        "total_posts": 0,
+                        "published_posts": 0,
+                        "scheduled_posts": 0,
+                        "failed_posts": 0,
+                    },
+                ),
+            })
+            current_date += timedelta(days=1)
+    else:
+        time_bucket = "month"
+        monthly_posts: dict[str, dict[str, int]] = {}
+        for event_day, counts in posts_by_date.items():
+            event_month = date.fromisoformat(event_day).replace(day=1).isoformat()
+            month_counts = monthly_posts.setdefault(
+                event_month,
+                {
+                    "total_posts": 0,
+                    "published_posts": 0,
+                    "scheduled_posts": 0,
+                    "failed_posts": 0,
+                },
+            )
+            for key, value in counts.items():
+                month_counts[key] += value
+
+        posts_over_time = []
+        current_month = range_start.replace(day=1)
+        final_month = range_end.replace(day=1)
+        while current_month <= final_month:
+            key = current_month.isoformat()
+            posts_over_time.append({
+                "date": key,
+                **monthly_posts.get(
+                    key,
+                    {
+                        "total_posts": 0,
+                        "published_posts": 0,
+                        "scheduled_posts": 0,
+                        "failed_posts": 0,
+                    },
+                ),
+            })
+            if current_month.month == 12:
+                current_month = current_month.replace(
+                    year=current_month.year + 1,
+                    month=1,
+                )
+            else:
+                current_month = current_month.replace(month=current_month.month + 1)
+
+    return {
+        "summary": {
+            "total_posts": total_posts,
+            "published_posts": status_counts["published"],
+            "scheduled_posts": status_counts["scheduled"],
+            "failed_posts": status_counts["failed"],
+            "total_engagement": None,
+            "engagement_available": False,
+        },
+        "posts_over_time": posts_over_time,
+        "time_bucket": time_bucket,
+        "engagement_over_time": {
+            "available": False,
+            "message": "Engagement history is not provided by connected accounts.",
+            "data": [],
+        },
+        "platform_performance": sorted(
+            platforms.values(),
+            key=lambda item: item["total_posts"],
+            reverse=True,
+        ),
+        "campaign_performance": sorted(
+            campaigns.values(),
+            key=lambda item: item["total_posts"],
+            reverse=True,
+        ),
+        "metric_availability": {
+            "reach": False,
+            "impressions": False,
+            "likes": False,
+            "comments": False,
+            "shares": False,
+            "clicks": False,
+            "views": False,
+        },
+        "filters": {
+            "start_date": range_start,
+            "end_date": range_end,
+            "platform": selected_platform,
+            "campaign_id": campaign_id,
+        },
+    }
+
+
 @router.get("/overview")
 def get_overview(
     start_date: date | None = None,
@@ -128,7 +806,7 @@ def get_overview(
     return {
         **_metrics(campaigns, posts),
         "audience_growth": None,
-        "metric_source": "estimated from published post and platform data",
+        "metric_source": "unavailable from connected platforms",
         "audience_data_available": False,
         "filters": _filters(start_date, end_date, campaign_id, platform),
     }
@@ -148,24 +826,55 @@ def get_engagement(
         db, current_user_id, start_date, end_date, campaign_id, platform
     )
     metrics = _metrics(campaigns, posts)
+    instagram_metrics = _instagram_engagement(posts)
+    metrics["likes"] = instagram_metrics["likes"]
+    metrics["comments"] = instagram_metrics["comments"]
+    if metrics["likes"] is not None or metrics["comments"] is not None:
+        metrics["engagement"] = (
+            (metrics["likes"] or 0) + (metrics["comments"] or 0)
+        )
     metric_names = ("likes", "comments", "shares", "clicks", "views", "reach", "impressions")
-    timeline = {}
-    for post in posts:
-        post_metrics = _metrics([post.campaign] if post.campaign else [], [post])
-        timestamp = post.published_at or post.created_at
-        label = timestamp.date().isoformat() if timestamp else "Undated"
-        point = timeline.setdefault(label, {name: 0 for name in metric_names})
-        for name in metric_names:
-            point[name] += post_metrics[name]
+    selected_metric = metric if metric in metric_names else "reach"
+    selected_metric_available = (
+        instagram_metrics["likes"] is not None
+        if selected_metric == "likes"
+        else instagram_metrics["comments"] is not None
+        if selected_metric == "comments"
+        else False
+    )
+    if selected_metric_available:
+        message = (
+            "Current Instagram engagement counts grouped by post publication date. "
+            "Other platforms and historical snapshots are not included."
+        )
+        if instagram_metrics["failed_posts"]:
+            message += (
+                f" Metrics could not be fetched for "
+                f"{instagram_metrics['failed_posts']} Instagram post(s)."
+            )
+    elif selected_metric in {"likes", "comments"} and instagram_metrics["failed_posts"]:
+        message = (
+            "Instagram engagement could not be fetched for "
+            f"{instagram_metrics['failed_posts']} post(s). Check the connected "
+            "account and its permissions, then try again."
+        )
+    else:
+        message = (
+            "Only current Instagram likes and comments are available; "
+            "historical engagement data and other metrics are not provided."
+        )
 
     return {
         "metrics": metrics,
-        "timeline": [
-            {"date": label, **values}
-            for label, values in sorted(timeline.items())
-        ],
-        "selected_metric": metric if metric in metric_names else "reach",
-        "metric_source": "estimated from published post and platform data",
+        "timeline": instagram_metrics["timeline"] if selected_metric_available else [],
+        "selected_metric": selected_metric,
+        "available": selected_metric_available,
+        "message": message,
+        "metric_source": (
+            "Instagram Graph API (current post totals)"
+            if instagram_metrics["available"]
+            else "unavailable from connected platforms"
+        ),
         "filters": _filters(start_date, end_date, campaign_id, platform),
     }
 
@@ -257,9 +966,12 @@ def get_campaign_comparison(
             Post.published_at < datetime.combine(end_date + timedelta(days=1), datetime.min.time())
         )
     if platform:
+        normalized_platform = _normalize_platform(platform)
         posts_query = posts_query.join(SocialAccount).filter(
             SocialAccount.user_id == current_user_id,
-            func.lower(SocialAccount.platform) == platform.lower(),
+            func.lower(SocialAccount.platform).in_(
+                _platform_filter_values(normalized_platform or platform)
+            ),
         )
     posts = posts_query.all()
     rows = _performance_rows(campaigns, posts)

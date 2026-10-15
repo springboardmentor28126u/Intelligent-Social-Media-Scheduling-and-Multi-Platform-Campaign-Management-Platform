@@ -258,6 +258,8 @@ def test_dashboard_and_analytics_routes_require_jwt_user():
         "/analytics/audience",
         "/analytics/campaigns",
         "/analytics/campaigns/{campaign_id}",
+        "/analytics/advanced",
+        "/analytics/export",
         "/analytics/comparison",
         "/analytics/roi",
     }

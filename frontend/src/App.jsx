@@ -67,7 +67,8 @@ function ProtectedRoute({ children }) {
 
   const active = pathname === "/publishing-queue" ? "publishing-queue"
     : pathname.startsWith("/campaigns") ? "campaigns"
-    : ["/create-post", "/calendar", "/drafts", "/publishing-logs", "/publishing-queue"].includes(pathname) ? "posts"
+    : pathname === "/calendar" ? "calendar"
+      : ["/create-post", "/drafts", "/publishing-logs", "/publishing-queue"].includes(pathname) ? "posts"
       : pathname === "/social-accounts" ? "accounts"
         : pathname === "/analytics" ? "analytics"
           : pathname === "/reports" ? "reports"

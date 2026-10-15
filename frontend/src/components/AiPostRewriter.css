@@ -1,0 +1,210 @@
+.ai-post-rewriter {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+
+.ai-rewrite-trigger,
+.ai-rewrite-primary,
+.ai-rewrite-secondary,
+.ai-rewrite-close {
+  min-height: 38px;
+  border: 1px solid var(--border, #2d3b4f);
+  border-radius: 9px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.ai-rewrite-trigger,
+.ai-rewrite-primary {
+  border-color: transparent;
+  background: var(--accent, #7ba0f3);
+  color: #fff;
+}
+
+.ai-rewrite-trigger {
+  min-height: 32px;
+  padding: 6px 10px;
+}
+
+.ai-rewrite-secondary,
+.ai-rewrite-close {
+  background: var(--surface-muted, #202c3c);
+  color: var(--text-h, #edf3fb);
+}
+
+.ai-rewrite-close {
+  width: 34px;
+  padding: 0;
+  font-size: 21px;
+}
+
+.ai-rewrite-trigger:hover:not(:disabled),
+.ai-rewrite-primary:hover:not(:disabled),
+.ai-rewrite-secondary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.ai-rewrite-trigger:disabled,
+.ai-rewrite-primary:disabled,
+.ai-rewrite-secondary:disabled,
+.ai-rewrite-close:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.ai-rewrite-panel {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  padding: 16px;
+  border: 1px solid var(--border, #2d3b4f);
+  border-radius: 13px;
+  background: var(--surface, #182231);
+  color: var(--text-h, #edf3fb);
+}
+
+.ai-rewrite-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.ai-rewrite-eyebrow {
+  color: var(--accent-purple, #ad9be8);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.ai-rewrite-heading h3 {
+  margin: 4px 0 0;
+  color: var(--text-h, #edf3fb);
+  font-size: 16px;
+}
+
+.ai-rewrite-style {
+  display: grid;
+  max-width: 360px;
+  gap: 6px;
+  color: var(--text-h, #edf3fb);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ai-rewrite-style select {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--border, #2d3b4f);
+  border-radius: 8px;
+  background: var(--surface-muted, #202c3c);
+  color: var(--text-h, #edf3fb);
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.ai-rewrite-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ai-rewrite-copy {
+  min-width: 0;
+  min-height: 150px;
+  border: 1px solid var(--border, #2d3b4f);
+  border-radius: 10px;
+  background: var(--surface-muted, #202c3c);
+  padding: 12px;
+}
+
+.ai-rewrite-copy h4 {
+  margin: 0 0 8px;
+  color: var(--text-h, #edf3fb);
+  font-size: 12px;
+}
+
+.ai-rewrite-copy p {
+  max-height: 230px;
+  overflow: auto;
+  margin: 0;
+  color: var(--text, #aab6c7);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ai-rewrite-copy .ai-rewrite-placeholder {
+  color: var(--text, #aab6c7);
+  opacity: 0.8;
+}
+
+.ai-rewrite-copy textarea {
+  width: 100%;
+  min-height: 130px;
+  max-height: 260px;
+  resize: vertical;
+  border: 1px solid var(--border, #2d3b4f);
+  border-radius: 8px;
+  background: var(--surface, #182231);
+  color: var(--text-h, #edf3fb);
+  padding: 9px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.ai-rewrite-copy textarea:focus,
+.ai-rewrite-style select:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent, #7ba0f3) 35%, transparent);
+  border-color: var(--accent, #7ba0f3);
+}
+
+.ai-rewrite-message {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ai-rewrite-message.is-error {
+  color: var(--danger, #f18b96);
+}
+
+.ai-rewrite-message.is-success {
+  color: var(--success, #65d3a6);
+}
+
+.ai-rewrite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 620px) {
+  .ai-rewrite-comparison {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-rewrite-copy {
+    min-height: 110px;
+  }
+
+  .ai-rewrite-actions {
+    justify-content: stretch;
+  }
+
+  .ai-rewrite-actions button {
+    flex: 1 1 130px;
+  }
+}
