@@ -192,6 +192,16 @@ export default function App() {
 
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
+  
+   /* =======================================================
+     REGISTRATION STATES
+  ======================================================= */
+
+  const [authMode, setAuthMode] = useState("login");
+  const [registerName, setRegisterName] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
+  const [registerPassword, setRegisterPassword] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
 
   /* =======================================================
      NAVIGATION
@@ -360,7 +370,7 @@ export default function App() {
      LOGIN
   ======================================================= */
 
-  const handleLogin = async (event) => {
+   const handleLogin = async (event) => {
     event.preventDefault();
 
     setLoginError("");
@@ -397,6 +407,49 @@ export default function App() {
       );
     } finally {
       setLoginLoading(false);
+    }
+  };
+
+    /* =======================================================
+     REGISTER
+  ======================================================= */
+
+  const handleRegister = async (event) => {
+    event.preventDefault();
+
+    setAuthMessage("");
+    setLoginError("");
+    setGlobalMessage("");
+    setErrorMessage("");
+
+    if (registerPassword.length < 8) {
+      setAuthMessage("Password must be at least 8 characters.");
+      return;
+    }
+
+    try {
+      const response = await apiRequest("/users/register", {
+        method: "POST",
+        body: JSON.stringify({
+          name: registerName.trim(),
+          email: registerEmail.trim().toLowerCase(),
+          password: registerPassword,
+        }),
+      });
+
+      setAuthMessage(
+        response?.message || "Registration successful! Please log in."
+      );
+
+      setAuthMode("login");
+      setLoginEmail(registerEmail.trim().toLowerCase());
+      setLoginPassword("");
+
+      setRegisterName("");
+      setRegisterEmail("");
+      setRegisterPassword("");
+    } catch (error) {
+      setAuthMessage(error.message || "Registration failed.");
     }
   };
 
@@ -444,28 +497,26 @@ export default function App() {
     ]);
 
     setCampaigns(data);
-
-    if (data.length > 0) {
-      setSelectedCampaign((current) => {
-        if (
-          current &&
-          data.some(
-            (campaign) =>
-              String(campaign.campaign_id) ===
-              String(current)
-          )
-        ) {
-          return current;
-        }
-
-        return String(data[0].campaign_id);
-      });
-    } else {
-      setSelectedCampaign("");
+if (data.length > 0) {
+  setSelectedCampaign((current) => {
+    if (
+      current &&
+      data.some(
+        (campaign) =>
+          String(campaign.campaign_id) === String(current)
+      )
+    ) {
+      return current;
     }
 
-    return data;
-  };
+    return String(data[0].campaign_id);
+  });
+} else {
+  setSelectedCampaign("");
+}
+
+return data;
+};
 
   /* =======================================================
      LOAD SOCIAL ACCOUNTS
@@ -1676,73 +1727,117 @@ export default function App() {
   }, [audienceRows]);
 
   /* =======================================================
-     LOGIN SCREEN
+     LOGIN AND REGISTRATION SCREEN
   ======================================================= */
 
   if (!token) {
     return (
       <div className="login-container">
         <div className="login-card">
-          <div className="login-glow"></div>
-
+          <div className="login-glow" aria-hidden="true"></div>
           <div className="brand-icon">SM</div>
-
           <h1>Social Media Platform</h1>
-
           <p className="login-subtitle">
-            Intelligent Social Media Scheduling
-            and Multi-Platform Campaign Management
+            Intelligent Social Media Scheduling and Multi-Platform Campaign Management
           </p>
 
-          <form onSubmit={handleLogin}>
-            <div className="form-group">
-              <label className="login-label">
-                Email
-              </label>
-
-              <input
-                type="email"
-                value={loginEmail}
-                onChange={(event) =>
-                  setLoginEmail(event.target.value)
-                }
-                placeholder="Enter email"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="login-label">
-                Password
-              </label>
-
-              <input
-                type="password"
-                value={loginPassword}
-                onChange={(event) =>
-                  setLoginPassword(event.target.value)
-                }
-                placeholder="Enter password"
-                required
-              />
-            </div>
-
-            {loginError && (
-              <div className="login-error">
-                {loginError}
-              </div>
-            )}
-
+          <div className="auth-tabs">
             <button
-              type="submit"
-              className="primary-button"
-              disabled={loginLoading}
+              type="button"
+              className={authMode === "login" ? "auth-tab active" : "auth-tab"}
+              onClick={() => { setAuthMode("login"); setAuthMessage(""); setLoginError(""); }}
             >
-              {loginLoading
-                ? "Logging in..."
-                : "Login"}
+              Login
             </button>
-          </form>
+            <button
+              type="button"
+              className={authMode === "register" ? "auth-tab active" : "auth-tab"}
+              onClick={() => { setAuthMode("register"); setAuthMessage(""); setLoginError(""); }}
+            >
+              Register
+            </button>
+          </div>
+
+          {authMode === "login" ? (
+            <form onSubmit={handleLogin}>
+              <div className="form-group">
+                <label className="login-label" htmlFor="login-email">Email</label>
+                <input
+                  id="login-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  value={loginEmail}
+                  onChange={(event) => setLoginEmail(event.target.value)}
+                  placeholder="Enter email"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="login-label" htmlFor="login-password">Password</label>
+                <input
+                  id="login-password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={loginPassword}
+                  onChange={(event) => setLoginPassword(event.target.value)}
+                  placeholder="Enter password"
+                  required
+                />
+              </div>
+              {loginError && <div className="login-error" role="alert">{loginError}</div>}
+              <button type="submit" className="primary-button" disabled={loginLoading}>
+                {loginLoading ? "Logging in..." : "Login"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleRegister}>
+              <div className="form-group">
+                <label className="login-label" htmlFor="register-name">Full Name</label>
+                <input
+                  id="register-name"
+                  name="name"
+                  type="text"
+                  autoComplete="name"
+                  value={registerName}
+                  onChange={(event) => setRegisterName(event.target.value)}
+                  placeholder="Enter your full name"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="login-label" htmlFor="register-email">Email</label>
+                <input
+                  id="register-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  value={registerEmail}
+                  onChange={(event) => setRegisterEmail(event.target.value)}
+                  placeholder="Enter email"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="login-label" htmlFor="register-password">Password</label>
+                <input
+                  id="register-password"
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={8}
+                  value={registerPassword}
+                  onChange={(event) => setRegisterPassword(event.target.value)}
+                  placeholder="Create a password (at least 8 characters)"
+                  required
+                />
+              </div>
+              {authMessage && <div className="login-error" role="status">{authMessage}</div>}
+              <button type="submit" className="primary-button">Create Account</button>
+            </form>
+          )}
+          {authMode === "login" && authMessage && <div className="login-error" role="status">{authMessage}</div>}
         </div>
       </div>
     );
@@ -1967,9 +2062,11 @@ export default function App() {
 
           <form onSubmit={handleCreateCampaign}>
             <div className="form-group">
-              <label>Campaign Name</label>
+              <label htmlFor="campaign-name">Campaign Name</label>
 
               <input
+                id="campaign-name"
+                name="campaign_name"
                 type="text"
                 value={campaignName}
                 onChange={(event) =>
@@ -1981,9 +2078,11 @@ export default function App() {
             </div>
 
             <div className="form-group">
-              <label>Description</label>
+              <label htmlFor="campaign-description">Description</label>
 
               <textarea
+                id="campaign-description"
+                name="description"
                 value={campaignDescription}
                 onChange={(event) =>
                   setCampaignDescription(
@@ -1996,9 +2095,11 @@ export default function App() {
             </div>
 
             <div className="form-group">
-              <label>Status</label>
+              <label htmlFor="campaign-status">Status</label>
 
               <select
+                id="campaign-status"
+                name="status"
                 value={campaignStatus}
                 onChange={(event) =>
                   setCampaignStatus(
@@ -2023,9 +2124,11 @@ export default function App() {
 
             <div className="form-row">
               <div className="form-group">
-                <label>Start Date</label>
+                <label htmlFor="campaign-start-date">Start Date</label>
 
                 <input
+                  id="campaign-start-date"
+                  name="start_date"
                   type="date"
                   value={campaignStartDate}
                   onChange={(event) =>
@@ -2038,9 +2141,11 @@ export default function App() {
               </div>
 
               <div className="form-group">
-                <label>End Date</label>
+                <label htmlFor="campaign-end-date">End Date</label>
 
                 <input
+                  id="campaign-end-date"
+                  name="end_date"
                   type="date"
                   value={campaignEndDate}
                   min={
@@ -2218,9 +2323,11 @@ export default function App() {
           >
             <div className="form-row">
               <div className="form-group">
-                <label>Platform</label>
+                <label htmlFor="social-platform">Platform</label>
 
                 <select
+                  id="social-platform"
+                  name="platform"
                   value={socialPlatform}
                   onChange={(event) =>
                     setSocialPlatform(
@@ -2243,9 +2350,11 @@ export default function App() {
               </div>
 
               <div className="form-group">
-                <label>Username</label>
+                <label htmlFor="social-username">Username</label>
 
                 <input
+                  id="social-username"
+                  name="username"
                   type="text"
                   value={socialUsername}
                   onChange={(event) =>
@@ -2260,7 +2369,7 @@ export default function App() {
             </div>
 
             <div className="form-group">
-              <label>
+              <label htmlFor="social-access-token">
                 Access Token
                 <span className="muted-text">
                   {" "}
@@ -2269,7 +2378,10 @@ export default function App() {
               </label>
 
               <input
+                id="social-access-token"
+                name="access_token"
                 type="password"
+                autoComplete="off"
                 value={socialAccessToken}
                 onChange={(event) =>
                   setSocialAccessToken(
@@ -2456,9 +2568,11 @@ export default function App() {
           <form onSubmit={handleCreatePost}>
             {/* CAMPAIGN */}
             <div className="form-group">
-              <label>Campaign</label>
+              <label htmlFor="post-campaign">Campaign</label>
 
               <select
+                id="post-campaign"
+                name="campaign_id"
                 value={postCampaignId}
                 onChange={(event) =>
                   setPostCampaignId(
@@ -2486,9 +2600,11 @@ export default function App() {
 
             {/* SOCIAL ACCOUNT */}
             <div className="form-group">
-              <label>Social Account</label>
+              <label htmlFor="post-account">Social Account</label>
 
               <select
+                id="post-account"
+                name="account_id"
                 value={postAccountId}
                 onChange={(event) =>
                   setPostAccountId(
@@ -2532,9 +2648,11 @@ export default function App() {
 
             {/* CONTENT */}
             <div className="form-group">
-              <label>Post Content</label>
+              <label htmlFor="post-content">Post Content</label>
 
               <textarea
+                id="post-content"
+                name="content"
                 value={postContent}
                 onChange={(event) =>
                   setPostContent(
@@ -2695,9 +2813,11 @@ export default function App() {
           <form onSubmit={handleSchedulePost}>
             <div className="form-row">
               <div className="form-group">
-                <label>Post</label>
+                <label htmlFor="schedule-post">Post</label>
 
                 <select
+                  id="schedule-post"
+                  name="post_id"
                   value={schedulePostId}
                   onChange={(event) =>
                     setSchedulePostId(
@@ -2726,9 +2846,11 @@ export default function App() {
               </div>
 
               <div className="form-group">
-                <label>Social Account</label>
+                <label htmlFor="schedule-account">Social Account</label>
 
                 <select
+                  id="schedule-account"
+                  name="account_id"
                   value={scheduleAccountId}
                   onChange={(event) =>
                     setScheduleAccountId(
@@ -2763,11 +2885,13 @@ export default function App() {
             </div>
 
             <div className="form-group">
-              <label>
+              <label htmlFor="schedule-date-time">
                 Scheduled Date & Time
               </label>
 
               <input
+                id="schedule-date-time"
+                name="scheduled_at"
                 type="datetime-local"
                 value={scheduleDateTime}
                 onChange={(event) =>
@@ -3160,9 +3284,11 @@ export default function App() {
 
           <div className="form-row">
             <div className="form-group">
-              <label>Campaign</label>
+              <label htmlFor="analytics-campaign">Campaign</label>
 
               <select
+                id="analytics-campaign"
+                name="campaign_id"
                 value={selectedCampaign}
                 onChange={(event) => {
                   setSelectedCampaign(
@@ -3192,7 +3318,7 @@ export default function App() {
             </div>
 
             <div className="form-group">
-              <label>&nbsp;</label>
+              <div className="form-label-spacer" aria-hidden="true"></div>
 
               <button
                 type="button"
@@ -3918,7 +4044,7 @@ export default function App() {
           </div>
 
           <button
-            t
+            type="button"
             className="refresh-button"
             onClick={loadAllData}
             disabled={loading}
