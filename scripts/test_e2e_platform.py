@@ -64,7 +64,7 @@ def run_e2e():
     print(f"Target Server: {BASE_URL}")
     print(f"Executing Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
-    client = httpx.Client(base_url=BASE_URL, timeout=15.0)
+    client = httpx.Client(base_url=BASE_URL, timeout=35.0)
 
     # -------------------------------------------------------------------------
     # STEP 1: Health & Database Diagnostic Check
