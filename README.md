@@ -1,4 +1,4 @@
-# 🚀 IntelliPost — Plan. Post. Perform.
+# 🚀 SocialPilot — Plan. Post. Perform.
 
 > **Intelligent Social Media Management & Multi-Platform Scheduling SaaS Platform**
 
@@ -6,7 +6,7 @@
 
 ## 🌟 Overview
 
-**IntelliPost** is a full-stack, enterprise-grade social media management workspace that empowers creators, businesses, and marketing teams to create, AI-adapt, schedule, publish, and analyze social content across **Instagram, Facebook, LinkedIn, X (Twitter), YouTube, and Pinterest** from one unified platform.
+**SocialPilot** is a full-stack, enterprise-grade social media management workspace that empowers creators, businesses, and marketing teams to create, AI-adapt, schedule, publish, and analyze social content across **Instagram, Facebook, LinkedIn, X (Twitter), YouTube, and Pinterest** from one unified platform.
 
 ---
 
@@ -19,7 +19,7 @@
 | **Backend Framework** | FastAPI (Python 3.11+) + Uvicorn |
 | **ORM & Database** | SQLAlchemy 2.0 + SQLite (Default zero-config) / PostgreSQL |
 | **Security & Auth** | JWT (JSON Web Tokens) + PBKDF2 Password Hashing |
-| **AI Co-Pilot** | IntelliPost Native Multi-Platform Content Adapter Engine |
+| **AI Co-Pilot** | SocialPilot Native Multi-Platform Content Adapter Engine |
 | **Scheduler** | Asynchronous Background Worker with Interval Triggers |
 
 ---
