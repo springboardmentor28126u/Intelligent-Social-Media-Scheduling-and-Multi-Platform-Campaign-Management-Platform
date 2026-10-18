@@ -480,6 +480,15 @@ def youtube_callback(
 # INSTAGRAM
 # ============================================================
 
+def _instagram_response_data(payload: dict) -> dict:
+    data = payload.get("data")
+    if isinstance(data, list):
+        return data[0] if data and isinstance(data[0], dict) else {}
+    if isinstance(data, dict):
+        return data
+    return payload
+
+
 @router.get("/instagram/login")
 def instagram_login(
     current_user_id: int = Depends(get_current_user)
@@ -508,7 +517,10 @@ def instagram_login(
         "client_id": app_id,
         "redirect_uri": redirect_uri,
         "response_type": "code",
-        "scope": "instagram_basic,instagram_content_publish",
+        "scope": (
+            "instagram_business_basic,"
+            "instagram_business_content_publish"
+        ),
         "state": state,
     }
 
@@ -596,7 +608,7 @@ def instagram_callback(
             )
         )
 
-    token_data = token_response.json()
+    token_data = _instagram_response_data(token_response.json())
 
     access_token = token_data.get("access_token")
     instagram_user_id = token_data.get("user_id")
@@ -616,7 +628,7 @@ def instagram_callback(
     profile_response = requests.get(
         "https://graph.instagram.com/me",
         params={
-            "fields": "id,username",
+            "fields": "user_id,username",
             "access_token": access_token
         },
         timeout=30
@@ -635,9 +647,9 @@ def instagram_callback(
             )
         )
 
-    profile_data = profile_response.json()
+    profile_data = _instagram_response_data(profile_response.json())
 
-    instagram_id = profile_data.get("id") or instagram_user_id
+    instagram_id = profile_data.get("user_id") or instagram_user_id
     username = profile_data.get("username") or str(instagram_id)
 
     # --------------------------------------------------------

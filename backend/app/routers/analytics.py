@@ -855,8 +855,9 @@ def get_engagement(
     elif selected_metric in {"likes", "comments"} and instagram_metrics["failed_posts"]:
         message = (
             "Instagram engagement could not be fetched for "
-            f"{instagram_metrics['failed_posts']} post(s). Check the connected "
-            "account and its permissions, then try again."
+            f"{instagram_metrics['failed_posts']} post(s). Reconnect Instagram "
+            "from Social Accounts to grant the current Instagram permissions, "
+            "then refresh analytics."
         )
     else:
         message = (
