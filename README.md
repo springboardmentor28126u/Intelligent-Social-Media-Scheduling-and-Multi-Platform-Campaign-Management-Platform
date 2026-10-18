@@ -1,17 +1,5 @@
 # SocialPilot – Social Media Management Platform
 
-
-## Demo data
-
-To populate the database with mock campaigns, social accounts, and scheduled posts for an existing user, run:
-
-```bash
-cd backend
-./.venv/Scripts/python.exe seed_demo.py --email your-user@example.com
-```
-
-This creates sample Facebook, Instagram, and LinkedIn records plus a few campaign and post states so the dashboard, planner, and analytics views have realistic data to work with. The demo accounts are intentionally created without real tokens.
-
 ## 🚀 Features
 
 - 🔐 User registration and secure login
