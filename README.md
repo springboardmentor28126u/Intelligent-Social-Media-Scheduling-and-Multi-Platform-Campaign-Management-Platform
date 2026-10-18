@@ -1,5 +1,9 @@
 # SocialPilot – Social Media Management Platform
 
+SocialPilot is a full-stack social media management platform that helps users connect social accounts, create and manage posts, schedule content, organize campaigns, and monitor publishing activity from one dashboard.
+
+The frontend is built with React and Vite, the backend uses FastAPI and SQLAlchemy, and PostgreSQL stores application data.
+
 ## 🚀 Features
 
 - 🔐 User registration and secure login
