@@ -12,6 +12,12 @@ export const metadata: Metadata = {
   title: "SocialPilot — Social Media Scheduler & Campaign Management Platform",
   description:
     "Centralized social media scheduling, multi-platform publishing, campaign tracking, and analytics reporting.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "SocialPilot",
+  },
 };
 
 export default function RootLayout({

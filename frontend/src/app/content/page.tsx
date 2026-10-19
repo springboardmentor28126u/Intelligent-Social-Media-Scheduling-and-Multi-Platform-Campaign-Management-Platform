@@ -59,7 +59,7 @@ export default function ContentManagementPage() {
             campaign: p.campaign || "General Campaign",
             author: p.author || "Marketing Director",
           }));
-          setPosts([...mapped, ...INITIAL_CONTENT_POSTS]);
+          setPosts(mapped.length > 0 ? mapped : INITIAL_CONTENT_POSTS);
         } else {
           setPosts(INITIAL_CONTENT_POSTS);
         }

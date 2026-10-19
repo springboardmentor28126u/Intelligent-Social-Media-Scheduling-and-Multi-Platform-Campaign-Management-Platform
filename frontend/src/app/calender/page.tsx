@@ -110,7 +110,7 @@ export default function CalendarPage() {
             scheduled_at: p.scheduled_at,
             campaign: "Campaign",
           }));
-          setPosts([...mapped, ...getSampleCalendarPosts(currentDate)]);
+          setPosts(mapped.length > 0 ? mapped : getSampleCalendarPosts(currentDate));
         } else {
           setPosts(getSampleCalendarPosts(currentDate));
         }
