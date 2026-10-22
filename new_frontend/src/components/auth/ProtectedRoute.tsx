@@ -2,14 +2,16 @@ import { Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import type { UserRole } from '@/lib/supabase';
+import { normalizeRole, type Permission } from '@/lib/permissions';
 
 type Props = {
   children: React.ReactNode;
-  allowedRoles?: UserRole[];
+  allowedRoles?: (UserRole | string)[];
+  requiredPermission?: Permission;
 };
 
-export default function ProtectedRoute({ children, allowedRoles }: Props) {
-  const { isAuthenticated, role, loading } = useAuth();
+export default function ProtectedRoute({ children, allowedRoles, requiredPermission }: Props) {
+  const { isAuthenticated, role, loading, hasPermission } = useAuth();
 
   if (loading) {
     return (
@@ -26,7 +28,15 @@ export default function ProtectedRoute({ children, allowedRoles }: Props) {
     return <Navigate to="/signin" replace />;
   }
 
-  if (allowedRoles && role && !allowedRoles.includes(role)) {
+  if (allowedRoles && role) {
+    const userRoleNorm = normalizeRole(role);
+    const hasRole = allowedRoles.some((r) => normalizeRole(r) === userRoleNorm);
+    if (!hasRole) {
+      return <Navigate to="/app" replace />;
+    }
+  }
+
+  if (requiredPermission && !hasPermission(requiredPermission)) {
     return <Navigate to="/app" replace />;
   }
 

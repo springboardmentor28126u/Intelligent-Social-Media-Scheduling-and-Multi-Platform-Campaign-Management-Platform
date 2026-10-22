@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
+from permissions import ALL_ROLES
 import models
 import schemas
 import auth
@@ -178,6 +179,10 @@ def update_user_role(
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if role_data.role not in ALL_ROLES:
+       raise HTTPException(status_code=400, detail=f"Unknown role. Allowed: {', '.join(ALL_ROLES)}")
+    if user.id == current_user.id:
+       raise HTTPException(status_code=400, detail="You can't change your own role")
     user.role = role_data.role
     db.commit()
     db.refresh(user)

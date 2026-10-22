@@ -12,12 +12,15 @@ import {
   AlertCircle,
   Loader2,
   CheckCircle2,
+  Key,
 } from 'lucide-react';
 import PageHeader from '@/components/common/PageHeader';
 import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import Badge from '@/components/common/Badge';
+import UserAccessModal from '@/components/admin/UserAccessModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { normalizeRole } from '@/lib/permissions';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -102,6 +105,7 @@ function ProfileSettings() {
   const [email, setEmail] = useState(profile?.email || '');
   const [timezone, setTimezone] = useState('UTC+05:30 (India Standard Time)');
   const [saving, setSaving] = useState(false);
+  const [showAccessModal, setShowAccessModal] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -205,11 +209,22 @@ function ProfileSettings() {
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-ink-500">Platform Role</label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-ink-500">Platform Role</label>
+              <button
+                type="button"
+                onClick={() => setShowAccessModal(true)}
+                className="text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1 transition-colors"
+                title="View your role's permissions and access capabilities"
+              >
+                <Key className="h-3 w-3" />
+                View Roles of Access
+              </button>
+            </div>
             <input
               type="text"
               disabled
-              value={profile?.role === 'admin' ? 'Administrator' : 'Content Creator'}
+              value={profile?.role ? normalizeRole(profile.role) : 'Content Creator'}
               className="mt-1.5 w-full rounded-xl border border-ink-100 bg-ink-100/60 px-4 py-2.5 text-sm text-ink-500 cursor-not-allowed"
             />
           </div>
@@ -236,6 +251,21 @@ function ProfileSettings() {
           </Button>
         </div>
       </form>
+
+      {showAccessModal && profile && (
+        <UserAccessModal
+          user={{
+            id: profile.id,
+            email: profile.email,
+            full_name: profile.full_name,
+            role: profile.role,
+            created_at: profile.created_at,
+          }}
+          isCurrentAdmin={true}
+          onClose={() => setShowAccessModal(false)}
+          onRoleChange={async () => {}}
+        />
+      )}
     </Card>
   );
 }

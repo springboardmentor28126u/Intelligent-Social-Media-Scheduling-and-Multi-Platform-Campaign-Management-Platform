@@ -222,16 +222,17 @@ export default function AdminSettingsPage() {
 
               <div className="rounded-xl border border-ink-100 p-4">
                 <label className="text-xs font-semibold text-ink-700">Default Assigned Role</label>
-                <p className="text-xs text-ink-400 mb-2">Role given to new users upon registration.</p>
+                <p className="text-xs text-ink-400 mb-2">
+                  Role automatically given to new users upon registration. Administrator cannot be assigned by default upon signup for platform security.
+                </p>
                 <select
                   value={settings.default_user_role}
                   onChange={(e) => setSettings((s) => ({ ...s, default_user_role: e.target.value }))}
-                  className="w-full sm:w-72 rounded-xl border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-700 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10"
+                  className="w-full sm:w-72 rounded-xl border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-700 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 cursor-pointer"
                 >
                   <option value="Content Creator">Content Creator</option>
-                  <option value="Marketing Team">Marketing Team</option>
-                  <option value="Business User">Business User</option>
-                  <option value="Administrator">Administrator</option>
+                  <option value="Social Media Manager">Social Media Manager</option>
+                  <option value="Analyst">Analyst</option>
                 </select>
               </div>
             </div>

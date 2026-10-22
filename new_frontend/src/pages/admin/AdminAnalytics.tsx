@@ -255,7 +255,7 @@ export default function AdminAnalyticsPage() {
             )}
           </div>
           <p className="mt-4 text-xs text-ink-400">
-            Admins have full platform management access; creators manage their campaigns.
+            Admins have full platform and user management access; managers, creators, and analysts have role-scoped permissions.
           </p>
         </Card>
       </div>

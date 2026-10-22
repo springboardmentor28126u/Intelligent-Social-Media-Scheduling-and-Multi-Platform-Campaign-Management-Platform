@@ -23,6 +23,7 @@ import { Skeleton } from '@/components/common/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import type { AdminStats } from '@/types/admin';
 import { getAdminStats } from '@/services/admin';
+import { normalizeRole, ROLE_CONFIGS, isAdminRole } from '@/lib/permissions';
 
 function formatBytes(bytes?: number): string {
   if (!bytes || bytes === 0) return '0 B';
@@ -53,8 +54,8 @@ export default function AdminDashboard() {
   }, []);
 
   const totalUsers = stats?.total_users ?? users.length;
-  const creatorCount = stats?.creator_count ?? users.filter((u) => u.role === 'creator').length;
-  const adminCount = stats?.admin_count ?? users.filter((u) => u.role === 'admin').length;
+  const creatorCount = stats?.creator_count ?? users.filter((u) => !isAdminRole(u.role)).length;
+  const adminCount = stats?.admin_count ?? users.filter((u) => isAdminRole(u.role)).length;
   const newThisWeek = stats?.new_users_this_week ?? 0;
 
   const topKPIs = [
@@ -133,8 +134,8 @@ export default function AdminDashboard() {
                     <div className="flex items-center gap-3 min-w-0">
                       <div
                         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-semibold ${
-                          u.role === 'admin' ? 'bg-brand-100 text-brand-700' : 'bg-ink-100 text-ink-600'
-                        }`}
+                          ROLE_CONFIGS[normalizeRole(u.role)].bgClass
+                        } ${ROLE_CONFIGS[normalizeRole(u.role)].colorClass}`}
                       >
                         {(u.full_name || u.email || '?').charAt(0).toUpperCase()}
                       </div>
@@ -147,8 +148,8 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <Badge variant={u.role === 'admin' ? 'brand' : 'neutral'} dot>
-                        {u.role === 'admin' ? 'Administrator' : 'Creator'}
+                      <Badge variant={ROLE_CONFIGS[normalizeRole(u.role)].badgeVariant} dot>
+                        {ROLE_CONFIGS[normalizeRole(u.role)].label}
                       </Badge>
                       <Link to="/admin/users">
                         <span className="text-xs text-ink-400 hover:text-brand-600 font-medium">Manage</span>

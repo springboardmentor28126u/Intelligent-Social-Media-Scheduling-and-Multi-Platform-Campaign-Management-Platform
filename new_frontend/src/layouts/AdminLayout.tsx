@@ -13,6 +13,7 @@ import {
   User,
   LogOut,
   Shield,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import type { UserRole } from '@/lib/supabase';
@@ -21,6 +22,7 @@ import logoImg from '@/assets/logo.png';
 const navItems = [
   { to: '/admin', label: 'Admin Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/users', label: 'User Management', icon: Users },
+  { to: '/admin/roles', label: 'Roles of Access (RBAC)', icon: ShieldCheck },
   { to: '/admin/analytics', label: 'Platform Analytics', icon: BarChart3 },
   { to: '/admin/settings', label: 'Admin Settings', icon: Settings },
 ];

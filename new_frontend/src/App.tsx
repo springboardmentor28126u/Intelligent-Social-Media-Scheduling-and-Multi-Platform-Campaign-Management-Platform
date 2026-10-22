@@ -17,6 +17,7 @@ import Notifications from '@/pages/Notifications';
 import Settings from '@/pages/Settings';
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import AdminUsers from '@/pages/admin/AdminUsers';
+import AdminRoles from '@/pages/admin/AdminRoles';
 import AdminAnalytics from '@/pages/admin/AdminAnalytics';
 import AdminSettings from '@/pages/admin/AdminSettings';
 
@@ -61,6 +62,7 @@ export default function App() {
           >
             <Route index element={<AdminDashboard />} />
             <Route path="users" element={<AdminUsers />} />
+            <Route path="roles" element={<AdminRoles />} />
             <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>

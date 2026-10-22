@@ -22,6 +22,7 @@ import {
 import Logo from '@/components/common/Logo';
 import { useAuth } from '@/contexts/AuthContext';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
+import { isAdminRole, normalizeRole } from '@/lib/permissions';
 
 const navItems = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -111,7 +112,7 @@ export default function AppLayout() {
             />
           </div>
 
-          {profile?.role === 'admin' && (
+          {isAdminRole(profile?.role) && (
             <Link
               to="/admin"
               className="flex items-center gap-1.5 rounded-lg bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 ring-1 ring-inset ring-brand-200 transition-colors hover:bg-brand-100"
@@ -231,7 +232,7 @@ function SidebarContent({
           })}
         </ul>
 
-        {profile?.role === 'admin' && (
+        {isAdminRole(profile?.role) && (
           <>
             <div className="my-4 border-t border-ink-100" />
             <Link
@@ -256,7 +257,7 @@ function SidebarContent({
               {profile?.full_name || 'Your Profile'}
             </p>
             <p className="truncate text-xs text-ink-400">
-              {profile?.role === 'admin' ? 'Administrator' : 'Content Creator'}
+              {profile?.role ? normalizeRole(profile.role) : 'Content Creator'}
             </p>
           </div>
           <button

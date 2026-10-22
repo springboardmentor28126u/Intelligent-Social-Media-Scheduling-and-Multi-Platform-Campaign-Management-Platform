@@ -1,41 +1,43 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Profile, UserRole } from '@/lib/supabase';
+import {
+  ALL_ROLES,
+  ADMIN,
+  CREATOR,
+  normalizeRole,
+  hasPermission as checkRolePermission,
+  isAdminRole,
+  type Permission,
+  type RoleName,
+} from '@/lib/permissions';
 
 type AuthContextValue = {
   isAuthenticated: boolean;
+  isAdmin: boolean;
   profile: Profile | null;
   role: UserRole | null;
   loading: boolean;
   users: Profile[];
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, fullName: string, role: UserRole) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, fullName: string, role?: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
-  toggleUserRole: (userId: string) => void;
+  updateUserRole: (userId: string, newRole: RoleName | string) => Promise<void>;
+  toggleUserRole: (userId: string) => Promise<void>;
+  hasPermission: (perm: Permission) => boolean;
+  refreshUsers: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 const API_BASE = 'http://localhost:8000';
 
-function mapBackendRole(backendRole: string): UserRole {
-  if (backendRole === 'Administrator') {
-    return 'admin';
-  }
-  return 'creator';
-}
-
-function mapFrontendRole(frontendRole: UserRole): string {
-  if (frontendRole === 'admin') {
-    return 'Administrator';
-  }
-  return 'Content Creator';
-}
-
 interface BackendUser {
   id: number;
   name: string;
   email: string;
   role: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 function mapBackendUserToProfile(user: BackendUser): Profile {
@@ -43,9 +45,9 @@ function mapBackendUserToProfile(user: BackendUser): Profile {
     id: user.id.toString(),
     email: user.email,
     full_name: user.name,
-    role: mapBackendRole(user.role),
-    created_at: new Date().toISOString(), // Fallback since backend User does not have created_at
-    updated_at: new Date().toISOString(),
+    role: normalizeRole(user.role),
+    created_at: user.created_at || new Date().toISOString(),
+    updated_at: user.updated_at || new Date().toISOString(),
   };
 }
 
@@ -67,6 +69,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (err) {
       console.error('Failed to fetch admin users:', err);
+    }
+  };
+
+  const refreshUsers = async () => {
+    const token = localStorage.getItem('token');
+    if (token && isAdminRole(profile?.role)) {
+      await fetchUsersList(token);
     }
   };
 
@@ -93,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const mappedProfile = mapBackendUserToProfile(userData);
         setProfile(mappedProfile);
 
-        if (mappedProfile.role === 'admin') {
+        if (isAdminRole(mappedProfile.role)) {
           await fetchUsersList(token);
         }
       } catch (err) {
@@ -142,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const mappedProfile = mapBackendUserToProfile(userData);
       setProfile(mappedProfile);
 
-      if (mappedProfile.role === 'admin') {
+      if (isAdminRole(mappedProfile.role)) {
         await fetchUsersList(token);
       }
 
@@ -152,19 +161,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string, role: UserRole) => {
+  const signUp = async (email: string, password: string, fullName: string, role?: string) => {
     try {
+      const payload: Record<string, any> = {
+        name: fullName,
+        email,
+        password,
+      };
+      if (role) {
+        payload.role = normalizeRole(role);
+      }
+
       const response = await fetch(`${API_BASE}/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name: fullName,
-          email,
-          password,
-          role: mapFrontendRole(role),
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -186,22 +199,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsers([]);
   };
 
-  const toggleUserRole = async (userId: string) => {
+  const updateUserRole = async (userId: string, newRole: RoleName | string) => {
     const targetUser = users.find((u) => u.id === userId);
     if (!targetUser) return;
-    const newFrontendRole: UserRole = targetUser.role === 'admin' ? 'creator' : 'admin';
-    const newBackendRole = mapFrontendRole(newFrontendRole);
 
+    const normalizedNewRole = normalizeRole(newRole);
+
+    // Optimistically update local users list
     setUsers((prevUsers) =>
       prevUsers.map((u) =>
         u.id === userId
-          ? { ...u, role: newFrontendRole, updated_at: new Date().toISOString() }
+          ? { ...u, role: normalizedNewRole, updated_at: new Date().toISOString() }
           : u
       )
     );
 
     const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!token) throw new Error('Not authenticated');
 
     try {
       const response = await fetch(`${API_BASE}/admin/users/${userId}/role`, {
@@ -210,31 +224,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ role: newBackendRole }),
+        body: JSON.stringify({ role: normalizedNewRole }),
       });
+
       if (!response.ok) {
+        // Revert optimistic update
         setUsers((prevUsers) =>
           prevUsers.map((u) =>
             u.id === userId
-              ? { ...u, role: targetUser.role, updated_at: new Date().toISOString() }
+              ? { ...u, role: targetUser.role, updated_at: targetUser.updated_at }
               : u
           )
         );
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Failed to update user role');
       }
+
+      const updatedUser = (await response.json()) as BackendUser;
+      setUsers((prevUsers) =>
+        prevUsers.map((u) =>
+          u.id === userId ? mapBackendUserToProfile(updatedUser) : u
+        )
+      );
     } catch (err) {
-      console.error('Failed to update user role:', err);
+      // Revert optimistic update on network error
       setUsers((prevUsers) =>
         prevUsers.map((u) =>
           u.id === userId
-            ? { ...u, role: targetUser.role, updated_at: new Date().toISOString() }
+            ? { ...u, role: targetUser.role, updated_at: targetUser.updated_at }
             : u
         )
       );
+      throw err;
     }
+  };
+
+  const toggleUserRole = async (userId: string) => {
+    const targetUser = users.find((u) => u.id === userId);
+    if (!targetUser) return;
+    const nextRole = isAdminRole(targetUser.role) ? CREATOR : ADMIN;
+    await updateUserRole(userId, nextRole);
+  };
+
+  const hasPermission = (perm: Permission): boolean => {
+    return checkRolePermission(profile?.role, perm);
   };
 
   const value: AuthContextValue = {
     isAuthenticated: !!profile,
+    isAdmin: isAdminRole(profile?.role),
     profile,
     role: profile?.role ?? null,
     loading,
@@ -242,7 +280,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn,
     signUp,
     signOut,
+    updateUserRole,
     toggleUserRole,
+    hasPermission,
+    refreshUsers,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -253,4 +294,3 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
-

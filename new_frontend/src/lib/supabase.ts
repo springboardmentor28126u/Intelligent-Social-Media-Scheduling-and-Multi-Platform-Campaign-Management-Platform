@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
+import type { RoleName } from './permissions';
 
-export type UserRole = 'admin' | 'creator';
+export type UserRole = RoleName | 'admin' | 'creator';
 
 export interface Profile {
   id: string;

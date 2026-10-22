@@ -28,9 +28,16 @@ PERMISSIONS = {
 }
 
 
+ROLE_ALIASES = {"admin": ADMIN}
+
+
+def normalize_role(role):
+    role = getattr(role, "value", role)
+    return ROLE_ALIASES.get(role, role)
+
+
 def has_permission(role, perm: str) -> bool:
-    role = getattr(role, "value", role)  # works for plain strings and Enums
-    return perm in PERMISSIONS.get(role, set())
+    return perm in PERMISSIONS.get(normalize_role(role), set())
 
 
 def require_permission(perm: str):

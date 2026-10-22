@@ -8,6 +8,7 @@ from typing import List
 from database import get_db, engine
 from config import MEDIA_DIR
 import models, schemas, auth
+from permissions import ALL_ROLES, ADMIN, CREATOR
 from linkedin_auth import router as linkedin_router
 from youtube_auth import router as youtube_router
 from posts import router as posts_router
@@ -85,7 +86,9 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email already registered")
 
     default_role_setting = db.query(models.SystemSetting).filter(models.SystemSetting.key == "default_user_role").first()
-    role_to_assign = user.role or (default_role_setting.value if default_role_setting and default_role_setting.value else "Content Creator")
+    signup_roles = [r for r in ALL_ROLES if r != ADMIN]
+    configured = default_role_setting.value if default_role_setting else None
+    role_to_assign = user.role if (user.role and user.role in signup_roles) else (configured if configured in signup_roles else CREATOR)
 
     new_user = models.User(
         name=user.name,
